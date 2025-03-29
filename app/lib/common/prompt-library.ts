@@ -5,6 +5,10 @@ export interface PromptOptions {
   cwd: string;
   allowedHtmlElements: string[];
   modificationTagName: string;
+  convex: {
+    isConnected: boolean;
+    projectToken: string | null;
+  };
 }
 
 export class PromptLibrary {
@@ -19,7 +23,7 @@ export class PromptLibrary {
     default: {
       label: 'Default Prompt',
       description: 'This is the battle tested default system Prompt',
-      get: (options) => getSystemPrompt(options.cwd),
+      get: (options) => getSystemPrompt(options.cwd, options.convex),
     },
     optimized: {
       label: 'Optimized Prompt (experimental)',
