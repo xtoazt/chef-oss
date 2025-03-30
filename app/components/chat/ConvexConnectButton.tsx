@@ -1,12 +1,12 @@
 import { classNames } from '~/utils/classNames';
 import { useState, useEffect } from 'react';
-import { useStore } from '@nanostores/react';
 import {
   convexProjectConnected,
   convexProjectDeploymentName,
   convexProjectToken,
   convexProjectDeploymentUrl,
 } from '~/lib/stores/convex';
+import { useStore } from '@nanostores/react';
 
 // The Convex OAuth App which is allowed to use the callbacks
 const CLIENT_ID = '855ec8198b9c462d';
