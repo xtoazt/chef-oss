@@ -10,7 +10,9 @@ export const Dashboard = memo(() => {
   const token = useStore(convexProjectToken);
   const deploymentName = useStore(convexProjectDeploymentName);
 
-  const url = deploymentUrl ? 'https://dashboard-embedded.convex.dev' : null;
+  //const url = deploymentUrl ? 'https://dashboard-embedded.convex.dev' : null;
+  // temp until that's deployed
+  const url = deploymentUrl ? 'https://static-dashboard-beta.vercel.app' : null;
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
