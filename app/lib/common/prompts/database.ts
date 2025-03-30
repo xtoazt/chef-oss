@@ -20,6 +20,14 @@ If there's any reason to persist data or run functions on it, Convex is the way 
 If one does not exist, create a .env.local file containing at least this line:
 CONVEX_DEPLOY_KEY="${convex.projectToken}"
 
+If a .env.local file does exist, you'll still need to add the line
+
+CONVEX_DEPLOY_KEY="${convex.projectToken}"
+
+and you'll also need to run \`npx convex dev --once\` to complete the setup: automaticaly adding an enviroment variable like VITE_CONVEX_URL.
+
+If the user says they just connected a deployment, that's a good time to add that CONVEX_DEPLOY_KEY="${convex.projectToken}" line to the .env.local and run \`npx convex dev --once\`.
+
 The Convex client bindings are included in the 'convex' package, importable from 'convex/react' or 'convex/browser' (for non-React webapps).
 
 Running \`npx convex dev --once\` creates a convex directory, and then you can build a normal convex app (a schema, queries, actions, mutations, etc.)
@@ -82,6 +90,10 @@ ${convexGuidelines}
     dbPrompt += `There is no database the user has specified yet, but in this environment you are limited to using Convex.
 
   If you need to persist data, run scheduled functions, query data, or subscribe to updates, ask the user to connect to a Convex deployment.
+
+  If you need to install it, install with \`npm i convex@1.21.1-alpha.0 --force\` since 1.21.1-alpha.0 is a version known to work with this environment.
+  You can start to build an app with it if you like, but the user hasn't connected the deployment yet so nothing will work yet.
+
   Instruct the user to connect to either of these by clicking the corresponding buttons they can see below the chat box.`;
   }
 
