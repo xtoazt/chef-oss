@@ -497,14 +497,8 @@ const View = memo(({ children, ...props }: ViewProps) => {
   );
 });
 
-function slidingPosition({
-  view,
-  selectedView,
-}: {
-  view: WorkbenchViewType;
-  selectedView: WorkbenchViewType;
-}): Partial<ViewProps> {
-  const tabsInOrder: WorkbenchViewType[] = ['code', 'diff', 'preview', 'dashboard'];
+function slidingPosition({ view, selectedView }: { view: WorkbenchViewType; selectedView: WorkbenchViewType }) {
+  const tabsInOrder: WorkbenchViewType[] = ['code', 'diff', 'preview'];
 
   const viewIndex = tabsInOrder.indexOf(view);
   const selectedViewIndex = tabsInOrder.indexOf(selectedView);
@@ -514,5 +508,5 @@ function slidingPosition({
   return {
     initial: position,
     animate: position,
-  };
+  } satisfies Partial<ViewProps>;
 }
