@@ -51,12 +51,6 @@ export const AssistantMessage = memo(({ content, annotations }: AssistantMessage
     codeContext = filteredAnnotations.find((annotation) => annotation.type === 'codeContext')?.files;
   }
 
-  const usage: {
-    completionTokens: number;
-    promptTokens: number;
-    totalTokens: number;
-  } = filteredAnnotations.find((annotation) => annotation.type === 'usage')?.value;
-
   return (
     <div className="overflow-hidden w-full">
       <>
@@ -99,11 +93,6 @@ export const AssistantMessage = memo(({ content, annotations }: AssistantMessage
               )}
               <div className="context"></div>
             </Popover>
-          )}
-          {usage && (
-            <div>
-              Tokens: {usage.totalTokens} (prompt: {usage.promptTokens}, completion: {usage.completionTokens})
-            </div>
           )}
         </div>
       </>

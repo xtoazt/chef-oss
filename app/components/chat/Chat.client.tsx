@@ -37,7 +37,7 @@ const logger = createScopedLogger('Chat');
 export function Chat() {
   renderLogger.trace('Chat');
 
-  const { ready, initialMessages, storeMessageHistory, importChat, exportChat } = useChatHistoryConvex();
+  const { ready, initialMessages, storeMessageHistory, importChat } = useChatHistoryConvex();
   const title = useStore(description);
   useEffect(() => {
     workbenchStore.setReloadedMessages(initialMessages.map((m) => m.id));
@@ -49,7 +49,6 @@ export function Chat() {
         <ChatImpl
           description={title}
           initialMessages={initialMessages}
-          exportChat={exportChat}
           storeMessageHistory={storeMessageHistory}
           importChat={importChat}
         />
@@ -107,247 +106,200 @@ interface ChatProps {
   initialMessages: Message[];
   storeMessageHistory: (messages: Message[]) => Promise<void>;
   importChat: (description: string, messages: Message[]) => Promise<void>;
-  exportChat: () => void;
   description?: string;
 }
 
-export const ChatImpl = memo(
-  ({ description, initialMessages, storeMessageHistory, importChat, exportChat }: ChatProps) => {
-    useShortcuts();
+export const ChatImpl = memo(({ description, initialMessages, storeMessageHistory }: ChatProps) => {
+  useShortcuts();
 
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [chatStarted, setChatStarted] = useState(initialMessages.length > 0);
-    const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-    const [imageDataList, setImageDataList] = useState<string[]>([]);
-    const [searchParams, setSearchParams] = useSearchParams();
-    const files = useStore(workbenchStore.files);
-    const actionAlert = useStore(workbenchStore.alert);
-    const convexProject = useStore(convexStore);
-    const { activeProviders, promptId } = useSettings();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [chatStarted, setChatStarted] = useState(initialMessages.length > 0);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [imageDataList, setImageDataList] = useState<string[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const files = useStore(workbenchStore.files);
+  const actionAlert = useStore(workbenchStore.alert);
+  const convexProject = useStore(convexStore);
+  const { activeProviders, promptId } = useSettings();
 
-    const [model, setModel] = useState(() => {
-      const savedModel = Cookies.get('selectedModel');
-      return savedModel || DEFAULT_MODEL;
-    });
-    const [provider, setProvider] = useState(() => {
-      const savedProvider = Cookies.get('selectedProvider');
-      return (PROVIDER_LIST.find((p) => p.name === savedProvider) || DEFAULT_PROVIDER) as ProviderInfo;
-    });
+  const [model, setModel] = useState(() => {
+    const savedModel = Cookies.get('selectedModel');
+    return savedModel || DEFAULT_MODEL;
+  });
+  const [provider, setProvider] = useState(() => {
+    const savedProvider = Cookies.get('selectedProvider');
+    return (PROVIDER_LIST.find((p) => p.name === savedProvider) || DEFAULT_PROVIDER) as ProviderInfo;
+  });
 
-    const { showChat } = useStore(chatStore);
+  const { showChat } = useStore(chatStore);
 
-    const [animationScope, animate] = useAnimate();
+  const [animationScope, animate] = useAnimate();
 
-    const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
 
-    const {
-      messages,
-      isLoading,
-      input,
-      handleInputChange,
-      setInput,
-      stop,
-      append,
-      setMessages,
-      reload,
-      error,
-      data: chatData,
-      setData,
-    } = useChat({
-      api: '/api/chat',
-      body: {
-        apiKeys,
-        files,
-        promptId,
-        convex: {
-          isConnected: convexProject !== null,
-          projectToken: convexProject?.token,
-        },
+  const {
+    messages,
+    isLoading,
+    input,
+    handleInputChange,
+    setInput,
+    stop,
+    append,
+    setMessages,
+    reload,
+    error,
+    data: chatData,
+    setData,
+  } = useChat({
+    api: '/api/chat',
+    body: {
+      apiKeys,
+      files,
+      promptId,
+      convex: {
+        isConnected: convexProject !== null,
+        projectToken: convexProject?.token,
       },
-      sendExtraMessageFields: true,
-      onError: (e) => {
-        logger.error('Request failed\n\n', e, error);
-        logStore.logError('Chat request failed', e, {
-          component: 'Chat',
-          action: 'request',
-          error: e.message,
-        });
-        toast.error(
-          'There was an error processing your request: ' + (e.message ? e.message : 'No details were returned'),
-        );
-      },
-      onFinish: (message, response) => {
-        const usage = response.usage;
-        setData(undefined);
-
-        if (usage) {
-          console.log('Token usage:', usage);
-          logStore.logProvider('Chat response completed', {
-            component: 'Chat',
-            action: 'response',
-            model,
-            provider: provider.name,
-            usage,
-            messageLength: message.content.length,
-          });
-        }
-
-        logger.debug('Finished streaming');
-      },
-      initialMessages,
-      initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
-    });
-    useEffect(() => {
-      const prompt = searchParams.get('prompt');
-
-      if (!prompt) {
-        return;
-      }
-
-      setSearchParams({});
-      runAnimation();
-      append({
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: prompt,
-          },
-        ] as any, // Type assertion to bypass compiler check
-      });
-    }, [model, provider, searchParams]);
-
-    const { enhancingPrompt, promptEnhanced, enhancePrompt, resetEnhancer } = usePromptEnhancer();
-    const { parsedMessages, parseMessages } = useMessageParser();
-
-    const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
-
-    useEffect(() => {
-      chatStore.setKey('started', initialMessages.length > 0);
-    }, []);
-
-    useEffect(() => {
-      processSampledMessages({
-        messages,
-        initialMessages,
-        isLoading,
-        parseMessages,
-        storeMessageHistory,
-      });
-    }, [messages, isLoading, parseMessages]);
-
-    const scrollTextArea = () => {
-      const textarea = textareaRef.current;
-
-      if (textarea) {
-        textarea.scrollTop = textarea.scrollHeight;
-      }
-    };
-
-    const abort = () => {
-      stop();
-      chatStore.setKey('aborted', true);
-      workbenchStore.abortAllActions();
-
-      logStore.logProvider('Chat response aborted', {
+    },
+    sendExtraMessageFields: true,
+    onError: (e) => {
+      logger.error('Request failed\n\n', e, error);
+      logStore.logError('Chat request failed', e, {
         component: 'Chat',
-        action: 'abort',
-        model,
-        provider: provider.name,
+        action: 'request',
+        error: e.message,
       });
-    };
+      toast.error(
+        'There was an error processing your request: ' + (e.message ? e.message : 'No details were returned'),
+      );
+    },
+    onFinish: (message, response) => {
+      const usage = response.usage;
+      setData(undefined);
 
-    useEffect(() => {
-      const textarea = textareaRef.current;
-
-      if (textarea) {
-        textarea.style.height = 'auto';
-
-        const scrollHeight = textarea.scrollHeight;
-
-        textarea.style.height = `${Math.min(scrollHeight, TEXTAREA_MAX_HEIGHT)}px`;
-        textarea.style.overflowY = scrollHeight > TEXTAREA_MAX_HEIGHT ? 'auto' : 'hidden';
-      }
-    }, [input, textareaRef]);
-
-    const runAnimation = async () => {
-      if (chatStarted) {
-        return;
-      }
-
-      await Promise.all([
-        animate('#examples', { opacity: 0, display: 'none' }, { duration: 0.1 }),
-        animate('#intro', { opacity: 0, flex: 1 }, { duration: 0.2, ease: cubicEasingFn }),
-      ]);
-
-      chatStore.setKey('started', true);
-
-      setChatStarted(true);
-    };
-
-    const sendMessage = async (_event: React.UIEvent, messageInput?: string) => {
-      const messageContent = messageInput || input;
-
-      if (!messageContent?.trim()) {
-        return;
-      }
-
-      if (isLoading) {
-        abort();
-        return;
-      }
-
-      runAnimation();
-
-      if (!chatStarted) {
-        setMessages([
-          {
-            id: `${new Date().getTime()}`,
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: messageContent,
-              },
-              ...imageDataList.map((imageData) => ({
-                type: 'image',
-                image: imageData,
-              })),
-            ] as any,
-          },
-        ]);
-        reload();
-
-        return;
-      }
-
-      if (error != null) {
-        setMessages(messages.slice(0, -1));
-      }
-
-      const modifiedFiles = workbenchStore.getModifiedFiles();
-
-      chatStore.setKey('aborted', false);
-
-      if (modifiedFiles !== undefined) {
-        const userUpdateArtifact = filesToArtifacts(modifiedFiles, `${Date.now()}`);
-        append({
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `${userUpdateArtifact}${messageContent}`,
-            },
-            ...imageDataList.map((imageData) => ({
-              type: 'image',
-              image: imageData,
-            })),
-          ] as any,
+      if (usage) {
+        console.log('Token usage:', usage);
+        logStore.logProvider('Chat response completed', {
+          component: 'Chat',
+          action: 'response',
+          model,
+          provider: provider.name,
+          usage,
+          messageLength: message.content.length,
         });
+      }
 
-        workbenchStore.resetAllFileModifications();
-      } else {
-        append({
+      logger.debug('Finished streaming');
+    },
+    initialMessages,
+    initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
+  });
+  useEffect(() => {
+    const prompt = searchParams.get('prompt');
+
+    if (!prompt) {
+      return;
+    }
+
+    setSearchParams({});
+    runAnimation();
+    append({
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: prompt,
+        },
+      ] as any, // Type assertion to bypass compiler check
+    });
+  }, [model, provider, searchParams]);
+
+  const { enhancingPrompt, promptEnhanced, enhancePrompt, resetEnhancer } = usePromptEnhancer();
+  const { parsedMessages, parseMessages } = useMessageParser();
+
+  const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
+
+  useEffect(() => {
+    chatStore.setKey('started', initialMessages.length > 0);
+  }, []);
+
+  useEffect(() => {
+    processSampledMessages({
+      messages,
+      initialMessages,
+      isLoading,
+      parseMessages,
+      storeMessageHistory,
+    });
+  }, [messages, isLoading, parseMessages]);
+
+  const scrollTextArea = () => {
+    const textarea = textareaRef.current;
+
+    if (textarea) {
+      textarea.scrollTop = textarea.scrollHeight;
+    }
+  };
+
+  const abort = () => {
+    stop();
+    chatStore.setKey('aborted', true);
+    workbenchStore.abortAllActions();
+
+    logStore.logProvider('Chat response aborted', {
+      component: 'Chat',
+      action: 'abort',
+      model,
+      provider: provider.name,
+    });
+  };
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+
+    if (textarea) {
+      textarea.style.height = 'auto';
+
+      const scrollHeight = textarea.scrollHeight;
+
+      textarea.style.height = `${Math.min(scrollHeight, TEXTAREA_MAX_HEIGHT)}px`;
+      textarea.style.overflowY = scrollHeight > TEXTAREA_MAX_HEIGHT ? 'auto' : 'hidden';
+    }
+  }, [input, textareaRef]);
+
+  const runAnimation = async () => {
+    if (chatStarted) {
+      return;
+    }
+
+    await Promise.all([
+      animate('#suggestions', { opacity: 0, display: 'none' }, { duration: 0.1 }),
+      animate('#intro', { opacity: 0, flex: 1 }, { duration: 0.2, ease: cubicEasingFn }),
+    ]);
+
+    chatStore.setKey('started', true);
+
+    setChatStarted(true);
+  };
+
+  const sendMessage = async (_event: React.UIEvent, messageInput?: string) => {
+    const messageContent = messageInput || input;
+
+    if (!messageContent?.trim()) {
+      return;
+    }
+
+    if (isLoading) {
+      abort();
+      return;
+    }
+
+    runAnimation();
+
+    if (!chatStarted) {
+      setMessages([
+        {
+          id: `${new Date().getTime()}`,
           role: 'user',
           content: [
             {
@@ -359,119 +311,161 @@ export const ChatImpl = memo(
               image: imageData,
             })),
           ] as any,
-        });
-      }
+        },
+      ]);
+      reload();
 
-      setInput('');
-      Cookies.remove(PROMPT_COOKIE_KEY);
+      return;
+    }
 
-      setUploadedFiles([]);
-      setImageDataList([]);
+    if (error != null) {
+      setMessages(messages.slice(0, -1));
+    }
 
-      resetEnhancer();
+    const modifiedFiles = workbenchStore.getModifiedFiles();
 
-      textareaRef.current?.blur();
-    };
+    chatStore.setKey('aborted', false);
 
-    /**
-     * Handles the change event for the textarea and updates the input state.
-     * @param event - The change event from the textarea.
-     */
-    const onTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      handleInputChange(event);
-    };
+    if (modifiedFiles !== undefined) {
+      const userUpdateArtifact = filesToArtifacts(modifiedFiles, `${Date.now()}`);
+      append({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `${userUpdateArtifact}${messageContent}`,
+          },
+          ...imageDataList.map((imageData) => ({
+            type: 'image',
+            image: imageData,
+          })),
+        ] as any,
+      });
 
-    /**
-     * Debounced function to cache the prompt in cookies.
-     * Caches the trimmed value of the textarea input after a delay to optimize performance.
-     */
-    const debouncedCachePrompt = useCallback(
-      debounce((event: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const trimmedValue = event.target.value.trim();
-        Cookies.set(PROMPT_COOKIE_KEY, trimmedValue, { expires: 30 });
-      }, 1000),
-      [],
-    );
+      workbenchStore.resetAllFileModifications();
+    } else {
+      append({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: messageContent,
+          },
+          ...imageDataList.map((imageData) => ({
+            type: 'image',
+            image: imageData,
+          })),
+        ] as any,
+      });
+    }
 
-    const [messageRef, scrollRef] = useSnapScroll();
+    setInput('');
+    Cookies.remove(PROMPT_COOKIE_KEY);
 
-    useEffect(() => {
-      const storedApiKeys = Cookies.get('apiKeys');
+    setUploadedFiles([]);
+    setImageDataList([]);
 
-      if (storedApiKeys) {
-        setApiKeys(JSON.parse(storedApiKeys));
-      }
-    }, []);
+    resetEnhancer();
 
-    const handleModelChange = (newModel: string) => {
-      setModel(newModel);
-      Cookies.set('selectedModel', newModel, { expires: 30 });
-    };
+    textareaRef.current?.blur();
+  };
 
-    const handleProviderChange = (newProvider: ProviderInfo) => {
-      setProvider(newProvider);
-      Cookies.set('selectedProvider', newProvider.name, { expires: 30 });
-    };
+  /**
+   * Handles the change event for the textarea and updates the input state.
+   * @param event - The change event from the textarea.
+   */
+  const onTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    handleInputChange(event);
+  };
 
-    return (
-      <BaseChat
-        ref={animationScope}
-        textareaRef={textareaRef}
-        input={input}
-        showChat={showChat}
-        chatStarted={chatStarted}
-        isStreaming={isLoading}
-        onStreamingChange={(streaming) => {
-          streamingState.set(streaming);
-        }}
-        enhancingPrompt={enhancingPrompt}
-        promptEnhanced={promptEnhanced}
-        sendMessage={sendMessage}
-        model={model}
-        setModel={handleModelChange}
-        provider={provider}
-        setProvider={handleProviderChange}
-        providerList={activeProviders}
-        messageRef={messageRef}
-        scrollRef={scrollRef}
-        handleInputChange={(e) => {
-          onTextareaChange(e);
-          debouncedCachePrompt(e);
-        }}
-        handleStop={abort}
-        description={description}
-        importChat={importChat}
-        exportChat={exportChat}
-        messages={messages.map((message, i) => {
-          if (message.role === 'user') {
-            return message;
-          }
+  /**
+   * Debounced function to cache the prompt in cookies.
+   * Caches the trimmed value of the textarea input after a delay to optimize performance.
+   */
+  const debouncedCachePrompt = useCallback(
+    debounce((event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const trimmedValue = event.target.value.trim();
+      Cookies.set(PROMPT_COOKIE_KEY, trimmedValue, { expires: 30 });
+    }, 1000),
+    [],
+  );
 
-          return {
-            ...message,
-            content: parsedMessages[i] || '',
-          };
-        })}
-        enhancePrompt={() => {
-          enhancePrompt(
-            input,
-            (input) => {
-              setInput(input);
-              scrollTextArea();
-            },
-            model,
-            provider,
-            apiKeys,
-          );
-        }}
-        uploadedFiles={uploadedFiles}
-        setUploadedFiles={setUploadedFiles}
-        imageDataList={imageDataList}
-        setImageDataList={setImageDataList}
-        actionAlert={actionAlert}
-        clearAlert={() => workbenchStore.clearAlert()}
-        data={chatData}
-      />
-    );
-  },
-);
+  const [messageRef, scrollRef] = useSnapScroll();
+
+  useEffect(() => {
+    const storedApiKeys = Cookies.get('apiKeys');
+
+    if (storedApiKeys) {
+      setApiKeys(JSON.parse(storedApiKeys));
+    }
+  }, []);
+
+  const handleModelChange = (newModel: string) => {
+    setModel(newModel);
+    Cookies.set('selectedModel', newModel, { expires: 30 });
+  };
+
+  const handleProviderChange = (newProvider: ProviderInfo) => {
+    setProvider(newProvider);
+    Cookies.set('selectedProvider', newProvider.name, { expires: 30 });
+  };
+
+  return (
+    <BaseChat
+      ref={animationScope}
+      textareaRef={textareaRef}
+      input={input}
+      showChat={showChat}
+      chatStarted={chatStarted}
+      isStreaming={isLoading}
+      onStreamingChange={(streaming) => {
+        streamingState.set(streaming);
+      }}
+      enhancingPrompt={enhancingPrompt}
+      promptEnhanced={promptEnhanced}
+      sendMessage={sendMessage}
+      model={model}
+      setModel={handleModelChange}
+      provider={provider}
+      setProvider={handleProviderChange}
+      providerList={activeProviders}
+      messageRef={messageRef}
+      scrollRef={scrollRef}
+      handleInputChange={(e) => {
+        onTextareaChange(e);
+        debouncedCachePrompt(e);
+      }}
+      handleStop={abort}
+      description={description}
+      messages={messages.map((message, i) => {
+        if (message.role === 'user') {
+          return message;
+        }
+
+        return {
+          ...message,
+          content: parsedMessages[i] || '',
+        };
+      })}
+      enhancePrompt={() => {
+        enhancePrompt(
+          input,
+          (input) => {
+            setInput(input);
+            scrollTextArea();
+          },
+          model,
+          provider,
+          apiKeys,
+        );
+      }}
+      uploadedFiles={uploadedFiles}
+      setUploadedFiles={setUploadedFiles}
+      imageDataList={imageDataList}
+      setImageDataList={setImageDataList}
+      actionAlert={actionAlert}
+      clearAlert={() => workbenchStore.clearAlert()}
+      data={chatData}
+    />
+  );
+});
