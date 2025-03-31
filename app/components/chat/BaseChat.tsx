@@ -36,7 +36,7 @@ import ProgressCompilation from './ProgressCompilation';
 import type { ProgressAnnotation } from '~/types/context';
 import type { ActionRunner } from '~/lib/runtime/action-runner';
 import { LOCAL_PROVIDERS } from '~/lib/stores/settings';
-import { ConvexConnection } from './ConvexConnection';
+import { ConvexConnection } from '~/components/convex/ConvexConnection';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
