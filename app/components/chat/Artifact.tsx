@@ -9,6 +9,7 @@ import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
 import { convexStore } from '~/lib/stores/convex';
+import { ConvexConnectAlert } from '~/components/convex/ConvexConnectAlert';
 
 const highlighterOptions = {
   langs: ['shell'],
@@ -249,7 +250,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                     code={action.output ?? ''}
                   />
                 ) : (
-                  <div className="text-bolt-elements-textTertiary">Connect to Convex to deploy functions</div>
+                  <ConvexConnectAlert />
                 ))}
             </motion.li>
           );

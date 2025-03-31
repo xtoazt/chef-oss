@@ -6,7 +6,7 @@ import { useStore } from '@nanostores/react';
 import { parseConvexToken } from '~/utils/convex';
 import { convexStore } from '~/lib/stores/convex';
 
-export function ConvexConnection() {
+export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const convexProject = useStore(convexStore);
@@ -34,6 +34,9 @@ export function ConvexConnection() {
           <img className="w-4 h-4" height="20" width="20" src="/icons/Convex.svg" alt="Convex" />
           {isConnected && projectInfo && (
             <span className="ml-1 text-xs max-w-[100px] truncate">{projectInfo.projectName}</span>
+          )}
+          {!isConnected && size === 'full' && (
+            <span className={classNames('text-bolt-elements-button-primary-text font-medium')}>Connect to Convex</span>
           )}
         </button>
       </div>
