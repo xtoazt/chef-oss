@@ -197,6 +197,10 @@ export class ActionRunner {
 
           return;
         }
+        case 'convex': {
+          await this.#runConvexAction(action);
+          break;
+        }
       }
 
       this.#updateAction(actionId, {
@@ -376,5 +380,39 @@ export class ActionRunner {
       exitCode,
       output,
     };
+  }
+
+  async #runConvexAction(action: ActionState) {
+    if (action.type !== 'convex') {
+      unreachable('Expected convex action');
+    }
+
+    const convexLogger = createScopedLogger('ActionRunner:Convex');
+
+    const webcontainer = await this.#webcontainer;
+
+    // TODO Make sure that the project is set up
+
+    // Run convex dev --once
+
+    const process = await webcontainer.spawn('npx', ['convex', 'dev', '--once'], {
+      env: { npm_config_yes: true },
+    });
+
+    action.abortSignal.addEventListener('abort', () => {
+      process.kill();
+    });
+
+    process.output.pipeTo(
+      new WritableStream({
+        write(data) {
+          convexLogger.debug('Convex output', data);
+        },
+      }),
+    );
+
+    const exitCode = await process.exit;
+
+    convexLogger.info(`Convex process terminated with code ${exitCode}`);
   }
 }
