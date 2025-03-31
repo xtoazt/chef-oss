@@ -6,7 +6,6 @@ import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
-import { WORK_DIR } from '~/utils/constants';
 import { convexStore, waitForConvexProjectConnection } from '~/lib/stores/convex';
 
 const logger = createScopedLogger('ActionRunner');
