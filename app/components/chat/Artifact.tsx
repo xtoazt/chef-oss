@@ -211,6 +211,10 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   <div className="flex items-center w-full min-h-[28px]">
                     <span className="flex-1">Run command</span>
                   </div>
+                ) : type === 'convex' ? (
+                  <div className="flex items-center w-full min-h-[28px]">
+                    <span className="flex-1">Deploy Convex functions</span>
+                  </div>
                 ) : type === 'start' ? (
                   <a
                     onClick={(e) => {
