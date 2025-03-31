@@ -7,7 +7,7 @@ import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
 import { WORK_DIR } from '~/utils/constants';
-import { convexStore } from '~/lib/stores/convex';
+import { convexStore, waitForConvexProjectConnection } from '~/lib/stores/convex';
 
 const logger = createScopedLogger('ActionRunner');
 
@@ -391,8 +391,9 @@ export class ActionRunner {
     }
 
     const convexLogger = createScopedLogger('ActionRunner:Convex');
-
     const webcontainer = await this.#webcontainer;
+
+    await waitForConvexProjectConnection();
 
     await this.#setupConvexEnvVars();
 
