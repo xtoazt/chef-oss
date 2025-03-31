@@ -150,6 +150,12 @@ ${databaseInstructions({ convex })}
         - Only use this action when you need to run a dev server or start the application
         - ULTRA IMPORTANT: do NOT re-run a dev server if files are updated. The existing dev server can automatically detect changes and executes the file changes
 
+      - convex: For deploying Convex backend changes.
+        - Use this action type when Convex backend functions, schema, or other Convex-related files change
+        - This will automatically deploy the changes on a dev environment, so you don't need to ask for confirmation.
+        - Do NOT run \`npx convex dev\` by yourself using the shell action. Instead use the convex action.
+        - Only use this when there are actual changes to Convex backend code
+        - Do NOT use this for frontend-only changes
 
     9. The order of the actions is VERY IMPORTANT. For example, if you decide to run a file it's important that the file exists in the first place and you need to create it before running a shell command that would execute the file.
 
