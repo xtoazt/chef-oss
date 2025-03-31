@@ -10,7 +10,6 @@ import { getFilePaths, selectContext } from '~/lib/.server/llm/select-context';
 import type { ContextAnnotation, ProgressAnnotation } from '~/types/context';
 import { WORK_DIR } from '~/utils/constants';
 import { createSummary } from '~/lib/.server/llm/create-summary';
-import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
 
 export async function action(args: ActionFunctionArgs) {
   return chatAction(args);
@@ -37,11 +36,10 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 }
 
 async function chatAction({ context, request }: ActionFunctionArgs) {
-  const { messages, files, promptId, contextOptimization, convex } = await request.json<{
+  const { messages, files, promptId, convex } = await request.json<{
     messages: Messages;
     files: any;
     promptId?: string;
-    contextOptimization: boolean;
     convex?: {
       isConnected: boolean;
       projectToken: string | undefined;
@@ -81,7 +79,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           messageSliceId = messages.length - 3;
         }
 
-        if (filePaths.length > 0 && contextOptimization) {
+        if (filePaths.length > 0) {
           logger.debug('Generating Chat Summary');
           dataStream.writeData({
             type: 'progress',
@@ -100,7 +98,6 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
             apiKeys,
             providerSettings,
             promptId,
-            contextOptimization,
             onFinish(resp) {
               if (resp.usage) {
                 logger.debug('createSummary token usage', JSON.stringify(resp.usage));
@@ -143,7 +140,6 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
             files,
             providerSettings,
             promptId,
-            contextOptimization,
             summary,
             onFinish(resp) {
               if (resp.usage) {
@@ -227,13 +223,11 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
             logger.info(`Reached max token limit (${MAX_TOKENS}): Continuing message (${switchesLeft} switches left)`);
 
-            const lastUserMessage = messages.filter((x) => x.role == 'user').slice(-1)[0];
-            const { model, provider } = extractPropertiesFromMessage(lastUserMessage);
             messages.push({ id: generateId(), role: 'assistant', content });
             messages.push({
               id: generateId(),
               role: 'user',
-              content: `[Model: ${model}]\n\n[Provider: ${provider}]\n\n${CONTINUE_PROMPT}`,
+              content: CONTINUE_PROMPT,
             });
 
             const result = await streamText({
@@ -244,7 +238,6 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               files,
               providerSettings,
               promptId,
-              contextOptimization,
               contextFiles: filteredFiles,
               summary,
               messageSliceId,
@@ -283,7 +276,6 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           files,
           providerSettings,
           promptId,
-          contextOptimization,
           contextFiles: filteredFiles,
           summary,
           messageSliceId,

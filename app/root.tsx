@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react';
-import type { LinksFunction } from '@remix-run/cloudflare';
+import type { LinksFunction, LoaderFunctionArgs } from '@remix-run/cloudflare';
 import { json, Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from '@remix-run/react';
 import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import { themeStore } from './lib/stores/theme';
@@ -17,8 +17,9 @@ import xtermStyles from '@xterm/xterm/css/xterm.css?url';
 
 import 'virtual:uno.css';
 
-export async function loader() {
-  const CONVEX_URL = process.env.CONVEX_URL;
+export async function loader({ context }: LoaderFunctionArgs) {
+  // Cloudflare uses context.cloudflare.env.CONVEX_URL is used. Locally you might have a .env.local still.
+  const CONVEX_URL = (context.cloudflare.env as Record<string, any>).CONVEX_URL || process.env.CONVEX_URL;
   return json({ ENV: { CONVEX_URL } });
 }
 
