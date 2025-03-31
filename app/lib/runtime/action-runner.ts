@@ -436,7 +436,7 @@ export class ActionRunner {
 
     const { token } = convexProject;
 
-    const envFilePath = `${WORK_DIR}/.env.local`;
+    const envFilePath = '.env.local';
     const envVarName = 'CONVEX_DEPLOY_KEY';
     const envVarLine = `${envVarName}=${token}\n`;
 
