@@ -239,17 +239,18 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   code={content}
                 />
               )}
-              {type === 'convex' && !isConvexConnected && (
-                <div className="text-bolt-elements-textTertiary">Connect to Convex to deploy functions</div>
-              )}
-              {type === 'convex' && action.status === 'running' && action.output && (
-                <ShellCodeBlock
-                  classsName={classNames('mt-1', {
-                    'mb-3.5': !isLast,
-                  })}
-                  code={action.output}
-                />
-              )}
+              {type === 'convex' &&
+                action.status === 'running' &&
+                (isConvexConnected ? (
+                  <ShellCodeBlock
+                    classsName={classNames('mt-1', {
+                      'mb-3.5': !isLast,
+                    })}
+                    code={action.output ?? ''}
+                  />
+                ) : (
+                  <div className="text-bolt-elements-textTertiary">Connect to Convex to deploy functions</div>
+                ))}
             </motion.li>
           );
         })}
