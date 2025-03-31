@@ -11,11 +11,7 @@ The user can use Convex as a database in this environment.
 
 If there's any reason to persist data or run functions on it, Convex is the way to go! Install it with \`npm i convex@1.21.1-alpha.0 --force\`.
 
-After any change made to code in the convex directory, use the deploy action to deploy the code:
-
-<example>
-    <boltAction type="convex"></boltAction>
-</example>
+After any change made to code in the convex directory, use the convex action to deploy the code.
 
 Deplyoing for the first time creates a convex directory, and then you can build a normal convex app (a schema, queries, actions, mutations, etc.)
 
