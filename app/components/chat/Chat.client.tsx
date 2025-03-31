@@ -38,7 +38,7 @@ const logger = createScopedLogger('Chat');
 export function Chat() {
   renderLogger.trace('Chat');
 
-  const { ready, initialMessages, storeMessageHistory, importChat, exportChat } = useChatHistory();
+  const { ready, initialMessages, storeMessageHistory, importChat } = useChatHistory();
   const title = useStore(description);
   useEffect(() => {
     workbenchStore.setReloadedMessages(initialMessages.map((m) => m.id));
@@ -50,7 +50,6 @@ export function Chat() {
         <ChatImpl
           description={title}
           initialMessages={initialMessages}
-          exportChat={exportChat}
           storeMessageHistory={storeMessageHistory}
           importChat={importChat}
         />
@@ -108,11 +107,10 @@ interface ChatProps {
   initialMessages: Message[];
   storeMessageHistory: (messages: Message[]) => Promise<void>;
   importChat: (description: string, messages: Message[]) => Promise<void>;
-  exportChat: () => void;
   description?: string;
 }
 
-export const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, exportChat }: ChatProps) => {
+export const ChatImpl = memo(({ description, initialMessages, storeMessageHistory }: ChatProps) => {
   useShortcuts();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -492,7 +490,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
       }}
       handleStop={abort}
       description={description}
-      exportChat={exportChat}
       messages={messages.map((message, i) => {
         if (message.role === 'user') {
           return message;
