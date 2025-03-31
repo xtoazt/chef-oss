@@ -10,6 +10,7 @@ import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
 import { convexStore } from '~/lib/stores/convex';
 import { ConvexConnectAlert } from '~/components/convex/ConvexConnectAlert';
+import { ConvexDeployTerminal } from '~/components/convex/ConvexDeployTerminal';
 
 const highlighterOptions = {
   langs: ['shell'],
@@ -240,18 +241,12 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   code={content}
                 />
               )}
-              {type === 'convex' &&
-                action.status === 'running' &&
-                (isConvexConnected ? (
-                  <ShellCodeBlock
-                    classsName={classNames('mt-1', {
-                      'mb-3.5': !isLast,
-                    })}
-                    code={action.output ?? ''}
-                  />
-                ) : (
-                  <ConvexConnectAlert />
-                ))}
+
+              {type === 'convex' && action.status === 'running' && !isConvexConnected && <ConvexConnectAlert />}
+
+              {type === 'convex' && action.status === 'complete' && action.output && (
+                <ConvexDeployTerminal input={action.output ?? ''} />
+              )}
             </motion.li>
           );
         })}
