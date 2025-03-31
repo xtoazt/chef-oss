@@ -23,7 +23,7 @@ export class PromptLibrary {
     default: {
       label: 'Default Prompt',
       description: 'This is the battle tested default system Prompt',
-      get: (options) => getSystemPrompt(options.cwd, options.convex),
+      get: (options) => getSystemPrompt(options.cwd),
     },
     optimized: {
       label: 'Optimized Prompt (experimental)',

@@ -3,13 +3,7 @@ import { allowedHTMLElements } from '~/utils/markdown';
 import { stripIndents } from '~/utils/stripIndent';
 import { databaseInstructions } from './database';
 
-export const getSystemPrompt = (
-  cwd: string = WORK_DIR,
-  convex?: {
-    isConnected: boolean;
-    projectToken: string | null;
-  },
-) => `
+export const getSystemPrompt = (cwd: string = WORK_DIR) => `
 You are Bolt, an expert AI assistant and exceptional senior software developer with vast knowledge across multiple programming languages, frameworks, and best practices.
 
 <system_constraints>
@@ -66,7 +60,7 @@ You are Bolt, an expert AI assistant and exceptional senior software developer w
       - curl, head, sort, tail, clear, which, export, chmod, scho, hostname, kill, ln, xxd, alias, false,  getconf, true, loadenv, wasm, xdg-open, command, exit, source
 </system_constraints>
 
-${databaseInstructions({ convex })}
+${databaseInstructions()}
 
 <code_formatting_info>
   Use 2 spaces for code indentation
