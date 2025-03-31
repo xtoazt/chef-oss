@@ -25,6 +25,7 @@ export interface BuildAction extends BaseAction {
 
 export interface ConvexAction extends BaseAction {
   type: 'convex';
+  output?: string;
 }
 
 export type BoltAction = FileAction | ShellAction | StartAction | BuildAction | ConvexAction;

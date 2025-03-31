@@ -235,6 +235,14 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   code={content}
                 />
               )}
+              {type === 'convex' && action.status === 'running' && action.output && (
+                <ShellCodeBlock
+                  classsName={classNames('mt-1', {
+                    'mb-3.5': !isLast,
+                  })}
+                  code={action.output}
+                />
+              )}
             </motion.li>
           );
         })}

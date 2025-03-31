@@ -30,7 +30,8 @@ type BaseActionUpdate = Partial<Pick<BaseActionState, 'status' | 'abort' | 'exec
 
 export type ActionStateUpdate =
   | BaseActionUpdate
-  | (Omit<BaseActionUpdate, 'status'> & { status: 'failed'; error: string });
+  | (Omit<BaseActionUpdate, 'status'> & { status: 'failed'; error: string })
+  | Pick<BaseActionState & { type: 'convex' }, 'output'>;
 
 type ActionsMap = MapStore<Record<string, ActionState>>;
 
@@ -198,7 +199,7 @@ export class ActionRunner {
           return;
         }
         case 'convex': {
-          await this.#runConvexAction(action);
+          await this.#runConvexAction(actionId, action);
           break;
         }
       }
@@ -382,7 +383,7 @@ export class ActionRunner {
     };
   }
 
-  async #runConvexAction(action: ActionState) {
+  async #runConvexAction(actionId: string, action: ActionState) {
     if (action.type !== 'convex') {
       unreachable('Expected convex action');
     }
@@ -392,6 +393,8 @@ export class ActionRunner {
     const webcontainer = await this.#webcontainer;
 
     // TODO Make sure that the project is set up
+
+    const updateAction = this.#updateAction.bind(this);
 
     // Run convex dev --once
 
@@ -403,10 +406,13 @@ export class ActionRunner {
       process.kill();
     });
 
+    let fullOutput = '';
     process.output.pipeTo(
       new WritableStream({
         write(data) {
+          fullOutput += data;
           convexLogger.debug('Convex output', data);
+          updateAction(actionId, { output: fullOutput });
         },
       }),
     );
