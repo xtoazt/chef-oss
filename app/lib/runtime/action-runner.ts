@@ -421,6 +421,10 @@ export class ActionRunner {
 
     const exitCode = await process.exit;
 
+    if (exitCode !== 0) {
+      throw new ActionCommandError('Convex Dev Failed', fullOutput || 'No Output Available');
+    }
+
     convexLogger.info(`Convex process terminated with code ${exitCode}`);
   }
 
