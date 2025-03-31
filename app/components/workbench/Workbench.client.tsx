@@ -260,7 +260,6 @@ const FileModifiedDropdown = memo(
 export const Workbench = memo(({ chatStarted, isStreaming, actionRunner }: WorkspaceProps) => {
   renderLogger.trace('Workbench');
 
-  const [isSyncing, setIsSyncing] = useState(false);
   const [fileHistory, setFileHistory] = useState<Record<string, FileHistory>>({});
 
   // const modifiedFiles = Array.from(useStore(workbenchStore.unsavedFiles).keys());
@@ -309,21 +308,6 @@ export const Workbench = memo(({ chatStarted, isStreaming, actionRunner }: Works
 
   const onFileReset = useCallback(() => {
     workbenchStore.resetCurrentDocument();
-  }, []);
-
-  const handleSyncFiles = useCallback(async () => {
-    setIsSyncing(true);
-
-    try {
-      const directoryHandle = await window.showDirectoryPicker();
-      await workbenchStore.syncFiles(directoryHandle);
-      toast.success('Files synced successfully');
-    } catch (error) {
-      console.error('Error syncing files:', error);
-      toast.error('Failed to sync files');
-    } finally {
-      setIsSyncing(false);
-    }
   }, []);
 
   const handleSelectFile = useCallback((filePath: string) => {
@@ -388,10 +372,6 @@ export const Workbench = memo(({ chatStarted, isStreaming, actionRunner }: Works
                     >
                       <div className="i-ph:code" />
                       Download Code
-                    </PanelHeaderButton>
-                    <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
-                      {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
-                      {isSyncing ? 'Syncing...' : 'Sync Files'}
                     </PanelHeaderButton>
                     <PanelHeaderButton
                       className="mr-1 text-sm"
