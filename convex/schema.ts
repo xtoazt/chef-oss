@@ -15,7 +15,7 @@ export default defineSchema({
   chats: defineTable({
     creatorId: v.id('sessions'),
     externalId: v.string(),
-    urlId: v.string(),
+    urlId: v.optional(v.string()),
     description: v.optional(v.string()),
     timestamp: v.string(),
     metadata: v.optional(IChatMetadataValidator),

@@ -1,11 +1,10 @@
 import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { atom } from 'nanostores';
 import { useStore } from '@nanostores/react';
 import type { Message } from 'ai';
 import { toast } from 'react-toastify';
-import { workbenchStore } from '~/lib/stores/workbench';
-import { useConvex, useQuery } from 'convex/react';
+import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import type { SerializedMessage } from '@convex/messages';
@@ -51,14 +50,14 @@ export const useChatHistoryConvex = () => {
 
   const [initialMessages, setInitialMessages] = useState<SerializedMessage[]>([]);
   const [initialDeserializedMessages, setInitialDeserializedMessages] = useState<Message[]>([]);
+
+  const [persistedMessages, setPersistedMessages] = useState<Message[]>([]);
+  const persistInProgress = useRef(false);
+
   const [ready, setReady] = useState<boolean>(false);
   const [urlId, setUrlId] = useState<string | undefined>();
   const sessionId = useStore(sessionIdStore);
   const convex = useConvex();
-  const rawMessages = useQuery(
-    api.messages.getWithMessages,
-    mixedId === undefined || sessionId === undefined ? 'skip' : { id: mixedId, sessionId },
-  );
   useEffect(() => {
     if (sessionId === undefined) {
       const sessionIdFromLocalStorage = getLocalStorage(SESSION_ID_KEY);
@@ -74,32 +73,30 @@ export const useChatHistoryConvex = () => {
     }
   }, [sessionId]);
   useEffect(() => {
-    if (sessionId === undefined) {
+    if (sessionId === undefined || mixedId === undefined) {
       return;
     }
 
-    if (rawMessages === undefined) {
-      return;
-    }
+    convex.query(api.messages.getWithMessages, { id: mixedId, sessionId }).then((rawMessages) => {
+      if (rawMessages !== null && rawMessages.messages.length > 0) {
+        const rewindId = searchParams.get('rewindTo');
+        const filteredMessages = rewindId
+          ? rawMessages.messages.slice(0, rawMessages.messages.findIndex((m) => m.id === rewindId) + 1)
+          : rawMessages.messages;
 
-    if (rawMessages !== null && rawMessages.messages.length > 0) {
-      const rewindId = searchParams.get('rewindTo');
-      const filteredMessages = rewindId
-        ? rawMessages.messages.slice(0, rawMessages.messages.findIndex((m) => m.id === rewindId) + 1)
-        : rawMessages.messages;
+        setInitialMessages(filteredMessages);
+        setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
+        setUrlId(rawMessages.urlId);
+        description.set(rawMessages.description);
+        chatId.set(rawMessages.externalId);
+        chatMetadata.set(rawMessages.metadata);
+        setReady(true);
+      }
 
-      setInitialMessages(filteredMessages);
-      setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
-      setUrlId(rawMessages.urlId);
-      description.set(rawMessages.description);
-      chatId.set(rawMessages.externalId);
-      chatMetadata.set(rawMessages.metadata);
-      setReady(true);
-    }
-
-    console.log('navigating to /');
-    navigate('/', { replace: true });
-  }, [rawMessages]);
+      console.log('navigating to /');
+      navigate('/', { replace: true });
+    });
+  }, [mixedId, sessionId, convex]);
 
   return {
     ready: mixedId === undefined || ready,
@@ -132,50 +129,51 @@ export const useChatHistoryConvex = () => {
         return;
       }
 
-      const { firstArtifact } = workbenchStore;
-      let chatUrl: { kind: 'id'; id: string } | { kind: 'hint'; hint: string } | null =
-        urlId !== undefined
-          ? {
-              kind: 'id',
-              id: urlId,
-            }
-          : null;
-
-      if (!urlId && firstArtifact?.id) {
-        chatUrl = {
-          kind: 'hint',
-          hint: firstArtifact.id,
-        };
-      }
-
-      if (!description.get() && firstArtifact?.title) {
-        description.set(firstArtifact?.title);
-      }
-
+      /*
+       * Allocate an ID synchronously if this is a new chat
+       *
+       * This function can get called many times, so synchronous APIs prevent interleaving
+       */
       if (initialMessages.length === 0 && !chatId.get()) {
         // sshader -- why do they want incrementing IDs?
-        const nextId = await crypto.randomUUID();
-
+        const nextId = crypto.randomUUID();
         chatId.set(nextId);
       }
 
       const id = chatId.get() as string;
 
-      const result = await convex.mutation(api.messages.set, {
+      if (persistInProgress.current) {
+        return;
+      }
+
+      if (persistedMessages === messages) {
+        return;
+      }
+
+      const firstDifferent = messages.findIndex((m, i) => m !== persistedMessages[i]);
+      console.log('firstDifferent', firstDifferent, messages, persistedMessages);
+
+      const messagesToAdd = messages.slice(firstDifferent === -1 ? persistedMessages.length : firstDifferent);
+
+      // adding messages may update the URL + description based on the messages
+      persistInProgress.current = true;
+
+      const result = await convex.mutation(api.messages.addMessages, {
         id,
         sessionId,
-        messages: messages.map(serializeMessageForConvex),
-        url: chatUrl ?? {
-          kind: 'hint',
-          hint: 'new',
-        },
-        description: description.get(),
-        metadata: chatMetadata.get(),
+        messages: messagesToAdd.map(serializeMessageForConvex),
       });
 
-      if (urlId !== result.urlId) {
-        setUrlId(result.urlId);
-        navigateChat(result.urlId);
+      setPersistedMessages(messages);
+      persistInProgress.current = false;
+
+      if (description.get() !== result.description) {
+        description.set(result.description);
+      }
+
+      if (urlId !== result.id) {
+        setUrlId(result.id);
+        navigateChat(result.id);
       }
     },
     duplicateCurrentChat: async (listItemId: string) => {
