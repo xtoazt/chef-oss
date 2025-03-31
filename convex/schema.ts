@@ -1,6 +1,5 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v, type VAny } from 'convex/values';
-import type { Message as AIMessage } from 'ai';
 import { IChatMetadataValidator } from './messages';
 import type { SerializedMessage } from './messages';
 
@@ -12,14 +11,21 @@ export default defineSchema({
   })
     .index('by_subject', ['subject'])
     .index('by_subject_and_convex_token', ['subject', 'convexToken']),
+  sessions: defineTable({}),
   chats: defineTable({
-    messages: v.array(v.any() as VAny<SerializedMessage>),
+    creatorId: v.id('sessions'),
     externalId: v.string(),
-    urlId: v.optional(v.string()),
+    urlId: v.string(),
     description: v.optional(v.string()),
     timestamp: v.string(),
     metadata: v.optional(IChatMetadataValidator),
   })
-    .index('byExternalId', ['externalId'])
-    .index('byUrlId', ['urlId']),
+    .index('byCreatorAndId', ['creatorId', 'externalId'])
+    .index('byCreatorAndUrlId', ['creatorId', 'urlId']),
+
+  chatMessages: defineTable({
+    content: v.any() as VAny<SerializedMessage>,
+    rank: v.number(),
+    chatId: v.id('chats'),
+  }).index('byChatId', ['chatId', 'rank']),
 });

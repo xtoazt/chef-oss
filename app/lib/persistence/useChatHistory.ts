@@ -1,6 +1,7 @@
 import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
 import { useState, useEffect } from 'react';
 import { atom } from 'nanostores';
+import { useStore } from '@nanostores/react';
 import type { Message } from 'ai';
 import { toast } from 'react-toastify';
 import { workbenchStore } from '~/lib/stores/workbench';
@@ -8,6 +9,8 @@ import { useConvex, useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import type { SerializedMessage } from '@convex/messages';
+import { getLocalStorage, setLocalStorage } from '~/lib/persistence/localStorage';
+import type { Id } from '@convex/_generated/dataModel';
 
 export interface IChatMetadata {
   gitUrl: string;
@@ -35,6 +38,9 @@ export interface ChatHistoryItem {
 export const chatId = atom<string | undefined>(undefined);
 export const description = atom<string | undefined>(undefined);
 export const chatMetadata = atom<IChatMetadata | undefined>(undefined);
+export const sessionIdStore = atom<Id<'sessions'> | undefined>(undefined);
+
+const SESSION_ID_KEY = 'sessionIdForConvex';
 
 export const useChatHistoryConvex = () => {
   const navigate = useNavigate();
@@ -47,45 +53,68 @@ export const useChatHistoryConvex = () => {
   const [initialDeserializedMessages, setInitialDeserializedMessages] = useState<Message[]>([]);
   const [ready, setReady] = useState<boolean>(false);
   const [urlId, setUrlId] = useState<string | undefined>();
+  const sessionId = useStore(sessionIdStore);
   const convex = useConvex();
-  const rawMessages = useQuery(api.messages.get, mixedId === undefined ? 'skip' : { id: mixedId });
+  const rawMessages = useQuery(
+    api.messages.getWithMessages,
+    mixedId === undefined || sessionId === undefined ? 'skip' : { id: mixedId, sessionId },
+  );
   useEffect(() => {
-    if (rawMessages) {
-      if (rawMessages.messages.length > 0) {
-        const rewindId = searchParams.get('rewindTo');
-        const filteredMessages = rewindId
-          ? rawMessages.messages.slice(0, rawMessages.messages.findIndex((m) => m.id === rewindId) + 1)
-          : rawMessages.messages;
+    if (sessionId === undefined) {
+      const sessionIdFromLocalStorage = getLocalStorage(SESSION_ID_KEY);
 
-        setInitialMessages(filteredMessages);
-        setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
-        setUrlId(rawMessages.urlId);
-        description.set(rawMessages.description);
-        chatId.set(rawMessages.externalId);
-        chatMetadata.set(rawMessages.metadata);
-        setReady(true);
+      if (sessionIdFromLocalStorage) {
+        sessionIdStore.set(sessionIdFromLocalStorage);
       } else {
-        navigate('/', { replace: true });
+        convex.mutation(api.messages.startSession).then((id) => {
+          setLocalStorage(SESSION_ID_KEY, id);
+          sessionIdStore.set(id);
+        });
       }
     }
+  }, [sessionId]);
+  useEffect(() => {
+    if (sessionId === undefined) {
+      return;
+    }
+
+    if (rawMessages === undefined) {
+      return;
+    }
+
+    if (rawMessages !== null && rawMessages.messages.length > 0) {
+      const rewindId = searchParams.get('rewindTo');
+      const filteredMessages = rewindId
+        ? rawMessages.messages.slice(0, rawMessages.messages.findIndex((m) => m.id === rewindId) + 1)
+        : rawMessages.messages;
+
+      setInitialMessages(filteredMessages);
+      setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
+      setUrlId(rawMessages.urlId);
+      description.set(rawMessages.description);
+      chatId.set(rawMessages.externalId);
+      chatMetadata.set(rawMessages.metadata);
+      setReady(true);
+    }
+
+    console.log('navigating to /');
+    navigate('/', { replace: true });
   }, [rawMessages]);
 
   return {
     ready: mixedId === undefined || ready,
     initialMessages: initialDeserializedMessages,
-    updateChatMestaData: async (metadata: IChatMetadata) => {
+    updateChatMetadata: async (metadata: IChatMetadata) => {
       const id = chatId.get();
 
-      if (!id) {
+      if (!id || !sessionId) {
         return;
       }
 
       try {
-        await convex.mutation(api.messages.set, {
+        await convex.mutation(api.messages.setMetadata, {
           id,
-          messages: initialMessages,
-          urlId,
-          description: description.get(),
+          sessionId,
           metadata,
         });
         chatMetadata.set(metadata);
@@ -95,17 +124,28 @@ export const useChatHistoryConvex = () => {
       }
     },
     storeMessageHistory: async (messages: Message[]) => {
-      if (!convex || messages.length === 0) {
+      if (messages.length === 0) {
+        return;
+      }
+
+      if (!sessionId) {
         return;
       }
 
       const { firstArtifact } = workbenchStore;
+      let chatUrl: { kind: 'id'; id: string } | { kind: 'hint'; hint: string } | null =
+        urlId !== undefined
+          ? {
+              kind: 'id',
+              id: urlId,
+            }
+          : null;
 
       if (!urlId && firstArtifact?.id) {
-        const urlId = await convex.mutation(api.messages.allocateUrlId, { id: firstArtifact.id });
-
-        navigateChat(urlId);
-        setUrlId(urlId);
+        chatUrl = {
+          kind: 'hint',
+          hint: firstArtifact.id,
+        };
       }
 
       if (!description.get() && firstArtifact?.title) {
@@ -117,29 +157,41 @@ export const useChatHistoryConvex = () => {
         const nextId = await crypto.randomUUID();
 
         chatId.set(nextId);
-
-        if (!urlId) {
-          navigateChat(nextId);
-        }
       }
 
       const id = chatId.get() as string;
 
-      await convex.mutation(api.messages.set, {
+      const result = await convex.mutation(api.messages.set, {
         id,
+        sessionId,
         messages: messages.map(serializeMessageForConvex),
-        urlId,
+        url: chatUrl ?? {
+          kind: 'hint',
+          hint: 'new',
+        },
         description: description.get(),
         metadata: chatMetadata.get(),
       });
+
+      if (urlId !== result.urlId) {
+        setUrlId(result.urlId);
+        navigateChat(result.urlId);
+      }
     },
     duplicateCurrentChat: async (listItemId: string) => {
+      if (!sessionId) {
+        return;
+      }
+
       if (!mixedId && !listItemId) {
         return;
       }
 
       try {
-        const newId = await convex.mutation(api.messages.duplicate, { id: mixedId || listItemId });
+        const newId = await convex.mutation(api.messages.duplicate, {
+          id: mixedId || listItemId,
+          sessionId,
+        });
         navigate(`/chat/${newId}`);
         toast.success('Chat duplicated successfully');
       } catch (error) {
@@ -148,11 +200,17 @@ export const useChatHistoryConvex = () => {
       }
     },
     importChat: async (description: string, messages: Message[], metadata?: IChatMetadata) => {
+      if (!sessionId) {
+        return;
+      }
+
       try {
         const newId = await convex.mutation(api.messages.createFromMessages, {
           description,
           messages: messages.map(serializeMessageForConvex),
           metadata,
+          sessionId,
+          urlHint: 'imported',
         });
         window.location.href = `/chat/${newId}`;
         toast.success('Chat imported successfully');
@@ -165,11 +223,11 @@ export const useChatHistoryConvex = () => {
       }
     },
     exportChat: async (id = urlId) => {
-      if (!id) {
+      if (!id || !sessionId) {
         return;
       }
 
-      const chat = await convex.query(api.messages.get, { id });
+      const chat = await convex.query(api.messages.getWithMessages, { id, sessionId });
 
       if (!chat) {
         return;

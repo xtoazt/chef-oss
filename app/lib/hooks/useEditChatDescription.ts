@@ -3,8 +3,7 @@ import { useStore } from '@nanostores/react';
 import { useConvex } from 'convex/react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { chatId as chatIdStore, description as descriptionStore } from '~/lib/persistence';
-
+import { chatId as chatIdStore, description as descriptionStore, sessionIdStore } from '~/lib/persistence';
 interface EditChatDescriptionOptions {
   initialDescription?: string;
   customChatId?: string;
@@ -41,6 +40,7 @@ export function useEditChatDescription({
   syncWithGlobalStore,
 }: EditChatDescriptionOptions): EditChatDescriptionHook {
   const chatIdFromStore = useStore(chatIdStore);
+  const sessionId = useStore(sessionIdStore);
   const [editing, setEditing] = useState(false);
   const [currentDescription, setCurrentDescription] = useState(initialDescription);
   const convex = useConvex();
@@ -61,13 +61,13 @@ export function useEditChatDescription({
   }, []);
 
   const fetchLatestDescription = useCallback(async () => {
-    if (!chatId) {
+    if (!chatId || !sessionId) {
       return initialDescription;
     }
 
     try {
       // TODO(sarah) -- this could just load the description instead of the whole chat
-      const chat = await convex.query(api.messages.get, { id: chatId });
+      const chat = await convex.query(api.messages.get, { id: chatId, sessionId });
       return chat?.description || initialDescription;
     } catch (error) {
       console.error('Failed to fetch latest description:', error);
@@ -116,12 +116,12 @@ export function useEditChatDescription({
       }
 
       try {
-        if (!chatId) {
+        if (!chatId || !sessionId) {
           toast.error('Chat Id is not available');
           return;
         }
 
-        await convex.mutation(api.messages.setDescription, { id: chatId, description: currentDescription });
+        await convex.mutation(api.messages.setDescription, { id: chatId, sessionId, description: currentDescription });
 
         if (syncWithGlobalStore) {
           descriptionStore.set(currentDescription);

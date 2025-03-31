@@ -2,7 +2,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/s
 import type { Message as AIMessage } from 'ai';
 import { ConvexError, v } from 'convex/values';
 import type { VAny, Infer } from 'convex/values';
-
+import type { Id } from './_generated/dataModel';
 export type SerializedMessage = Omit<AIMessage, 'createdAt'> & {
   createdAt: number | undefined;
 };
@@ -18,26 +18,46 @@ type IChatMetadata = Infer<typeof IChatMetadataValidator>;
 
 export const set = mutation({
   args: {
+    sessionId: v.id('sessions'),
     id: v.string(),
     messages: v.array(v.any() as VAny<SerializedMessage>),
-    urlId: v.optional(v.string()),
+    url: v.union(
+      v.object({
+        kind: v.literal('id'),
+        id: v.string(),
+      }),
+      v.object({
+        kind: v.literal('hint'),
+        hint: v.string(),
+      }),
+    ),
     description: v.optional(v.string()),
     timestamp: v.optional(v.string()),
     metadata: v.optional(IChatMetadataValidator),
   },
   handler: async (ctx, args) => {
-    return await _setMessages(ctx, args);
+    const chat = await _setMessages(ctx, args);
+
+    if (!chat) {
+      throw new Error('Failed to create chat');
+    }
+
+    return {
+      id: chat.externalId,
+      urlId: chat.urlId,
+    };
   },
 });
 
 export const setDescription = mutation({
   args: {
+    sessionId: v.id('sessions'),
     id: v.string(),
     description: v.string(),
   },
   handler: async (ctx, args) => {
     const { id, description } = args;
-    const existing = await getChatByIdOrUrlId(ctx, id);
+    const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId: args.sessionId });
 
     if (!existing) {
       throw new ConvexError({ code: 'NotFound', message: 'Chat not found' });
@@ -49,99 +69,153 @@ export const setDescription = mutation({
   },
 });
 
-export const allocateUrlId = mutation({
+export const setMetadata = mutation({
   args: {
+    sessionId: v.id('sessions'),
     id: v.string(),
+    metadata: IChatMetadataValidator,
   },
   handler: async (ctx, args) => {
-    const { urlId, existing } = await _allocateUrlId(ctx, args.id);
-
-    if (existing === null) {
-      await ctx.db.insert('chats', {
-        externalId: crypto.randomUUID(),
-        messages: [],
-        urlId,
-        description: undefined,
-        timestamp: new Date().toISOString(),
-        metadata: undefined,
-      });
-    } else {
-      await ctx.db.patch(existing._id, {
-        urlId,
-      });
-    }
-
-    return urlId;
-  },
-});
-
-export const duplicate = mutation({
-  args: {
-    id: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const { id } = args;
-    const existing = await getChatById(ctx, id);
+    const { id, metadata, sessionId } = args;
+    const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
     if (!existing) {
       throw new ConvexError({ code: 'NotFound', message: 'Chat not found' });
     }
 
-    return createChatFromMessages(
-      ctx,
-      `${existing.description || 'Chat'} (copy)`,
-      existing.messages,
-      existing.metadata,
-    );
+    await ctx.db.patch(existing._id, {
+      metadata,
+    });
+  },
+});
+
+export const duplicate = mutation({
+  args: {
+    sessionId: v.id('sessions'),
+    id: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { id } = args;
+    const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId: args.sessionId });
+
+    if (!existing) {
+      throw new ConvexError({ code: 'NotFound', message: 'Chat not found' });
+    }
+
+    const messages = await ctx.db
+      .query('chatMessages')
+      .withIndex('byChatId', (q) => q.eq('chatId', existing._id))
+      .collect();
+
+    return createNewChatFromMessages(ctx, {
+      url: {
+        kind: 'hint',
+        hint: existing.urlId,
+      },
+      sessionId: args.sessionId,
+      description: `${existing.description || 'Chat'} (copy)`,
+      messages: messages.map((m) => m.content),
+      metadata: existing.metadata,
+    });
   },
 });
 
 export const fork = mutation({
   args: {
+    sessionId: v.id('sessions'),
     id: v.string(),
     messageId: v.string(),
   },
   handler: async (ctx, args) => {
-    const { id, messageId } = args;
-    const chat = await getChatByIdOrUrlId(ctx, id);
+    const { id, messageId, sessionId } = args;
+    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
     if (!chat) {
       throw new ConvexError({ code: 'NotFound', message: 'Chat not found' });
     }
 
+    const messages = await ctx.db
+      .query('chatMessages')
+      .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
+      .collect();
+
     // Find the index of the message to fork at
-    const messageIndex = chat.messages.findIndex((msg) => msg.id === messageId);
+    const messageIndex = messages.findIndex((msg) => msg.content.id === messageId);
 
     if (messageIndex === -1) {
       throw new ConvexError({ code: 'NotFound', message: 'Message not found' });
     }
 
     // Get messages up to and including the selected message
-    const messages = chat.messages.slice(0, messageIndex + 1);
+    const messagesToFork = messages.slice(0, messageIndex + 1);
 
-    return createChatFromMessages(ctx, `${chat.description} (fork)`, messages, chat.metadata);
+    return createNewChatFromMessages(ctx, {
+      url: {
+        kind: 'hint',
+        hint: chat.urlId,
+      },
+      sessionId: args.sessionId,
+      description: `${chat.description} (fork)`,
+      messages: messagesToFork.map((m) => m.content),
+      metadata: chat.metadata,
+    });
   },
 });
 
 export const createFromMessages = mutation({
   args: {
+    sessionId: v.id('sessions'),
     description: v.string(),
+    urlHint: v.string(),
     messages: v.array(v.any() as VAny<SerializedMessage>),
     metadata: v.optional(IChatMetadataValidator),
   },
   handler: async (ctx, args) => {
-    const { description, messages, metadata } = args;
-    return createChatFromMessages(ctx, description, messages, metadata);
+    const { description, messages, metadata, sessionId, urlHint } = args;
+
+    return createNewChatFromMessages(ctx, {
+      url: {
+        kind: 'hint',
+        hint: urlHint,
+      },
+      sessionId,
+      description,
+      messages,
+      metadata,
+    });
   },
 });
 
 export const get = query({
   args: {
     id: v.string(),
+    sessionId: v.id('sessions'),
   },
   handler: async (ctx, args) => {
-    const { id } = args;
-    return getChatByIdOrUrlId(ctx, id);
+    const { id, sessionId } = args;
+    return getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
+  },
+});
+
+export const getWithMessages = query({
+  args: {
+    id: v.string(),
+    sessionId: v.id('sessions'),
+  },
+  handler: async (ctx, args) => {
+    const { id, sessionId } = args;
+    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
+
+    if (!chat) {
+      return null;
+    }
+
+    const messages = await ctx.db
+      .query('chatMessages')
+      .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
+      .collect();
+
+    return { ...chat, messages: messages.map((m) => m.content) };
   },
 });
 
@@ -155,9 +229,6 @@ export const getAll = query({
       description: result.description,
       timestamp: result.timestamp,
       metadata: result.metadata,
-
-      // omit messages for now
-      // messages: result.messages,
     }));
   },
 });
@@ -165,10 +236,11 @@ export const getAll = query({
 export const remove = mutation({
   args: {
     id: v.string(),
+    sessionId: v.id('sessions'),
   },
   handler: async (ctx, args) => {
-    const { id } = args;
-    const existing = await getChatByIdOrUrlId(ctx, id);
+    const { id, sessionId } = args;
+    const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
     if (!existing) {
       return;
@@ -192,104 +264,174 @@ export const deleteAll = mutation({
 async function _setMessages(
   ctx: MutationCtx,
   args: {
+    sessionId: Id<'sessions'>;
     id: string;
-    messages: SerializedMessage[];
-    urlId?: string;
+    url: UrlArg;
+    appendedMessages?: SerializedMessage[];
     description?: string;
     timestamp?: string;
     metadata?: IChatMetadata;
   },
 ) {
-  const { id, messages, urlId, description, timestamp, metadata } = args;
-  const existing = await getChatById(ctx, id);
+  const { id, appendedMessages, description, timestamp, metadata, sessionId, url } = args;
+  const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
   if (existing) {
     await ctx.db.replace(existing._id, {
+      creatorId: sessionId,
       externalId: existing.externalId,
-      messages,
-      urlId,
+      urlId: existing.urlId,
       description,
       timestamp: timestamp ?? new Date().toISOString(),
       metadata,
     });
-    return;
+
+    const lastMessage = await ctx.db
+      .query('chatMessages')
+      .withIndex('byChatId', (q) => q.eq('chatId', existing._id))
+      .order('desc')
+      .first();
+    let rank = lastMessage?.rank ?? 0;
+
+    if (appendedMessages) {
+      for (const message of appendedMessages) {
+        await ctx.db.insert('chatMessages', {
+          chatId: existing._id,
+          content: message,
+          rank,
+        });
+        rank++;
+      }
+    }
+
+    return ctx.db.get(existing._id);
   }
 
-  await ctx.db.insert('chats', {
+  if (url.kind !== 'hint') {
+    throw new ConvexError({ code: 'InvalidState', message: 'URL id cannot be given for new chats' });
+  }
+
+  const urlId = await _allocateUrlId(ctx, { urlHint: url.hint, sessionId });
+
+  const chatId = await ctx.db.insert('chats', {
+    creatorId: sessionId,
     externalId: id,
-    messages,
     urlId,
     description,
     timestamp: timestamp ?? new Date().toISOString(),
     metadata,
   });
-}
 
-async function _allocateUrlId(ctx: QueryCtx, id: string) {
-  const existing = await getChatById(ctx, id);
+  let rank = 0;
 
-  if (existing === null || !existing.urlId) {
-    let i = 2;
-
-    while (true) {
-      const newUrlId = `${id}-${i}`;
-
-      const m = await getChatByUrlId(ctx, newUrlId);
-
-      if (m === null) {
-        return { urlId: newUrlId, existing };
-      }
-
-      i++;
+  if (appendedMessages) {
+    for (const message of appendedMessages) {
+      await ctx.db.insert('chatMessages', {
+        chatId,
+        content: message,
+        rank,
+      });
+      rank++;
     }
   }
 
-  return { urlId: existing.urlId, existing };
+  return ctx.db.get(chatId);
 }
 
-export async function createChatFromMessages(
-  ctx: MutationCtx,
-  description: string,
-  messages: SerializedMessage[],
-  metadata?: IChatMetadata,
-): Promise<string> {
-  const newId = await crypto.randomUUID();
-  const { urlId } = await _allocateUrlId(ctx, newId); // Get a new urlId for the duplicated chat
+async function _allocateUrlId(ctx: QueryCtx, { urlHint, sessionId }: { urlHint: string; sessionId: Id<'sessions'> }) {
+  const existing = await getChatByUrlId(ctx, { id: urlHint, sessionId });
 
-  await _setMessages(ctx, {
+  if (existing === null) {
+    return urlHint;
+  }
+
+  let i = 2;
+
+  while (true) {
+    const newUrlId = `${urlHint}-${i}`;
+
+    const m = await getChatByUrlId(ctx, { id: newUrlId, sessionId });
+
+    if (m === null) {
+      return newUrlId;
+    }
+
+    i++;
+  }
+}
+
+type UrlArg =
+  | {
+      kind: 'id';
+
+      // Must be unique across all chats for this session
+      id: string;
+    }
+  | {
+      kind: 'hint';
+
+      // Used as a hint to generate a unique id
+      hint: string;
+    };
+
+export async function createNewChatFromMessages(
+  ctx: MutationCtx,
+  args: {
+    url: UrlArg;
+    sessionId: Id<'sessions'>;
+    description: string;
+    messages: SerializedMessage[];
+    metadata?: IChatMetadata;
+  },
+): Promise<string> {
+  const { url, sessionId, description, messages, metadata } = args;
+  const newId = await crypto.randomUUID();
+
+  const chat = await _setMessages(ctx, {
+    sessionId,
     id: newId,
-    messages,
-    urlId,
+    appendedMessages: messages,
+    url,
     description,
     timestamp: undefined, // Use the current timestamp
     metadata,
   });
 
-  return urlId; // Return the urlId instead of id for navigation
+  return chat!.urlId!;
 }
 
-function getChatById(ctx: QueryCtx, id: string) {
+function getChatById(ctx: QueryCtx, { id, sessionId }: { id: string; sessionId: Id<'sessions'> }) {
   return ctx.db
     .query('chats')
-    .withIndex('byExternalId', (q) => q.eq('externalId', id))
+    .withIndex('byCreatorAndId', (q) => q.eq('creatorId', sessionId).eq('externalId', id))
     .unique();
 }
 
-function getChatByUrlId(ctx: QueryCtx, id: string) {
+function getChatByUrlId(ctx: QueryCtx, { id, sessionId }: { id: string; sessionId: Id<'sessions'> }) {
   return ctx.db
     .query('chats')
-    .withIndex('byUrlId', (q) => q.eq('urlId', id))
+    .withIndex('byCreatorAndUrlId', (q) => q.eq('creatorId', sessionId).eq('urlId', id))
     .unique();
 }
 
-async function getChatByIdOrUrlId(ctx: QueryCtx, id: string) {
-  const byId = await getChatById(ctx, id);
+async function getChatByIdOrUrlIdEnsuringAccess(
+  ctx: QueryCtx,
+  { id, sessionId }: { id: string; sessionId: Id<'sessions'> },
+) {
+  const byId = await getChatById(ctx, { id, sessionId });
 
   if (byId !== null) {
     return byId;
   }
 
-  const byUrlId = await getChatByUrlId(ctx, id);
+  const byUrlId = await getChatByUrlId(ctx, { id, sessionId });
 
   return byUrlId;
 }
+
+export const startSession = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return ctx.db.insert('sessions', {});
+  },
+});
