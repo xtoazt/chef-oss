@@ -8,6 +8,7 @@ import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
+import { convexStore } from '~/lib/stores/convex';
 
 const highlighterOptions = {
   langs: ['shell'],
@@ -161,6 +162,9 @@ function openArtifactInWorkbench(filePath: any) {
 }
 
 const ActionList = memo(({ actions }: ActionListProps) => {
+  const convexProject = useStore(convexStore);
+  const isConvexConnected = convexProject !== null;
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
       <ul className="list-none space-y-2.5">
@@ -234,6 +238,9 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   })}
                   code={content}
                 />
+              )}
+              {type === 'convex' && !isConvexConnected && (
+                <div className="text-bolt-elements-textTertiary">Connect to Convex to deploy functions</div>
               )}
               {type === 'convex' && action.status === 'running' && action.output && (
                 <ShellCodeBlock
