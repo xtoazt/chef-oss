@@ -325,32 +325,36 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
       const userUpdateArtifact = filesToArtifacts(modifiedFiles, `${Date.now()}`);
       append({
         role: 'user',
-        content: [
+        content: messageContent,
+        parts: [
           {
             type: 'text',
             text: `${userUpdateArtifact}${messageContent}`,
           },
           ...imageDataList.map((imageData) => ({
-            type: 'image',
-            image: imageData,
+            type: 'file' as const,
+            mimeType: 'image/png',
+            data: imageData,
           })),
-        ] as any,
+        ],
       });
 
       workbenchStore.resetAllFileModifications();
     } else {
       append({
         role: 'user',
-        content: [
+        content: messageContent,
+        parts: [
           {
             type: 'text',
             text: messageContent,
           },
           ...imageDataList.map((imageData) => ({
-            type: 'image',
-            image: imageData,
+            type: 'file' as const,
+            mimeType: 'image/png',
+            data: imageData,
           })),
-        ] as any,
+        ],
       });
     }
 
