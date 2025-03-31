@@ -6,6 +6,8 @@ import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
+import { WORK_DIR } from '~/utils/constants';
+import { convexProjectToken } from '~/lib/stores/convex';
 
 const logger = createScopedLogger('ActionRunner');
 
@@ -392,7 +394,7 @@ export class ActionRunner {
 
     const webcontainer = await this.#webcontainer;
 
-    // TODO Make sure that the project is set up
+    await this.#setupConvexEnvVars();
 
     const updateAction = this.#updateAction.bind(this);
 
@@ -420,5 +422,51 @@ export class ActionRunner {
     const exitCode = await process.exit;
 
     convexLogger.info(`Convex process terminated with code ${exitCode}`);
+  }
+
+  async #setupConvexEnvVars() {
+    const webcontainer = await this.#webcontainer;
+    const token = convexProjectToken.get();
+
+    if (!token) {
+      throw new Error('No Convex token found');
+    }
+
+    const envFilePath = `${WORK_DIR}/.env.local`;
+    const envVarName = 'CONVEX_DEPLOY_KEY';
+    const envVarLine = `${envVarName}=${token}\n`;
+
+    let exists = false;
+
+    try {
+      await webcontainer.fs.readFile(envFilePath, 'utf-8');
+      exists = true;
+    } catch {
+      exists = false;
+    }
+
+    if (!exists) {
+      // Create the file if it doesn't exist
+      await webcontainer.fs.writeFile(envFilePath, envVarLine);
+      logger.debug('Created .env.local with Convex token');
+
+      return;
+    }
+
+    // Read existing file content
+    const content = await webcontainer.fs.readFile(envFilePath, 'utf-8');
+    const lines = content.split('\n');
+
+    // Check if the env var already exists
+    const envVarExists = lines.some((line) => line.startsWith(`${envVarName}=`));
+
+    if (!envVarExists) {
+      // Add the env var to the end of the file
+      const newContent = content.endsWith('\n') ? `${content}${envVarLine}` : `${content}\n${envVarLine}`;
+      await webcontainer.fs.writeFile(envFilePath, newContent);
+      logger.debug('Added Convex token to .env.local');
+    } else {
+      logger.debug('Convex token already exists in .env.local');
+    }
   }
 }
