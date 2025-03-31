@@ -7,7 +7,7 @@ import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
 import { WORK_DIR } from '~/utils/constants';
-import { convexProjectToken } from '~/lib/stores/convex';
+import { convexStore } from '~/lib/stores/convex';
 
 const logger = createScopedLogger('ActionRunner');
 
@@ -426,11 +426,14 @@ export class ActionRunner {
 
   async #setupConvexEnvVars() {
     const webcontainer = await this.#webcontainer;
-    const token = convexProjectToken.get();
 
-    if (!token) {
-      throw new Error('No Convex token found');
+    const convexProject = convexStore.get();
+
+    if (!convexProject) {
+      throw new Error('No Convex project found');
     }
+
+    const { token } = convexProject;
 
     const envFilePath = `${WORK_DIR}/.env.local`;
     const envVarName = 'CONVEX_DEPLOY_KEY';

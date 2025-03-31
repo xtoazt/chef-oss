@@ -1,15 +1,19 @@
 import { useStore } from '@nanostores/react';
 import { memo, useEffect, useRef } from 'react';
-import { convexProjectToken, convexProjectDeploymentUrl, convexProjectDeploymentName } from '~/lib/stores/convex';
 import { IconButton } from '~/components/ui/IconButton';
+import { convexStore } from '~/lib/stores/convex';
 
 export const Dashboard = memo(() => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const deploymentUrl = useStore(convexProjectDeploymentUrl);
-  const token = useStore(convexProjectToken);
-  const deploymentName = useStore(convexProjectDeploymentName);
+  const convexProject = useStore(convexStore);
+
+  if (!convexProject) {
+    throw new Error('No Convex project connected');
+  }
+
+  const { deploymentUrl, token, deploymentName } = convexProject;
 
   const actualUrl = 'https://dashboard-embedded.convex.dev/data';
   const shownUrl = `https://dashboard.convex.dev/d/${deploymentName}/`;

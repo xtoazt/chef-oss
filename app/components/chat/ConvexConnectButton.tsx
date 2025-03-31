@@ -1,12 +1,7 @@
 import { classNames } from '~/utils/classNames';
 import { useState, useEffect } from 'react';
-import {
-  convexProjectConnected,
-  convexProjectDeploymentName,
-  convexProjectToken,
-  convexProjectDeploymentUrl,
-} from '~/lib/stores/convex';
 import { useStore } from '@nanostores/react';
+import { convexStore } from '~/lib/stores/convex';
 
 // The Convex OAuth App which is allowed to use the callbacks
 const CLIENT_ID = '855ec8198b9c462d';
@@ -53,10 +48,13 @@ export function ConvexConnectButton() {
         clearInterval(interval);
         setPollInterval(null);
         setIsLoading(false);
-        convexProjectConnected.set(true);
-        convexProjectToken.set(token);
-        convexProjectDeploymentName.set(deploymentName);
-        convexProjectDeploymentUrl.set(deploymentUrl);
+
+        convexStore.set({
+          token,
+          deploymentName,
+          deploymentUrl,
+        });
+
         localStorage.removeItem('convexProjectToken');
         localStorage.removeItem('convexProjectDeploymentName');
         localStorage.removeItem('convexProjectDeploymentUrl');
@@ -66,7 +64,7 @@ export function ConvexConnectButton() {
     setPollInterval(interval);
   };
 
-  const isReconnecting = useStore(convexProjectConnected);
+  const isConnected = useStore(convexStore) !== null;
 
   return (
     <button
@@ -87,7 +85,7 @@ export function ConvexConnectButton() {
       ) : (
         <>
           <div className="i-ph:plug-charging w-4 h-4" />
-          {isReconnecting ? 'Connect a different project' : 'Connect'}
+          {isConnected ? 'Connect a different project' : 'Connect'}
         </>
       )}
     </button>

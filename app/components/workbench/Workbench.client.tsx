@@ -25,7 +25,7 @@ import { Preview } from './Preview';
 import useViewport from '~/lib/hooks';
 import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
 import { Dashboard } from './Dashboard';
-import { convexProjectDeploymentName } from '~/lib/stores/convex';
+import { convexStore } from '~/lib/stores/convex';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -338,8 +338,7 @@ export const Workbench = memo(
       workbenchStore.currentView.set('diff');
     }, []);
 
-    const deploymentName = useStore(convexProjectDeploymentName);
-    const showDashboard = deploymentName !== null;
+    const showDashboard = useStore(convexStore) !== null;
 
     const sliderOptions: SliderOptions<WorkbenchViewType> = useMemo(
       () => ({

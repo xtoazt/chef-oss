@@ -2,20 +2,21 @@ import { useState } from 'react';
 import { Dialog, DialogButton, DialogClose, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
 import { classNames } from '~/utils/classNames';
 import { ConvexConnectButton } from './ConvexConnectButton';
-import { convexProjectConnected, convexProjectToken } from '~/lib/stores/convex';
 import { useStore } from '@nanostores/react';
 import { parseConvexToken } from '~/utils/convex';
+import { convexStore } from '~/lib/stores/convex';
 
 export function ConvexConnection() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const isConnected = useStore(convexProjectConnected);
-  const token = useStore(convexProjectToken);
+  const convexProject = useStore(convexStore);
+
+  const isConnected = convexProject !== null;
+  const token = convexProject?.token;
   const projectInfo = token ? parseConvexToken(token) : null;
 
   const handleDisconnect = () => {
-    convexProjectConnected.set(false);
-    convexProjectToken.set(null);
+    convexStore.set(null);
   };
 
   return (
