@@ -1,13 +1,13 @@
 import { useParams } from '@remix-run/react';
 import { classNames } from '~/utils/classNames';
 import * as Dialog from '@radix-ui/react-dialog';
-import { type ChatHistoryItem } from '~/lib/persistence';
+import { type ChatHistoryItemConvex } from '~/lib/persistence';
 import WithTooltip from '~/components/ui/Tooltip';
 import { useEditChatDescription } from '~/lib/hooks';
 import { forwardRef, type ForwardedRef } from 'react';
 
 interface HistoryItemProps {
-  item: ChatHistoryItem;
+  item: ChatHistoryItemConvex;
   onDelete?: (event: React.UIEvent) => void;
   onDuplicate?: (id: string) => void;
 }
@@ -19,7 +19,7 @@ export function HistoryItem({ item, onDelete, onDuplicate }: HistoryItemProps) {
   const { editing, handleChange, handleBlur, handleSubmit, handleKeyDown, currentDescription, toggleEditMode } =
     useEditChatDescription({
       initialDescription: item.description,
-      customChatId: item.id,
+      customChatId: item.externalId,
       syncWithGlobalStore: isActiveChat,
     });
 
@@ -63,7 +63,7 @@ export function HistoryItem({ item, onDelete, onDuplicate }: HistoryItemProps) {
                 <ChatActionButton
                   toolTipContent="Duplicate"
                   icon="i-ph:copy h-4 w-4"
-                  onClick={() => onDuplicate?.(item.id)}
+                  onClick={() => onDuplicate?.(item.externalId)}
                 />
               )}
               <ChatActionButton
