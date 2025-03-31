@@ -244,7 +244,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
 
               {type === 'convex' && action.status === 'running' && !isConvexConnected && <ConvexConnectAlert />}
 
-              {type === 'convex' && action.status === 'complete' && action.output && (
+              {type === 'convex' && action.status !== 'complete' && action.output && (
                 <ConvexDeployTerminal input={action.output ?? ''} />
               )}
             </motion.li>
