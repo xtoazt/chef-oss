@@ -189,7 +189,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
         if (file) {
           const reader = new FileReader();
-
           reader.onload = (e) => {
             const base64Image = e.target?.result as string;
             setUploadedFiles?.([...uploadedFiles, file]);

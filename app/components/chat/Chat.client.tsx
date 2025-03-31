@@ -3,8 +3,8 @@
  * Preventing TS checks with files presented in the video for a better presentation.
  */
 import { useStore } from '@nanostores/react';
-import type { Message } from 'ai';
-import { useChat } from 'ai/react';
+import type { Message, UIMessage } from 'ai';
+import { useChat } from '@ai-sdk/react';
 import { useAnimate } from 'framer-motion';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { cssTransition, toast, ToastContainer } from 'react-toastify';
@@ -139,7 +139,7 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
   const {
     messages,
-    isLoading,
+    status,
     input,
     handleInputChange,
     setInput,
@@ -194,6 +194,7 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     initialMessages,
     initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
   });
+  const isLoading = status === 'streaming' || status === 'submitted';
   useEffect(() => {
     const prompt = searchParams.get('prompt');
 
@@ -203,15 +204,7 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
     setSearchParams({});
     runAnimation();
-    append({
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: prompt,
-        },
-      ] as any, // Type assertion to bypass compiler check
-    });
+    append({ role: 'user', content: prompt });
   }, [model, provider, searchParams]);
 
   const { enhancingPrompt, promptEnhanced, enhancePrompt, resetEnhancer } = usePromptEnhancer();
@@ -301,16 +294,18 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
         {
           id: `${new Date().getTime()}`,
           role: 'user',
-          content: [
+          content: messageContent,
+          parts: [
             {
               type: 'text',
               text: messageContent,
             },
             ...imageDataList.map((imageData) => ({
-              type: 'image',
-              image: imageData,
+              type: 'file' as const,
+              mimeType: 'image/png',
+              data: imageData,
             })),
-          ] as any,
+          ],
         },
       ]);
       reload();
