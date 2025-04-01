@@ -18,6 +18,7 @@ import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
+import type { WebContainer } from '@webcontainer/api';
 
 const { saveAs } = fileSaver;
 
@@ -73,6 +74,10 @@ export class WorkbenchStore {
 
   get files() {
     return this.#filesStore.files;
+  }
+
+  prewarmWorkdir(container: WebContainer) {
+    this.#filesStore.prewarmWorkdir(container);
   }
 
   get currentDocument(): ReadableAtom<EditorDocument | undefined> {

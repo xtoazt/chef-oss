@@ -1,4 +1,4 @@
-import type { PathWatcherEvent, WebContainer } from '@webcontainer/api';
+import type { WebContainer, PathWatcherEvent } from '@webcontainer/api';
 import { getEncoding } from 'istextorbinary';
 import { map, type MapStore } from 'nanostores';
 import { Buffer } from 'node:buffer';
@@ -138,11 +138,45 @@ export class FilesStore {
 
   async #init() {
     const webcontainer = await this.#webcontainer;
-
+    (globalThis as any).webcontainer = webcontainer;
     webcontainer.internal.watchPaths(
       { include: [`${WORK_DIR}/**`], exclude: ['**/node_modules', '.git'], includeContent: true },
       bufferWatchEvents(100, this.#processEventBuffer.bind(this)),
     );
+  }
+
+  async prewarmWorkdir(container: WebContainer) {
+    const absFilePaths = await container.internal.fileSearch([] as any, WORK_DIR, {
+      excludes: [".gitignore", "node_modules"],
+    });
+    const dirs = new Set<string>();
+    for (const absPath of absFilePaths) {
+      const dir = path.dirname(absPath);
+      const relativePath = path.relative(container.workdir, absPath);
+      if (!relativePath) {
+        continue;
+      }
+      dirs.add(dir);
+    }
+    for (const dir of Array.from(dirs).sort()) {
+      const sanitizedPath = dir.replace(/\/+$/g, '');
+      this.files.setKey(sanitizedPath, { type: 'folder' });
+    }
+
+    const loadFile = async (absPath: string) => {
+      const relativePath = path.relative(container.workdir, absPath);
+      if (!relativePath) {
+        return;
+      }
+      const buffer = await container.fs.readFile(relativePath);
+      const isBinary = isBinaryFile(buffer);
+      let content = '';
+      if (!isBinary) {
+        content = this.#decodeFileContent(buffer);
+      }
+      this.files.setKey(absPath, { type: 'file', content, isBinary });
+    };
+    await Promise.all(absFilePaths.map(loadFile));
   }
 
   #processEventBuffer(events: Array<[events: PathWatcherEvent[]]>) {
@@ -166,7 +200,6 @@ export class FilesStore {
               this.files.setKey(direntPath, undefined);
             }
           }
-
           break;
         }
         case 'add_file':

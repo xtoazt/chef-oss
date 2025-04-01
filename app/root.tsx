@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react';
 import type { LinksFunction, LoaderFunctionArgs } from '@remix-run/cloudflare';
-import { json, Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from '@remix-run/react';
+import { json, Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useRouteLoaderData } from '@remix-run/react';
 import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
@@ -65,7 +65,7 @@ const inlineThemeCode = stripIndents`
 export const Head = createHead(() => (
   <>
     <meta charSet="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-xscale=1" />
     <Meta />
     <Links />
     <script dangerouslySetInnerHTML={{ __html: inlineThemeCode }} />
@@ -74,8 +74,11 @@ export const Head = createHead(() => (
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const theme = useStore(themeStore);
-  const { ENV } = useLoaderData<typeof loader>();
-  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || ENV.CONVEX_URL!;
+  const loaderData = useRouteLoaderData<typeof loader>("root");
+  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || loaderData?.ENV.CONVEX_URL;
+  if (!CONVEX_URL) {
+    throw new Error(`Missing CONVEX_URL: ${CONVEX_URL}`)
+  }
 
   const [convex] = useState(() => new ConvexReactClient(CONVEX_URL));
 
