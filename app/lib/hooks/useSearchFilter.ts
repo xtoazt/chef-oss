@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { debounce } from '~/utils/debounce';
-import type { ChatHistoryItemConvex } from '~/lib/persistence';
+import type { ChatHistoryItem } from '~/lib/persistence';
 
 interface UseSearchFilterOptions {
-  items: ChatHistoryItemConvex[];
-  searchFields?: (keyof ChatHistoryItemConvex)[];
+  items: ChatHistoryItem[];
+  searchFields?: (keyof ChatHistoryItem)[];
   debounceMs?: number;
 }
 

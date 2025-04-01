@@ -1,13 +1,15 @@
 import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { atom } from 'nanostores';
-import type { Message } from 'ai';
+import { useStore } from '@nanostores/react';
+import type { Message } from '@ai-sdk/react';
 import { toast } from 'react-toastify';
-import { workbenchStore } from '~/lib/stores/workbench';
-import { useConvex, useQuery } from 'convex/react';
+import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import type { SerializedMessage } from '@convex/messages';
+import { getLocalStorage, setLocalStorage } from '~/lib/persistence/localStorage';
+import type { Id } from '@convex/_generated/dataModel';
 
 export interface IChatMetadata {
   gitUrl: string;
@@ -15,43 +17,70 @@ export interface IChatMetadata {
   netlifySiteId?: string;
 }
 
-export interface ChatHistoryItemConvex {
-  externalId: string;
-  urlId?: string;
-  description?: string;
-  timestamp: string;
-  metadata?: IChatMetadata;
-}
-
 export interface ChatHistoryItem {
+  /*
+   * ID should be the urlId (if it's set) or the initialId, and callers should be able
+   * to handle either
+   */
   id: string;
+  initialId: string;
   urlId?: string;
   description?: string;
-  messages: Message[];
   timestamp: string;
   metadata?: IChatMetadata;
 }
 
+/*
+ * This is the ID of the currently active chat -- it can be a human-friendly URL ID (e.g. `tic-tac-toe`)
+ * if it's been set, or the initially allocated ID (a UUID). Callers should be able to handle either.
+ */
 export const chatId = atom<string | undefined>(undefined);
 export const description = atom<string | undefined>(undefined);
 export const chatMetadata = atom<IChatMetadata | undefined>(undefined);
+export const sessionIdStore = atom<Id<'sessions'> | undefined>(undefined);
+
+const SESSION_ID_KEY = 'sessionIdForConvex';
 
 export const useChatHistoryConvex = () => {
   const navigate = useNavigate();
 
-  // mixedId means either chatId or urlId
+  // mixedId means either an initialId or a urlId
   const { id: mixedId } = useLoaderData<{ id?: string }>();
   const [searchParams] = useSearchParams();
 
   const [initialMessages, setInitialMessages] = useState<SerializedMessage[]>([]);
   const [initialDeserializedMessages, setInitialDeserializedMessages] = useState<Message[]>([]);
+
+  const [persistedMessages, setPersistedMessages] = useState<Message[]>([]);
+  const persistInProgress = useRef(false);
+
   const [ready, setReady] = useState<boolean>(false);
   const [urlId, setUrlId] = useState<string | undefined>();
+  const sessionId = useStore(sessionIdStore);
   const convex = useConvex();
-  const rawMessages = useQuery(api.messages.get, mixedId === undefined ? 'skip' : { id: mixedId });
   useEffect(() => {
-    if (rawMessages) {
-      if (rawMessages.messages.length > 0) {
+    if (sessionId === undefined) {
+      const sessionIdFromLocalStorage = getLocalStorage(SESSION_ID_KEY);
+
+      if (sessionIdFromLocalStorage) {
+        sessionIdStore.set(sessionIdFromLocalStorage);
+      } else {
+        convex.mutation(api.messages.startSession).then((id) => {
+          setLocalStorage(SESSION_ID_KEY, id);
+          sessionIdStore.set(id);
+        });
+      }
+    }
+  }, [sessionId]);
+  useEffect(() => {
+    if (sessionId === undefined || mixedId === undefined) {
+      return;
+    }
+
+    // TODO -- this should clear `initialMessages` if the chat has changed
+
+    convex.query(api.messages.getWithMessages, { id: mixedId, sessionId }).then((rawMessages) => {
+      if (rawMessages !== null && rawMessages.messages.length > 0) {
         const rewindId = searchParams.get('rewindTo');
         const filteredMessages = rewindId
           ? rawMessages.messages.slice(0, rawMessages.messages.findIndex((m) => m.id === rewindId) + 1)
@@ -61,31 +90,30 @@ export const useChatHistoryConvex = () => {
         setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
         setUrlId(rawMessages.urlId);
         description.set(rawMessages.description);
-        chatId.set(rawMessages.externalId);
+        chatId.set(rawMessages.id);
         chatMetadata.set(rawMessages.metadata);
         setReady(true);
       } else {
+        console.log('navigating to /');
         navigate('/', { replace: true });
       }
-    }
-  }, [rawMessages]);
+    });
+  }, [mixedId, sessionId, convex]);
 
   return {
     ready: mixedId === undefined || ready,
     initialMessages: initialDeserializedMessages,
-    updateChatMestaData: async (metadata: IChatMetadata) => {
+    updateChatMetadata: async (metadata: IChatMetadata) => {
       const id = chatId.get();
 
-      if (!id) {
+      if (!id || !sessionId) {
         return;
       }
 
       try {
-        await convex.mutation(api.messages.set, {
+        await convex.mutation(api.messages.setMetadata, {
           id,
-          messages: initialMessages,
-          urlId,
-          description: description.get(),
+          sessionId,
           metadata,
         });
         chatMetadata.set(metadata);
@@ -95,51 +123,71 @@ export const useChatHistoryConvex = () => {
       }
     },
     storeMessageHistory: async (messages: Message[]) => {
-      if (!convex || messages.length === 0) {
+      if (messages.length === 0) {
         return;
       }
 
-      const { firstArtifact } = workbenchStore;
-
-      if (!urlId && firstArtifact?.id) {
-        const urlId = await convex.mutation(api.messages.allocateUrlId, { id: firstArtifact.id });
-
-        navigateChat(urlId);
-        setUrlId(urlId);
+      if (!sessionId) {
+        return;
       }
 
-      if (!description.get() && firstArtifact?.title) {
-        description.set(firstArtifact?.title);
-      }
-
+      /*
+       * Synchronously allocate a new ID -- this ID is temporary and will be replaced by a
+       * more human-friendly ID when the first message is added.
+       */
       if (initialMessages.length === 0 && !chatId.get()) {
-        // sshader -- why do they want incrementing IDs?
-        const nextId = await crypto.randomUUID();
-
+        const nextId = crypto.randomUUID();
         chatId.set(nextId);
-
-        if (!urlId) {
-          navigateChat(nextId);
-        }
       }
 
       const id = chatId.get() as string;
 
-      await convex.mutation(api.messages.set, {
+      if (persistInProgress.current) {
+        return;
+      }
+
+      const messagesToAdd = findMessagesToUpdate(initialMessages.length, persistedMessages, messages);
+
+      if (messagesToAdd.length === 0) {
+        return;
+      }
+
+      persistInProgress.current = true;
+
+      const result = await convex.mutation(api.messages.addMessages, {
         id,
-        messages: messages.map(serializeMessageForConvex),
-        urlId,
-        description: description.get(),
-        metadata: chatMetadata.get(),
+        sessionId,
+        messages: messagesToAdd.map(serializeMessageForConvex),
+        expectedLength: messages.length,
       });
+
+      setPersistedMessages(messages);
+      persistInProgress.current = false;
+
+      // Update the description + URL ID if they have changed
+      if (description.get() !== result.description) {
+        description.set(result.description);
+      }
+
+      if (urlId !== result.id) {
+        setUrlId(result.id);
+        navigateChat(result.id);
+      }
     },
     duplicateCurrentChat: async (listItemId: string) => {
+      if (!sessionId) {
+        return;
+      }
+
       if (!mixedId && !listItemId) {
         return;
       }
 
       try {
-        const newId = await convex.mutation(api.messages.duplicate, { id: mixedId || listItemId });
+        const newId = await convex.mutation(api.messages.duplicate, {
+          id: mixedId || listItemId,
+          sessionId,
+        });
         navigate(`/chat/${newId}`);
         toast.success('Chat duplicated successfully');
       } catch (error) {
@@ -148,11 +196,16 @@ export const useChatHistoryConvex = () => {
       }
     },
     importChat: async (description: string, messages: Message[], metadata?: IChatMetadata) => {
+      if (!sessionId) {
+        return;
+      }
+
       try {
-        const newId = await convex.mutation(api.messages.createFromMessages, {
+        const newId = await convex.mutation(api.messages.importChat, {
           description,
           messages: messages.map(serializeMessageForConvex),
           metadata,
+          sessionId,
         });
         window.location.href = `/chat/${newId}`;
         toast.success('Chat imported successfully');
@@ -165,11 +218,11 @@ export const useChatHistoryConvex = () => {
       }
     },
     exportChat: async (id = urlId) => {
-      if (!id) {
+      if (!id || !sessionId) {
         return;
       }
 
-      const chat = await convex.query(api.messages.get, { id });
+      const chat = await convex.query(api.messages.getWithMessages, { id, sessionId });
 
       if (!chat) {
         return;
@@ -218,4 +271,35 @@ function deserializeMessageForConvex(message: SerializedMessage): Message {
     ...message,
     createdAt: message.createdAt ? new Date(message.createdAt) : undefined,
   };
+}
+
+function findMessagesToUpdate(initialMessagesLength: number, persistedMessages: Message[], currentMessages: Message[]) {
+  if (persistedMessages.length > currentMessages.length) {
+    console.error('Unexpected state -- more persisted messages than current messages');
+    return [];
+  }
+
+  if (initialMessagesLength > persistedMessages.length) {
+    // Initial messages should never change. Update with everything after the initial messages.
+    return currentMessages.slice(initialMessagesLength);
+  }
+
+  /*
+   * We assume that changes to the messages either are edits to the last persisted message, or
+   * new messages.
+   *
+   * We want to avoid sending the entire message history on every change, so we only send the
+   * changed messages.
+   *
+   * In theory, `Message` that are semantically the same are `===` to each other, but empirically
+   * that's not always true. But occasional false positive means extra no-op calls to persistence,
+   * which should be fine (the persisted state should still be correct).
+   */
+  for (let i = persistedMessages.length - 1; i < currentMessages.length; i++) {
+    if (currentMessages[i] !== persistedMessages[i]) {
+      return currentMessages.slice(i);
+    }
+  }
+
+  return [];
 }
