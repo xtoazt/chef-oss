@@ -23,7 +23,7 @@ export interface Folder {
   type: 'folder';
 }
 
-type Dirent = File | Folder;
+export type Dirent = File | Folder;
 
 export type FileMap = Record<string, Dirent | undefined>;
 

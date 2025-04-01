@@ -1,5 +1,5 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
-import { streamText } from '~/lib/.server/llm/stream-text';
+import { boltStreamText } from '~/lib/.server/llm/stream-text';
 import { stripIndents } from '~/utils/stripIndent';
 import type { ProviderInfo } from '~/types/model';
 import { getApiKeysFromCookie, getProviderSettingsFromCookie } from '~/lib/api/cookies';
@@ -41,7 +41,7 @@ async function enhancerAction({ context, request }: ActionFunctionArgs) {
   const providerSettings = getProviderSettingsFromCookie(cookieHeader);
 
   try {
-    const result = await streamText({
+    const result = await boltStreamText({
       messages: [
         {
           role: 'user',

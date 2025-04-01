@@ -73,6 +73,26 @@ export class StreamingMessageParser {
 
   constructor(private _options: StreamingMessageParserOptions = {}) {}
 
+  static stripArtifacts(content: string) {
+    let i = 0;
+    let output = '';
+
+    while (i < content.length) {
+      const startIndex = content.indexOf(ARTIFACT_TAG_OPEN, i);
+      if (startIndex === -1) {
+        output += content.slice(i);
+        break;
+      }
+      output += content.slice(i, startIndex);
+      const endIndex = content.indexOf(ARTIFACT_TAG_CLOSE, startIndex);
+      if (endIndex === -1) {
+        break;
+      }
+      i = endIndex + ARTIFACT_TAG_CLOSE.length;
+    }
+    return output;
+  }
+
   parse(messageId: string, input: string) {
     let state = this.#messages.get(messageId);
 

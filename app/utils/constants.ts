@@ -20,3 +20,7 @@ PROVIDER_LIST.forEach((provider) => {
     apiTokenKey: provider.config.apiTokenKey,
   };
 });
+
+export const PREWARM_PATHS = [
+  `${WORK_DIR}/package.json`,
+];

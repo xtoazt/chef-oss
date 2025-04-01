@@ -1,9 +1,5 @@
-/*
- * @ts-nocheck
- * Preventing TS checks with files presented in the video for a better presentation.
- */
 import { useStore } from '@nanostores/react';
-import type { Message, UIMessage } from 'ai';
+import type { Message } from 'ai';
 import { useChat } from '@ai-sdk/react';
 import { useAnimate } from 'framer-motion';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -26,6 +22,7 @@ import { logStore } from '~/lib/stores/logs';
 import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { convexStore } from '~/lib/stores/convex';
+import { ChatContextManager } from '~/lib/ChatContextManager';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -117,10 +114,9 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [imageDataList, setImageDataList] = useState<string[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
-  const files = useStore(workbenchStore.files);
   const actionAlert = useStore(workbenchStore.alert);
   const convexProject = useStore(convexStore);
-  const { activeProviders, promptId } = useSettings();
+  const { activeProviders } = useSettings();
 
   const [model, setModel] = useState(() => {
     const savedModel = Cookies.get('selectedModel');
@@ -137,6 +133,8 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
 
+  const chatContextManager = useRef(new ChatContextManager());
+
   const {
     messages,
     status,
@@ -152,17 +150,14 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     setData,
   } = useChat({
     api: '/api/chat',
-    body: {
-      apiKeys,
-      files,
-      promptId,
-      convex: {
-        isConnected: convexProject !== null,
-        projectToken: convexProject?.token,
-      },
+    experimental_prepareRequestBody: ({ messages }) => {
+      return {
+        messages: chatContextManager.current.prepareContext(messages),
+      }
     },
     sendExtraMessageFields: true,
     onError: (e) => {
+      console.log("Error", e);
       logger.error('Request failed\n\n', e, error);
       logStore.logError('Chat request failed', e, {
         component: 'Chat',
