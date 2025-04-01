@@ -4,8 +4,9 @@ import { createScopedLogger } from '~/utils/logger';
 import { convertToCoreMessages, createDataStream, streamText } from 'ai';
 import type { ProgressAnnotation } from '~/types/context';
 import { WORK_DIR } from '~/utils/constants';
-import { anthropic } from '@ai-sdk/anthropic';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { getSystemPrompt } from '~/lib/common/prompts/prompts';
+import { openai } from '@ai-sdk/openai';
 
 const logger = createScopedLogger('api.chat2');
 
@@ -43,16 +44,24 @@ async function chatAction({ request }: ActionFunctionArgs) {
           message: 'Generating Response',
         } satisfies ProgressAnnotation);
 
-        const systemPrompt = getSystemPrompt(WORK_DIR);
+        let systemPrompt: string | undefined;
+        if (provider.includeSystemPrompt) {
+          systemPrompt = getSystemPrompt(WORK_DIR);
+        }
         const userMessages = buildUserMessages(messages);
         const result = streamText({
-          model: anthropic('claude-3-5-sonnet-20241022'),
+          model: provider.model,
           system: systemPrompt,
-          maxTokens: 8192,
+          maxTokens: provider.maxTokens,
           messages: userMessages,
           toolChoice: 'none',
-          onFinish: async ({ usage }) => {
-            logger.debug('usage', JSON.stringify(usage));
+          onFinish: async (result) => {
+            const { usage } = result;
+            console.log("Finished streaming", {
+              finishReason: result.finishReason,
+              usage,
+              providerMetadata: result.providerMetadata,
+            });
 
             if (usage) {
               progress.cumulativeUsage.completionTokens += usage.completionTokens || 0;
@@ -136,3 +145,69 @@ function buildUserMessages(messages: Messages) {
   });
   return convertToCoreMessages(processedMessages);
 }
+
+// sujayakar, 2025-03-25: This is mega-hax, but I can't figure out
+// how to get the AI SDK to pass the cache control header to
+// Anthropic with the `streamText` function. Setting
+// `providerOptions.anthropic.cacheControl` doesn't seem to do
+// anything. So, we instead directly inject the cache control
+// header into the body of the request.
+function anthropicInjectCacheControl(options?: RequestInit) {
+  const start = Date.now();
+  if (!options) {
+    return options;
+  }
+  if (options.method !== "POST") {
+    return options;
+  }
+  const headers = options.headers;
+  if (!headers) {
+    return options;
+  }
+  const contentType = new Headers(headers).get("content-type");
+  if (contentType !== "application/json") {
+    return options;
+  }
+  if (typeof options.body !== "string") {
+    throw new Error("Body must be a string");
+  }
+  const startChars = options.body.length;
+  const body = JSON.parse(options.body);
+  body.system = [
+    {
+      type: "text",
+      text: getSystemPrompt(WORK_DIR),
+      cache_control: { type: "ephemeral" },
+    },
+    // NB: The client dynamically manages files injected as context
+    // past this point, and we don't want them to pollute the cache.
+    ...(body.system ?? []),
+  ];
+  const newBody = JSON.stringify(body);
+  console.log(
+    `Injected system messages in ${Date.now() - start}ms (${startChars} -> ${
+      newBody.length
+    } chars)`
+  );
+  return { ...options, body: newBody };
+}
+
+const anthropic = createAnthropic({
+  fetch: async (url, options) => {
+    return fetch(url, anthropicInjectCacheControl(options));
+  },
+});
+
+const providers = {
+  anthropic: {
+    maxTokens: 8192,
+    model: anthropic("claude-3-5-sonnet-20241022"),
+    includeSystemPrompt: false,
+  },
+  openai: {
+    maxTokens: 16384,
+    model: openai("gpt-4o-2024-11-20"),
+    includeSystemPrompt: true,
+  }
+}
+const provider = providers.anthropic;
