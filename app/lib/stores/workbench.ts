@@ -19,7 +19,6 @@ import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
 import type { WebContainer } from '@webcontainer/api';
-import type { FileSystemTree } from '@webcontainer/api';
 import { formatSize } from '~/utils/formatSize';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@convex/_generated/api';
