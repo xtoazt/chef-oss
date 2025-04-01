@@ -24,7 +24,7 @@ export const Dashboard = memo(() => {
         return;
       }
 
-      if (event.data?.type === 'dashboard-credentials-request') {
+      if (event.data?.type !== 'dashboard-credentials-request') {
         return;
       }
 
