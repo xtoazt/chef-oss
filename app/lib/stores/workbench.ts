@@ -107,7 +107,7 @@ export class WorkbenchStore {
           throw new Error('Session ID is not set');
         }
 
-        const binarySnapshot = await buildSnapshot('binary');
+        const binarySnapshot = await buildSnapshot('binary', true);
 
         if (!(binarySnapshot instanceof Uint8Array)) {
           throw new Error('Snapshot must be a Uint8Array');
