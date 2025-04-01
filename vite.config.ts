@@ -9,7 +9,8 @@ import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
+// importing it is ok, but using it breaks things
+//import topLevelAwait from 'vite-plugin-top-level-await';
 
 dotenv.config();
 
@@ -154,7 +155,7 @@ export default defineConfig((config) => {
       chrome129IssuePlugin(),
       config.mode === 'production' && optimizeCssModules({ apply: 'build' }),
       wasm(),
-      topLevelAwait(),
+//      topLevelAwait(),  // including this breaks the build, only in cloudflare
     ],
     envPrefix: [
       'VITE_',
