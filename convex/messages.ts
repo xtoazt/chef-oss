@@ -21,20 +21,20 @@ export const addMessages = mutation({
     sessionId: v.id('sessions'),
     id: v.string(),
     messages: v.array(v.any() as VAny<SerializedMessage>),
-    description: v.optional(v.string()),
-    metadata: v.optional(IChatMetadataValidator),
+    expectedLength: v.number(),
   },
+  returns: v.object({
+    id: v.string(),
+    description: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
-    const { id, sessionId, messages } = args;
+    const { id, sessionId, messages, expectedLength } = args;
     let existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
     if (!existing) {
-      console.log('Creating new chat with id', id);
       await createNewChatFromMessages(ctx, {
         id,
         sessionId,
-        description: args.description,
-        metadata: args.metadata,
       });
 
       existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
@@ -44,16 +44,12 @@ export const addMessages = mutation({
       }
     }
 
-    const { slug, description } = await _appendMessages(ctx, {
+    return _appendMessages(ctx, {
       sessionId,
       chat: existing,
       messages,
+      expectedLength,
     });
-
-    return {
-      id: slug,
-      description,
-    };
   },
 });
 
@@ -63,6 +59,7 @@ export const setDescription = mutation({
     id: v.string(),
     description: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { id, description } = args;
     const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId: args.sessionId });
@@ -83,6 +80,7 @@ export const setMetadata = mutation({
     id: v.string(),
     metadata: IChatMetadataValidator,
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { id, metadata, sessionId } = args;
     const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
@@ -102,6 +100,10 @@ export const duplicate = mutation({
     sessionId: v.id('sessions'),
     id: v.string(),
   },
+  returns: v.object({
+    id: v.string(),
+    description: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const { id } = args;
     const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId: args.sessionId });
@@ -141,6 +143,10 @@ export const fork = mutation({
     id: v.string(),
     messageId: v.string(),
   },
+  returns: v.object({
+    id: v.string(),
+    description: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const { id, messageId, sessionId } = args;
     const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
@@ -178,34 +184,43 @@ export const fork = mutation({
     });
 
     return {
-      id: forkedChat!.urlId ?? forkedChat!.externalId,
+      id: getIdentifier(forkedChat!),
       description: `${chat.description} (fork)`,
     };
   },
 });
 
-export const createFromMessages = mutation({
+export const importChat = mutation({
   args: {
     sessionId: v.id('sessions'),
     description: v.string(),
-    urlHint: v.string(),
     messages: v.array(v.any() as VAny<SerializedMessage>),
     metadata: v.optional(IChatMetadataValidator),
   },
+  returns: v.object({
+    id: v.string(),
+    description: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
-    const { description, messages, metadata, sessionId, urlHint } = args;
+    const { description, messages, metadata, sessionId } = args;
 
-    // xcxc
-    // return createNewChatFromMessages(ctx, {
-    //   url: {
-    //     kind: 'hint',
-    //     hint: urlHint,
-    //   },
-    //   sessionId,
-    //   description,
-    //   messages,
-    //   metadata,
-    // });
+    const chatId = await createNewChatFromMessages(ctx, {
+      id: crypto.randomUUID(),
+      sessionId,
+      description,
+      metadata,
+    });
+    const chat = await ctx.db.get(chatId);
+
+    if (!chat) {
+      throw new Error(`Invalid state -- chat just created should exist: ${chatId}`);
+    }
+
+    return await _appendMessages(ctx, {
+      sessionId,
+      chat,
+      messages,
+    });
   },
 });
 
@@ -214,9 +229,32 @@ export const get = query({
     id: v.string(),
     sessionId: v.id('sessions'),
   },
+  returns: v.union(
+    v.null(),
+    v.object({
+      initialId: v.string(),
+      urlId: v.optional(v.string()),
+      description: v.optional(v.string()),
+      timestamp: v.string(),
+      metadata: v.optional(IChatMetadataValidator),
+    }),
+  ),
   handler: async (ctx, args) => {
     const { id, sessionId } = args;
-    return getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
+    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
+
+    if (!chat) {
+      return null;
+    }
+
+    // Don't send extra fields like `messages` or `creatorId`
+    return {
+      initialId: chat.initialId,
+      urlId: chat.urlId,
+      description: chat.description,
+      timestamp: chat.timestamp,
+      metadata: chat.metadata,
+    };
   },
 });
 
@@ -225,8 +263,21 @@ export const getWithMessages = query({
     id: v.string(),
     sessionId: v.id('sessions'),
   },
+  returns: v.union(
+    v.null(),
+    v.object({
+      id: v.string(),
+      initialId: v.string(),
+      urlId: v.optional(v.string()),
+      description: v.optional(v.string()),
+      timestamp: v.string(),
+      metadata: v.optional(IChatMetadataValidator),
+      messages: v.array(v.any() as VAny<SerializedMessage>),
+    }),
+  ),
   handler: async (ctx, args) => {
     const { id, sessionId } = args;
+
     const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
     if (!chat) {
@@ -238,17 +289,43 @@ export const getWithMessages = query({
       .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
       .collect();
 
-    return { ...chat, messages: messages.map((m) => m.content) };
+    return {
+      id: getIdentifier(chat),
+      initialId: chat.initialId,
+      urlId: chat.urlId,
+      description: chat.description,
+      timestamp: chat.timestamp,
+      metadata: chat.metadata,
+      messages: messages.map((m) => m.content),
+    };
   },
 });
 
 export const getAll = query({
-  args: {},
-  handler: async (ctx) => {
-    const results = await ctx.db.query('chats').collect();
+  args: {
+    sessionId: v.id('sessions'),
+  },
+  returns: v.array(
+    v.object({
+      id: v.string(),
+      initialId: v.string(),
+      urlId: v.optional(v.string()),
+      description: v.optional(v.string()),
+      timestamp: v.string(),
+      metadata: v.optional(IChatMetadataValidator),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const { sessionId } = args;
+    const results = await ctx.db
+      .query('chats')
+      .withIndex('byCreatorAndUrlId', (q) => q.eq('creatorId', sessionId))
+      .collect();
+
     return results.map((result) => ({
-      externalId: result.externalId,
-      urlId: result.urlId ?? result.externalId,
+      id: getIdentifier(result),
+      initialId: result.initialId,
+      urlId: result.urlId,
       description: result.description,
       timestamp: result.timestamp,
       metadata: result.metadata,
@@ -261,6 +338,7 @@ export const remove = mutation({
     id: v.string(),
     sessionId: v.id('sessions'),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { id, sessionId } = args;
     const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
@@ -274,9 +352,16 @@ export const remove = mutation({
 });
 
 export const deleteAll = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const chats = await ctx.db.query('chats').collect();
+  args: {
+    sessionId: v.id('sessions'),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { sessionId } = args;
+    const chats = await ctx.db
+      .query('chats')
+      .withIndex('byCreatorAndUrlId', (q) => q.eq('creatorId', sessionId))
+      .collect();
 
     for (const chat of chats) {
       await ctx.db.delete(chat._id);
@@ -284,15 +369,19 @@ export const deleteAll = mutation({
   },
 });
 
+/*
+ * Update the last message in the chat (if the `id`s match), and append any new messages.
+ */
 async function _appendMessages(
   ctx: MutationCtx,
   args: {
     sessionId: Id<'sessions'>;
     chat: Doc<'chats'>;
     messages: SerializedMessage[];
+    expectedLength?: number;
   },
 ) {
-  const { chat, messages } = args;
+  const { chat, messages, expectedLength } = args;
 
   const lastMessage = await ctx.db
     .query('chatMessages')
@@ -317,6 +406,7 @@ async function _appendMessages(
 
   let rank = lastMessage ? lastMessage.rank + 1 : 0;
 
+  // If the first message is actually an update to the last message, patch it
   if (lastMessage && lastMessage.content.id === messages[0].id) {
     await ctx.db.patch(lastMessage._id, {
       content: messages[0],
@@ -324,6 +414,7 @@ async function _appendMessages(
     messages.shift();
   }
 
+  // Add the remaining messages
   for (const message of messages) {
     await ctx.db.insert('chatMessages', {
       chatId: chat._id,
@@ -333,17 +424,28 @@ async function _appendMessages(
     rank++;
   }
 
-  const updatedSlug = chat.urlId ?? chat.externalId;
+  if (expectedLength !== undefined && rank !== expectedLength) {
+    console.error('Expected length mismatch', rank, expectedLength);
+  }
+
+  const updatedId = getIdentifier(chat);
   const updatedDescription = chat.description;
 
   return {
-    slug: updatedSlug,
+    id: updatedId,
     description: updatedDescription,
   };
 }
 
 function extractArtifactIdAndTitle(message: SerializedMessage) {
-  // Example: <boltArtifact id="imported-files" title="Interactive Tic Tac Toe Game"
+  /*
+   * This replicates the original bolt.diy behavior of client-side assigning a URL + description
+   * based on the first artifact registered.
+   *
+   * I suspect there's a bug somewhere here since the first artifact tends to be named "imported-files"
+   *
+   * Example: <boltArtifact id="imported-files" title="Interactive Tic Tac Toe Game"
+   */
   if (typeof message.content !== 'string') {
     return null;
   }
@@ -393,7 +495,7 @@ export async function createNewChatFromMessages(
 
   const chatId = await ctx.db.insert('chats', {
     creatorId: sessionId,
-    externalId: id,
+    initialId: id,
     description,
     timestamp: new Date().toISOString(),
     metadata,
@@ -402,10 +504,10 @@ export async function createNewChatFromMessages(
   return chatId;
 }
 
-function getChatById(ctx: QueryCtx, { id, sessionId }: { id: string; sessionId: Id<'sessions'> }) {
+function getChatByInitialId(ctx: QueryCtx, { id, sessionId }: { id: string; sessionId: Id<'sessions'> }) {
   return ctx.db
     .query('chats')
-    .withIndex('byCreatorAndId', (q) => q.eq('creatorId', sessionId).eq('externalId', id))
+    .withIndex('byCreatorAndId', (q) => q.eq('creatorId', sessionId).eq('initialId', id))
     .unique();
 }
 
@@ -420,7 +522,7 @@ async function getChatByIdOrUrlIdEnsuringAccess(
   ctx: QueryCtx,
   { id, sessionId }: { id: string; sessionId: Id<'sessions'> },
 ) {
-  const byId = await getChatById(ctx, { id, sessionId });
+  const byId = await getChatByInitialId(ctx, { id, sessionId });
 
   if (byId !== null) {
     return byId;
@@ -431,8 +533,13 @@ async function getChatByIdOrUrlIdEnsuringAccess(
   return byUrlId;
 }
 
+function getIdentifier(chat: Doc<'chats'>): string {
+  return chat.urlId ?? chat.initialId!;
+}
+
 export const startSession = mutation({
   args: {},
+  returns: v.id('sessions'),
   handler: async (ctx) => {
     return ctx.db.insert('sessions', {});
   },

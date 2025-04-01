@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { DialogRoot, DialogClose, Dialog, DialogTitle } from '~/components/ui/Dialog';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
+import { sessionIdStore } from '~/lib/persistence';
 
 export default function DataTab() {
   const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
@@ -15,14 +16,22 @@ export default function DataTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const apiKeyFileInputRef = useRef<HTMLInputElement>(null);
   const convex = useConvex();
-
   const handleExportAllChats = async () => {
+    const sessionId = sessionIdStore.get();
+
+    if (!sessionId) {
+      console.error('No session ID found');
+      toast.error('Failed to export chats');
+
+      return;
+    }
+
     try {
       /*
        * TODO(sarah) -- this could probably be done via Convex storage / might
        * be better as an action
        */
-      const allChats = await convex.query(api.messages.getAll);
+      const allChats = await convex.query(api.messages.getAll, { sessionId });
       const exportData = {
         chats: allChats,
         exportDate: new Date().toISOString(),
@@ -180,14 +189,20 @@ export default function DataTab() {
   const handleResetSettings = async () => {
     setIsResetting(true);
 
+    const sessionId = sessionIdStore.get();
+
     try {
       // Clear all stored settings from localStorage
       localStorage.removeItem('bolt_user_profile');
       localStorage.removeItem('bolt_settings');
       localStorage.removeItem('bolt_chat_history');
 
-      // Delete all chats
-      await convex.mutation(api.messages.deleteAll);
+      if (!sessionId) {
+        console.warn('No session ID found, skipping chat deletion');
+      } else {
+        // Delete all chats
+        await convex.mutation(api.messages.deleteAll, { sessionId });
+      }
 
       // Close the dialog first
       setShowResetInlineConfirm(false);
@@ -207,12 +222,21 @@ export default function DataTab() {
   const handleDeleteAllChats = async () => {
     setIsDeleting(true);
 
+    const sessionId = sessionIdStore.get();
+
+    if (!sessionId) {
+      console.warn('No session ID found, skipping chat deletion');
+      toast.error('Failed to delete chat history');
+
+      return;
+    }
+
     try {
       // Clear chat history from localStorage
       localStorage.removeItem('bolt_chat_history');
 
       // Delete all chats
-      await convex.mutation(api.messages.deleteAll);
+      await convex.mutation(api.messages.deleteAll, { sessionId });
 
       // Close the dialog first
       setShowDeleteInlineConfirm(false);

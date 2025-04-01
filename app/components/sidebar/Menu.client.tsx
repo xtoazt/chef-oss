@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
-import { chatId, sessionIdStore, useChatHistoryConvex, type ChatHistoryItemConvex } from '~/lib/persistence';
+import { chatId, sessionIdStore, useChatHistoryConvex, type ChatHistoryItem } from '~/lib/persistence';
 import { cubicEasingFn } from '~/utils/easings';
 import { logger } from '~/utils/logger';
 import { HistoryItem } from './HistoryItem';
@@ -35,14 +35,14 @@ const menuVariants = {
   },
 } satisfies Variants;
 
-type DialogContent = { type: 'delete'; item: ChatHistoryItemConvex } | null;
+type DialogContent = { type: 'delete'; item: ChatHistoryItem } | null;
 
 export const Menu = () => {
   const { duplicateCurrentChat } = useChatHistoryConvex();
   const menuRef = useRef<HTMLDivElement>(null);
-  const convex = useConvex();
-  const list = useQuery(api.messages.getAll) ?? [];
   const sessionId = useStore(sessionIdStore);
+  const convex = useConvex();
+  const list = useQuery(api.messages.getAll, sessionId ? { sessionId } : 'skip') ?? [];
   const [open, setOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState<DialogContent>(null);
 
@@ -51,14 +51,14 @@ export const Menu = () => {
     searchFields: ['description'],
   });
 
-  const deleteItem = useCallback((event: React.UIEvent, item: ChatHistoryItemConvex) => {
+  const deleteItem = useCallback((event: React.UIEvent, item: ChatHistoryItem) => {
     event.preventDefault();
 
     if (sessionId) {
       convex
-        .mutation(api.messages.remove, { id: item.externalId, sessionId })
+        .mutation(api.messages.remove, { id: item.id, sessionId })
         .then(() => {
-          if (chatId.get() === item.externalId) {
+          if (chatId.get() === item.id) {
             // hard page navigation to clear the stores
             window.location.pathname = '/';
           }
@@ -95,7 +95,7 @@ export const Menu = () => {
     };
   }, []);
 
-  const handleDeleteClick = (event: React.UIEvent, item: ChatHistoryItemConvex) => {
+  const handleDeleteClick = (event: React.UIEvent, item: ChatHistoryItem) => {
     event.preventDefault();
     setDialogContent({ type: 'delete', item });
   };
@@ -159,10 +159,10 @@ export const Menu = () => {
                   <div className="space-y-0.5 pr-1">
                     {items.map((item) => (
                       <HistoryItem
-                        key={item.externalId}
+                        key={item.initialId}
                         item={item}
                         onDelete={(event) => handleDeleteClick(event, item)}
-                        onDuplicate={() => handleDuplicate(item.externalId)}
+                        onDuplicate={() => handleDuplicate(item.id)}
                       />
                     ))}
                   </div>
