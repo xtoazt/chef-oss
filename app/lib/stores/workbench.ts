@@ -23,6 +23,7 @@ import type { FileSystemTree } from '@webcontainer/api';
 import { formatSize } from '~/utils/formatSize';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@convex/_generated/api';
+import type { Id } from '@convex/_generated/dataModel';
 
 const BACKUP_DEBOUNCE_MS = 1000 * 10;
 
@@ -74,7 +75,7 @@ export class WorkbenchStore {
     this.startBackup();
   }
 
-  async buildSnapshot(format: 'json' | 'binary' | 'zip'): Promise<FileSystemTree | Uint8Array> {
+  async buildSnapshot(format: 'binary' | 'zip'): Promise<Uint8Array> {
     const container = await webcontainer;
     const start = Date.now();
     const snapshot = await container.export('.', {
@@ -132,6 +133,11 @@ export class WorkbenchStore {
         }
 
         const binarySnapshot = await this.buildSnapshot('binary');
+
+        if (!(binarySnapshot instanceof Uint8Array)) {
+          throw new Error('Snapshot must be a Uint8Array');
+        }
+
         const compressed = await this.compressSnapshot(binarySnapshot);
         const uploadUrl = await this.#convexClient.mutation(api.snapshot.generateUploadUrl);
         const result = await fetch(uploadUrl, {
@@ -139,9 +145,15 @@ export class WorkbenchStore {
           headers: { 'Content-Type': 'application/octet-stream' },
           body: compressed,
         });
-        const { storageId } = await result.json();
+
+        const response = (await result.json()) as { storageId: string };
+
+        if (!response || typeof response.storageId !== 'string') {
+          throw new Error('Invalid response from server');
+        }
+
         await this.#convexClient.mutation(api.snapshot.saveSnapshot, {
-          storageId,
+          storageId: response.storageId as Id<'_storage'>,
           chatId: id,
           sessionId,
         });
@@ -168,9 +180,9 @@ export class WorkbenchStore {
       debounceTimeout = setTimeout(handleUploadSnapshot, BACKUP_DEBOUNCE_MS);
     };
 
-    // Subscribe to file change events
     const wc = await webcontainer;
 
+    // Subscribe to file change events
     void (async () => {
       wc.fs.watch(
         '',

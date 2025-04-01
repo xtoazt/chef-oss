@@ -119,6 +119,7 @@ export default defineConfig((config) => {
       },
     },
     plugins: [
+      wasm(),
       nodePolyfills({
         include: ['buffer', 'process', 'util', 'stream'],
         globals: {
