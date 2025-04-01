@@ -92,7 +92,13 @@ export class WorkbenchStore {
         const id = chatId.get();
 
         if (!id) {
-          throw new Error('Chat ID is not set');
+          // Subscribe to chat ID changes and execute upload when it becomes available
+          chatId.subscribe((newId) => {
+            if (newId) {
+              void handleUploadSnapshot();
+            }
+          });
+          return;
         }
 
         const sessionId = sessionIdStore.get();
