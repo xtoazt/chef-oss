@@ -21,7 +21,6 @@ import { createSampler } from '~/utils/sampler';
 import { logStore } from '~/lib/stores/logs';
 import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
-import { convexStore } from '~/lib/stores/convex';
 import { ChatContextManager } from '~/lib/ChatContextManager';
 
 const toastAnimation = cssTransition({
@@ -115,7 +114,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
   const [imageDataList, setImageDataList] = useState<string[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const actionAlert = useStore(workbenchStore.alert);
-  const convexProject = useStore(convexStore);
   const { activeProviders } = useSettings();
 
   const [model, setModel] = useState(() => {
@@ -153,11 +151,11 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     experimental_prepareRequestBody: ({ messages }) => {
       return {
         messages: chatContextManager.current.prepareContext(messages),
-      }
+      };
     },
     sendExtraMessageFields: true,
     onError: (e) => {
-      console.log("Error", e);
+      console.log('Error', e);
       logger.error('Request failed\n\n', e, error);
       logStore.logError('Chat request failed', e, {
         component: 'Chat',

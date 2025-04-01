@@ -2,7 +2,7 @@ import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
 import { useState, useEffect, useRef } from 'react';
 import { atom } from 'nanostores';
 import { useStore } from '@nanostores/react';
-import type { Message } from 'ai';
+import type { Message } from '@ai-sdk/react';
 import { toast } from 'react-toastify';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -44,7 +44,7 @@ const SESSION_ID_KEY = 'sessionIdForConvex';
 export const useChatHistoryConvex = () => {
   const navigate = useNavigate();
 
-  // mixedId means either chatId or urlId
+  // mixedId means either an initialId or a urlId
   const { id: mixedId } = useLoaderData<{ id?: string }>();
   const [searchParams] = useSearchParams();
 
@@ -297,11 +297,9 @@ function findMessagesToUpdate(initialMessagesLength: number, persistedMessages: 
    */
   for (let i = persistedMessages.length - 1; i < currentMessages.length; i++) {
     if (currentMessages[i] !== persistedMessages[i]) {
-      const result = currentMessages.slice(i);
-      console.log('findMessagesToUpdate', persistedMessages, currentMessages, result);
-      return result;
+      return currentMessages.slice(i);
     }
   }
-  console.log('findMessagesToUpdate', persistedMessages, currentMessages, []);
+
   return [];
 }
