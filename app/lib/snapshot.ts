@@ -39,7 +39,7 @@ export async function buildSnapshot(format: 'json' | 'binary'): Promise<FileSyst
   const container = await webcontainer;
   const start = Date.now();
   const snapshot = await container.export('.', {
-    excludes: ['.env.local'],
+    excludes: ['.env.local', 'node_modules'],
     format,
   });
   const end = Date.now();
