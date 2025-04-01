@@ -1,9 +1,8 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
-import { type Messages } from '~/lib/.server/llm/stream-text';
+import type { Messages } from '~/lib/.server/llm/stream-text';
 import { createScopedLogger } from '~/utils/logger';
-import { convertToCoreMessages, createDataStream, streamText, type DataStreamWriter } from 'ai';
-import type { ContextAnnotation, ProgressAnnotation } from '~/types/context';
-import { createSummary } from '~/lib/.server/llm/create-summary';
+import { convertToCoreMessages, createDataStream, streamText } from 'ai';
+import type { ProgressAnnotation } from '~/types/context';
 import { WORK_DIR } from '~/utils/constants';
 import { anthropic } from '@ai-sdk/anthropic';
 import { getSystemPrompt } from '~/lib/common/prompts/prompts';
@@ -15,12 +14,12 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 type RequestProgress = {
-  counter: number,
-  cumulativeUsage: { completionTokens: number, promptTokens: number, totalTokens: number },
-}
+  counter: number;
+  cumulativeUsage: { completionTokens: number; promptTokens: number; totalTokens: number };
+};
 
 async function chatAction({ request }: ActionFunctionArgs) {
-  const { messages } = await request.json<{ messages: Messages }>()
+  const { messages } = await request.json<{ messages: Messages }>();
   const progress: RequestProgress = {
     counter: 1,
     cumulativeUsage: {
@@ -29,6 +28,7 @@ async function chatAction({ request }: ActionFunctionArgs) {
       totalTokens: 0,
     },
   };
+
   try {
     const totalMessageContent = messages.reduce((acc, message) => acc + message.content, '');
     logger.debug(`Total message length: ${totalMessageContent.split(' ').length}, words`);
@@ -46,13 +46,14 @@ async function chatAction({ request }: ActionFunctionArgs) {
         const systemPrompt = getSystemPrompt(WORK_DIR);
         const userMessages = buildUserMessages(messages);
         const result = streamText({
-          model: anthropic("claude-3-5-sonnet-20241022"),
+          model: anthropic('claude-3-5-sonnet-20241022'),
           system: systemPrompt,
           maxTokens: 8192,
           messages: userMessages,
           toolChoice: 'none',
           onFinish: async ({ usage }) => {
             logger.debug('usage', JSON.stringify(usage));
+
             if (usage) {
               progress.cumulativeUsage.completionTokens += usage.completionTokens || 0;
               progress.cumulativeUsage.promptTokens += usage.promptTokens || 0;
@@ -75,13 +76,14 @@ async function chatAction({ request }: ActionFunctionArgs) {
               message: 'Response Generated',
             } satisfies ProgressAnnotation);
             await new Promise((resolve) => setTimeout(resolve, 0));
-          }
+          },
         });
         const logErrors = async () => {
           for await (const part of result.fullStream) {
             if (part.type === 'error') {
               const error: any = part.error;
               logger.error(`${error}`);
+
               return;
             }
           }
@@ -91,6 +93,7 @@ async function chatAction({ request }: ActionFunctionArgs) {
       },
       onError: (error: any) => `Custom error: ${error.message}`,
     });
+
     return new Response(dataStream, {
       status: 200,
       headers: {
@@ -100,7 +103,6 @@ async function chatAction({ request }: ActionFunctionArgs) {
         'Text-Encoding': 'chunked',
       },
     });
-
   } catch (error: any) {
     logger.error(error);
 
@@ -119,17 +121,18 @@ async function chatAction({ request }: ActionFunctionArgs) {
 }
 
 function buildUserMessages(messages: Messages) {
-  let processedMessages = messages.map((message) => {
+  const processedMessages = messages.map((message) => {
     if (message.role === 'user') {
       return message;
     } else if (message.role == 'assistant') {
       let content = message.content;
       content = content.replace(/<div class=\\"__boltThought__\\">.*?<\/div>/s, '');
       content = content.replace(/<think>.*?<\/think>/s, '');
+
       return { ...message, content };
     }
+
     return message;
   });
   return convertToCoreMessages(processedMessages);
-
 }

@@ -66,7 +66,6 @@ export function useEditChatDescription({
     }
 
     try {
-      // TODO(sarah) -- this could just load the description instead of the whole chat
       const chat = await convex.query(api.messages.get, { id: chatId, sessionId });
       return chat?.description || initialDescription;
     } catch (error) {
