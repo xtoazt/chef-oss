@@ -35,6 +35,7 @@ export default defineSchema({
     description: v.optional(v.string()),
     timestamp: v.string(),
     metadata: v.optional(IChatMetadataValidator),
+    snapshotId: v.optional(v.id('_storage')),
   })
     .index('byCreatorAndId', ['creatorId', 'initialId'])
     .index('byCreatorAndUrlId', ['creatorId', 'urlId']),

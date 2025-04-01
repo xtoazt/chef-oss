@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as dev from "../dev.js";
 import type * as messages from "../messages.js";
+import type * as snapshot from "../snapshot.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -27,6 +28,7 @@ import type * as messages from "../messages.js";
 declare const fullApi: ApiFromModules<{
   dev: typeof dev;
   messages: typeof messages;
+  snapshot: typeof snapshot;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

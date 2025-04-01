@@ -518,7 +518,8 @@ function getChatByUrlId(ctx: QueryCtx, { id, sessionId }: { id: string; sessionI
     .unique();
 }
 
-async function getChatByIdOrUrlIdEnsuringAccess(
+// TODO move this to common.ts
+export async function getChatByIdOrUrlIdEnsuringAccess(
   ctx: QueryCtx,
   { id, sessionId }: { id: string; sessionId: Id<'sessions'> },
 ) {
