@@ -7,6 +7,7 @@ import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
 import { convexStore, waitForConvexProjectConnection } from '~/lib/stores/convex';
+import { initializeConvexAuth } from '../convexAuth';
 
 const logger = createScopedLogger('ActionRunner');
 
@@ -443,37 +444,38 @@ export class ActionRunner {
     const envVarName = 'CONVEX_DEPLOY_KEY';
     const envVarLine = `${envVarName}=${token}\n`;
 
-    let exists = false;
-
+    let content: string | null = null;
     try {
-      await webcontainer.fs.readFile(envFilePath, 'utf-8');
-      exists = true;
-    } catch {
-      exists = false;
+      content = await webcontainer.fs.readFile(envFilePath, 'utf-8');
+    } catch (err: any) {
+      if (!err.toString().includes('ENOENT')) {
+        throw err;
+      }
     }
-
-    if (!exists) {
+    if (content === null) {
       // Create the file if it doesn't exist
       await webcontainer.fs.writeFile(envFilePath, envVarLine);
       logger.debug('Created .env.local with Convex token');
+    } else {
+      const lines = content.split('\n');
 
-      return;
+      // Check if the env var already exists
+      const envVarExists = lines.some((line) => line.startsWith(`${envVarName}=`));
+
+      if (!envVarExists) {
+        // Add the env var to the end of the file
+        const newContent = content.endsWith('\n') ? `${content}${envVarLine}` : `${content}\n${envVarLine}`;
+        await webcontainer.fs.writeFile(envFilePath, newContent);
+        logger.debug('Added Convex token to .env.local');
+      } else {
+        logger.debug('Convex token already exists in .env.local');
+      }
     }
 
-    // Read existing file content
-    const content = await webcontainer.fs.readFile(envFilePath, 'utf-8');
-    const lines = content.split('\n');
-
-    // Check if the env var already exists
-    const envVarExists = lines.some((line) => line.startsWith(`${envVarName}=`));
-
-    if (!envVarExists) {
-      // Add the env var to the end of the file
-      const newContent = content.endsWith('\n') ? `${content}${envVarLine}` : `${content}\n${envVarLine}`;
-      await webcontainer.fs.writeFile(envFilePath, newContent);
-      logger.debug('Added Convex token to .env.local');
-    } else {
-      logger.debug('Convex token already exists in .env.local');
+    try {
+      await initializeConvexAuth(convexProject);
+    } catch (error) {
+      logger.error('Failed to initialize Convex Auth', error);
     }
   }
 }
