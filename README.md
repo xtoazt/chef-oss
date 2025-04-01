@@ -35,12 +35,4 @@ pnpx convex dev
 
 There are a few steps to iterating on the template.
 
-1. Work on `template/`, `bun install` and `bun dev` there, etc.
-2. Run `bun snapshotTemplate` to pack all of the Git unignored files in `template` to
-   `templates/flex-template.bin` as a bootstrap template. This will not include
-   NPM dependencies since we can't cache NPM dependencies installed on the development
-   machine, which is a "different" OS than the WebContainer.
-3. Load `localhost:3000/?regenerateSnapshot=1` to load the bootstrap snapshot and install
-   NPM dependencies within the WebContainer.
-4. After installation completes, open the "Snapshot Admin" UI in the top right and
-   download the snapshot to `templates/flex-template.bin'.
+Run `npm run rebuild-template` for directions.

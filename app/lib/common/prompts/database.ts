@@ -1,10 +1,6 @@
 import { convexGuidelines } from './convex';
 
 export function databaseInstructions(): string {
-  /*
-   *dbPrompt +=
-   */
-
   const dbPrompt = `<database_instructions>
 
 The user can use Convex as a database in this environment.
@@ -98,6 +94,20 @@ The import path to import \`api\` from depends on the location of the file this 
 
 ${convexGuidelines}
 
+You'll start with a codebase that uses Convex Auth, so you'll want to use patterns like
+
+\`\`\`
+import { getAuthUserId } from "@convex-dev/auth/server"
+
+// then later, inside a mutation or query or an action:
+  const userId = await getAuthUserId(ctx);
+  if (userId === null) {
+    throw new Error("Client is not authenticated!")
+  }
+  const user = await ctx.db.get(userId);
+\`\`\`
+
+to get the current user.
 
 </database_instructions>`;
 

@@ -13,13 +13,11 @@ export async function loadConfig() {
     throw new Error("VITE_CONVEX_URL is not set in .env.local");
   }
 
-  if (process.env.CONVEX_DEPLOY_KEY) {
-    return { convexUrl, accessToken: process.env.CONVEX_DEPLOY_KEY };
+  const CONVEX_DEPLOY_KEY = process.env.CONVEX_DEPLOY_KEY || envLocal.CONVEX_DEPLOY_KEY;
+  if (CONVEX_DEPLOY_KEY) {
+    return { convexUrl, accessToken: CONVEX_DEPLOY_KEY };
   }
-  const configContents = await fs.readFile(
-    `${homedir()}/.convex/config.json`,
-    "utf-8",
-  );
+  const configContents = await fs.readFile(`${homedir()}/.convex/config.json`, "utf-8");
   if (!configContents) {
     throw new Error("Failed to read ~/.convex/config.json");
   }
@@ -45,49 +43,36 @@ export async function queryEnvVariable(config, name) {
   }
   const respJSON = await response.json();
   if (respJSON.status !== "success") {
-    throw new Error(
-      `Failed to query environment variables: ${JSON.stringify(respJSON)}`,
-    );
+    throw new Error(`Failed to query environment variables: ${JSON.stringify(respJSON)}`);
   }
   const udfResult = respJSON.value;
   return udfResult && udfResult.value;
 }
 
 export async function setEnvVariables(config, values) {
-  const response = await fetch(
-    `${config.convexUrl}/api/update_environment_variables`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        changes: Object.entries(values).map(([name, value]) => ({
-          name,
-          value,
-        })),
-      }),
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Convex ${config.accessToken}`,
-      },
+  const response = await fetch(`${config.convexUrl}/api/update_environment_variables`, {
+    method: "POST",
+    body: JSON.stringify({
+      changes: Object.entries(values).map(([name, value]) => ({
+        name,
+        value,
+      })),
+    }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Convex ${config.accessToken}`,
     },
-  );
+  });
   if (!response.ok) {
-    throw new Error(
-      `Failed to set environment variables: ${await response.text()}`,
-    );
+    throw new Error(`Failed to set environment variables: ${await response.text()}`);
   }
 }
 
 async function main() {
   const { convexUrl, accessToken } = await loadConfig();
-  const siteUrl = await queryEnvVariable(
-    { convexUrl, accessToken },
-    "SITE_URL",
-  );
+  const siteUrl = await queryEnvVariable({ convexUrl, accessToken }, "SITE_URL");
   const JWKS = await queryEnvVariable({ convexUrl, accessToken }, "JWKS");
-  const JWT_PRIVATE_KEY = await queryEnvVariable(
-    { convexUrl, accessToken },
-    "JWT_PRIVATE_KEY",
-  );
+  const JWT_PRIVATE_KEY = await queryEnvVariable({ convexUrl, accessToken }, "JWT_PRIVATE_KEY");
 
   const newEnv = {};
   if (siteUrl && siteUrl !== "http://localhost:5173") {
