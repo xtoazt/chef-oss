@@ -14,11 +14,17 @@ import fileSaver from 'file-saver';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { path } from '~/utils/path';
 import { extractRelativePath } from '~/utils/diff';
-import { description } from '~/lib/persistence';
+import { chatId, description, sessionIdStore } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
 import type { WebContainer } from '@webcontainer/api';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '@convex/_generated/api';
+import type { Id } from '@convex/_generated/dataModel';
+import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
+
+const BACKUP_DEBOUNCE_MS = 1000 * 5;
 
 const { saveAs } = fileSaver;
 
@@ -41,6 +47,7 @@ export class WorkbenchStore {
   #filesStore = new FilesStore(webcontainer);
   #editorStore = new EditorStore(this.#filesStore);
   #terminalStore = new TerminalStore(webcontainer);
+  #convexClient: ConvexHttpClient;
 
   #reloadedMessages = new Set<string>();
 
@@ -62,6 +69,117 @@ export class WorkbenchStore {
       import.meta.hot.data.currentView = this.currentView;
       import.meta.hot.data.actionAlert = this.actionAlert;
     }
+
+    this.#convexClient = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL!);
+    this.startBackup();
+  }
+
+  async startBackup() {
+    let isUploading = false;
+    let pendingUpload = false;
+
+    const handleUploadSnapshot = async () => {
+      if (isUploading) {
+        pendingUpload = true;
+        return;
+      }
+
+      console.log('handleUploadSnapshot');
+
+      try {
+        isUploading = true;
+
+        const id = chatId.get();
+
+        if (!id) {
+          // Subscribe to chat ID changes and execute upload when it becomes available
+          chatId.subscribe((newId) => {
+            if (newId) {
+              void handleUploadSnapshot();
+            }
+          });
+          return;
+        }
+
+        const sessionId = sessionIdStore.get();
+
+        if (!sessionId) {
+          throw new Error('Session ID is not set');
+        }
+
+        const binarySnapshot = await buildSnapshot('binary', true);
+
+        if (!(binarySnapshot instanceof Uint8Array)) {
+          throw new Error('Snapshot must be a Uint8Array');
+        }
+
+        const compressed = await compressSnapshot(binarySnapshot);
+        const uploadUrl = await this.#convexClient.mutation(api.snapshot.generateUploadUrl);
+        const result = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: compressed,
+        });
+
+        const response = (await result.json()) as { storageId: string };
+
+        if (!response || typeof response.storageId !== 'string') {
+          throw new Error('Invalid response from server');
+        }
+
+        await this.#convexClient.mutation(api.snapshot.saveSnapshot, {
+          storageId: response.storageId as Id<'_storage'>,
+          chatId: id,
+          sessionId,
+        });
+      } catch (error) {
+        console.error('Failed to upload snapshot:', error);
+      } finally {
+        isUploading = false;
+
+        if (pendingUpload) {
+          pendingUpload = false;
+
+          // If there was a pending upload while we were uploading, do another upload
+          void handleUploadSnapshot();
+        }
+      }
+    };
+
+    let debounceTimeout: NodeJS.Timeout | undefined;
+    const debouncedUploadSnapshot = () => {
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
+      }
+
+      debounceTimeout = setTimeout(handleUploadSnapshot, BACKUP_DEBOUNCE_MS);
+    };
+
+    const wc = await webcontainer;
+
+    // Subscribe to file change events
+    void (async () => {
+      wc.fs.watch(
+        '',
+        {
+          encoding: 'utf-8',
+          recursive: true,
+          persistent: true,
+        },
+        () => {
+          debouncedUploadSnapshot();
+        },
+      );
+    })();
+
+    // Initial snapshot
+    await handleUploadSnapshot();
+
+    return () => {
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
+      }
+    };
   }
 
   addToExecutionQueue(callback: () => Promise<void>) {

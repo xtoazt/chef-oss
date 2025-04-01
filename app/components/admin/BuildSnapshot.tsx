@@ -186,11 +186,11 @@ async function makeSnapshot(setStatus: (status: State) => void) {
     npmDone = true;
 
     setStatus({ status: 'building', message: 'Analyzing snapshot...' });
-    const jsonSnapshot = await buildSnapshot('json');
+    const jsonSnapshot = await buildSnapshot('json', false);
     const analysis = analyzeSnapshotSize(jsonSnapshot);
 
     setStatus({ status: 'analyzed', message: `Building binary...`, analysis });
-    const uncompressed = await buildSnapshot('binary');
+    const uncompressed = await buildSnapshot('binary', false);
     setStatus({ status: 'analyzed', message: `Compressing binary...`, analysis });
     const compressed = await compressSnapshot(uncompressed);
     setStatus({ status: 'done', message: `Done!`, uncompressed, compressed, analysis });

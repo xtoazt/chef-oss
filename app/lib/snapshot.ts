@@ -33,13 +33,17 @@ export async function loadSnapshot(webcontainer: WebContainer, workbenchStore: W
   console.timeEnd('loadSnapshot');
 }
 
-export async function buildSnapshot(format: 'json'): Promise<FileSystemTree>;
-export async function buildSnapshot(format: 'binary'): Promise<Uint8Array>;
-export async function buildSnapshot(format: 'json' | 'binary'): Promise<FileSystemTree | Uint8Array> {
+export async function buildSnapshot(format: 'json', exclude_node_modules: boolean): Promise<FileSystemTree>;
+export async function buildSnapshot(format: 'binary', exclude_node_modules: boolean): Promise<Uint8Array>;
+export async function buildSnapshot(
+  format: 'json' | 'binary',
+  exclude_node_modules: boolean,
+): Promise<FileSystemTree | Uint8Array> {
   const container = await webcontainer;
   const start = Date.now();
+  const excludes = exclude_node_modules ? ['.env.local', 'node_modules'] : ['.env.local'];
   const snapshot = await container.export('.', {
-    excludes: ['.env.local'],
+    excludes,
     format,
   });
   const end = Date.now();
