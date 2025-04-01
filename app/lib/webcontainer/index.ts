@@ -1,6 +1,6 @@
 import { WebContainer } from '@webcontainer/api';
 import { WORK_DIR_NAME } from '~/utils/constants';
-import { loadSnapshot } from '../snapshot';
+import { loadSnapshot } from '~/lib/snapshot';
 import { cleanStackTrace } from '~/utils/stacktrace';
 
 interface WebContainerContext {
@@ -52,7 +52,7 @@ if (!import.meta.env.SSR) {
           }
         });
 
-        console.log("Done booting WebContainer!");
+        console.log('Done booting WebContainer!');
         (globalThis as any).webcontainer = webcontainer;
         return webcontainer;
       })

@@ -147,7 +147,7 @@ export class FilesStore {
 
   async prewarmWorkdir(container: WebContainer) {
     const absFilePaths = await container.internal.fileSearch([] as any, WORK_DIR, {
-      excludes: [".gitignore", "node_modules"],
+      excludes: ['.gitignore', 'node_modules'],
     });
     const dirs = new Set<string>();
     for (const absPath of absFilePaths) {

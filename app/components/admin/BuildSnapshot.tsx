@@ -34,20 +34,43 @@ export function BuildSnapshot() {
             </h2>
             <ol className="space-y-4 text-gray-600">
               <li className="flex items-start">
-                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium mr-3 mt-0.5">1</span>
-                <span>Make a change to the <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">template/</code> directory</span>
+                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium mr-3 mt-0.5">
+                  1
+                </span>
+                <span>
+                  Make a change to the <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">template/</code>{' '}
+                  directory
+                </span>
               </li>
               <li className="flex items-start">
-                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium mr-3 mt-0.5">2</span>
-                <span>Run <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">node make-bootstrap-snapshot.js</code> to update <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">public/bootstrap-snapshot.bin</code></span>
+                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium mr-3 mt-0.5">
+                  2
+                </span>
+                <span>
+                  Run <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">node make-bootstrap-snapshot.js</code>{' '}
+                  to update{' '}
+                  <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">public/bootstrap-snapshot.bin</code>
+                </span>
               </li>
               <li className="flex items-start">
-                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium mr-3 mt-0.5">3</span>
-                <span>Open this page (<code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">/admin/build-snapshot</code>) to load the bootstrap snapshot, run <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">npm install</code>, and then build a snapshot with dependencies baked in.</span>
+                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium mr-3 mt-0.5">
+                  3
+                </span>
+                <span>
+                  Open this page (
+                  <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">/admin/build-snapshot</code>) to load the
+                  bootstrap snapshot, run <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">npm install</code>
+                  , and then build a snapshot with dependencies baked in.
+                </span>
               </li>
               <li className="flex items-start">
-                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium mr-3 mt-0.5">4</span>
-                <span>Download the snapshot and check it in to <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">public/snapshot.bin</code></span>
+                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium mr-3 mt-0.5">
+                  4
+                </span>
+                <span>
+                  Download the snapshot and check it in to{' '}
+                  <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm">public/snapshot.bin</code>
+                </span>
               </li>
             </ol>
           </div>
@@ -65,9 +88,20 @@ export function BuildSnapshot() {
 
             {state.status !== 'idle' && state.status !== 'done' && (
               <div className="flex items-center gap-3 text-gray-600">
-                <svg className="animate-spin text-blue-500" width="20" height="20" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg
+                  className="animate-spin text-blue-500"
+                  width="20"
+                  height="20"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 <p>{state.message}</p>
               </div>
@@ -241,8 +275,12 @@ export function SnapshotTree({ tree }: { tree: Record<string, FileTreeItemType> 
     const bIsDir = b[1].type === 'directory';
 
     // First sort by type (directories first)
-    if (aIsDir && !bIsDir) return -1;
-    if (!bIsDir && aIsDir) return 1;
+    if (aIsDir && !bIsDir) {
+      return -1;
+    }
+    if (!bIsDir && aIsDir) {
+      return 1;
+    }
 
     // Then sort by size (largest first)
     return b[1].size - a[1].size;
@@ -269,8 +307,12 @@ function TreeNode({ name, data, level }: TreeNodeProps) {
       ? Object.entries(data.children).sort((a, b) => {
           const aIsDir = a[1].type === 'directory';
           const bIsDir = b[1].type === 'directory';
-          if (aIsDir && !bIsDir) return -1;
-          if (!bIsDir && aIsDir) return 1;
+          if (aIsDir && !bIsDir) {
+            return -1;
+          }
+          if (!bIsDir && aIsDir) {
+            return 1;
+          }
           return b[1].size - a[1].size;
         })
       : [];

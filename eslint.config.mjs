@@ -4,17 +4,23 @@ import { getNamingConventionRule, tsFileExtensions } from '@blitz/eslint-plugin/
 
 export default [
   {
-    ignores: ['**/dist', '**/node_modules', '**/.wrangler', '**/bolt/build', '**/.history'],
+    ignores: ['**/dist', '**/node_modules', '**/.wrangler', '**/bolt/build', '**/.history', 'template/**'],
   },
   ...blitzPlugin.configs.recommended(),
   {
     rules: {
-      '@blitz/catch-error-name': 'off',
       '@typescript-eslint/no-this-alias': 'off',
       '@typescript-eslint/no-empty-object-type': 'off',
+      '@typescript-eslint/naming-convention': 'off',
+      // turn off all five custom rules
+      '@blitz/catch-error-name': 'off',
       '@blitz/comment-syntax': 'off',
       '@blitz/block-scope-case': 'off',
+      '@blitz/lines-around-comment': 'off',
+      '@blitz/newline-before-return': 'off',
       'array-bracket-spacing': ['error', 'never'],
+      'padding-line-between-statements': 'off',
+      'multiline-comment-style': 'off',
       'object-curly-newline': ['error', { consistent: true }],
       'keyword-spacing': ['error', { before: true, after: true }],
       'consistent-return': 'error',
@@ -23,6 +29,14 @@ export default [
       'no-eval': ['error'],
       'linebreak-style': ['error', 'unix'],
       'arrow-spacing': ['error', { before: true, after: true }],
+      '@typescript-eslint/no-unused-vars': [
+        'error', // or 'warn' if you prefer
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
     },
   },
   {

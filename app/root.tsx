@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react';
 import type { LinksFunction, LoaderFunctionArgs } from '@remix-run/cloudflare';
-import { json, Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useRouteLoaderData } from '@remix-run/react';
+import { json, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from '@remix-run/react';
 import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
@@ -74,10 +74,10 @@ export const Head = createHead(() => (
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const theme = useStore(themeStore);
-  const loaderData = useRouteLoaderData<typeof loader>("root");
+  const loaderData = useRouteLoaderData<typeof loader>('root');
   const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || loaderData?.ENV.CONVEX_URL;
   if (!CONVEX_URL) {
-    throw new Error(`Missing CONVEX_URL: ${CONVEX_URL}`)
+    throw new Error(`Missing CONVEX_URL: ${CONVEX_URL}`);
   }
 
   const [convex] = useState(() => new ConvexReactClient(CONVEX_URL));

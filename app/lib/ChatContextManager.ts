@@ -1,10 +1,10 @@
-import { generateId, type UIMessage } from "ai";
-import { renderFile, workDirRelative } from "~/utils/fileUtils";
-import type { Dirent } from "./stores/files";
-import { PREWARM_PATHS, WORK_DIR } from "~/utils/constants";
-import { workbenchStore } from "./stores/workbench";
-import { StreamingMessageParser } from "./runtime/message-parser";
-import { path } from "~/utils/path";
+import { generateId, type UIMessage } from 'ai';
+import { renderFile } from '~/utils/fileUtils';
+import type { Dirent } from './stores/files';
+import { PREWARM_PATHS, WORK_DIR } from '~/utils/constants';
+import { workbenchStore } from './stores/workbench';
+import { StreamingMessageParser } from './runtime/message-parser';
+import { path } from '~/utils/path';
 // import { bashToolParameters, editorToolParameters } from "./tools";
 
 // It's wasteful to actually tokenize the content, so we'll just use character
@@ -12,14 +12,14 @@ import { path } from "~/utils/path";
 const MAX_RELEVANT_FILES_SIZE = 8192;
 const MAX_RELEVANT_FILES = 16;
 
-const MAX_COLLAPSED_MESSAGES_SIZE = 8192;
+const _MAX_COLLAPSED_MESSAGES_SIZE = 8192;
 
-type UIMessagePart = UIMessage["parts"][number];
+type UIMessagePart = UIMessage['parts'][number];
 
 type ParsedAssistantMessage = {
   filesWritten: string[];
   textContent: string;
-}
+};
 
 export class ChatContextManager {
   assistantMessageCache: WeakMap<UIMessagePart, ParsedAssistantMessage> = new WeakMap();
@@ -51,7 +51,7 @@ export class ChatContextManager {
     for (const path of PREWARM_PATHS) {
       const entry = cache[path];
       if (!entry) {
-        console.log("Missing prewarm entry", path);
+        console.log('Missing prewarm entry', path);
         continue;
       }
       lastUsed.set(path, -1);
@@ -67,7 +67,7 @@ export class ChatContextManager {
         }
         for (const absPath of parsed.filesWritten) {
           const entry = cache[absPath];
-          if (!entry || entry.type !== "file") {
+          if (!entry || entry.type !== 'file') {
             continue;
           }
           lastUsed.set(absPath, i);
@@ -75,20 +75,18 @@ export class ChatContextManager {
       }
     }
 
-    const sortedByLastUsed = Array.from(lastUsed.entries()).sort(
-      (a, b) => b[1] - a[1]
-    );
+    const sortedByLastUsed = Array.from(lastUsed.entries()).sort((a, b) => b[1] - a[1]);
     let sizeEstimate = 0;
     const relevantFiles: UIMessage[] = [];
 
     if (sortedByLastUsed.length > 0) {
-      relevantFiles.push(makeSystemMessage(
-        `Here are all the paths in the project:\n${allPaths.map(p => ` - ${p}`).join("\n")}`
-      ));
+      relevantFiles.push(
+        makeSystemMessage(`Here are all the paths in the project:\n${allPaths.map((p) => ` - ${p}`).join('\n')}`),
+      );
     }
     const debugInfo: string[] = [];
     if (sortedByLastUsed.length > 0) {
-      relevantFiles.push(makeSystemMessage("Here are some relevant files in the project."));
+      relevantFiles.push(makeSystemMessage('Here are some relevant files in the project.'));
       for (const [path] of sortedByLastUsed) {
         if (sizeEstimate > MAX_RELEVANT_FILES_SIZE) {
           break;
@@ -100,7 +98,7 @@ export class ChatContextManager {
         if (!entry) {
           continue;
         }
-        if (entry.type === "file") {
+        if (entry.type === 'file') {
           const content = renderFile(entry.content);
           relevantFiles.push(makeSystemMessage(`"${path}":\n${content}`));
           const size = estimateSize(entry);
@@ -110,8 +108,8 @@ export class ChatContextManager {
       }
     }
     console.log(
-      `Populated ${relevantFiles.length} relevant files with size ${sizeEstimate}:\n${debugInfo.join("\n")}`,
-      relevantFiles
+      `Populated ${relevantFiles.length} relevant files with size ${sizeEstimate}:\n${debugInfo.join('\n')}`,
+      relevantFiles,
     );
     return relevantFiles;
   }
@@ -119,7 +117,7 @@ export class ChatContextManager {
   private collapseMessages(messages: UIMessage[]): UIMessage[] {
     const result: UIMessage[] = [];
     for (const message of messages) {
-      if (message.role !== "assistant") {
+      if (message.role !== 'assistant') {
         result.push(message);
         continue;
       }
@@ -134,10 +132,10 @@ export class ChatContextManager {
   }
 
   private parsedAssistantMessage(message: UIMessage, part: UIMessagePart): ParsedAssistantMessage | null {
-    if (message.role !== "assistant") {
+    if (message.role !== 'assistant') {
       return null;
     }
-    if (part.type !== "text") {
+    if (part.type !== 'text') {
       return null;
     }
     const cached = this.assistantMessageCache.get(part);
@@ -149,18 +147,18 @@ export class ChatContextManager {
     const parser = new StreamingMessageParser({
       callbacks: {
         onActionClose: (data) => {
-          if (data.action.type === "file") {
+          if (data.action.type === 'file') {
             const relPath = data.action.filePath;
             const absPath = path.join(WORK_DIR, relPath);
             filesWritten.push(absPath);
           }
         },
-      }
-    })
+      },
+    });
     parser.parse(message.id, message.content);
     const result = {
       filesWritten,
-      textContent: StreamingMessageParser.stripArtifacts(message.content)
+      textContent: StreamingMessageParser.stripArtifacts(message.content),
     };
     this.assistantMessageCache.set(part, result);
     return result;
@@ -186,27 +184,27 @@ export class ChatContextManager {
     }
     let result = 0;
     switch (part.type) {
-      case "text":
+      case 'text':
         result = part.text.length;
         break;
-      case "file":
+      case 'file':
         result += part.data.length;
         result += part.mimeType.length;
         break;
-      case "reasoning":
+      case 'reasoning':
         result += part.reasoning.length;
         break;
-      case "tool-invocation":
+      case 'tool-invocation':
         result += JSON.stringify(part.toolInvocation.args).length;
-        if (part.toolInvocation.state === "result") {
+        if (part.toolInvocation.state === 'result') {
           result += JSON.stringify(part.toolInvocation.result).length;
         }
         break;
-      case "source":
-        result += (part.source.title ?? "").length;
+      case 'source':
+        result += (part.source.title ?? '').length;
         result += part.source.url.length;
         break;
-      case "step-start":
+      case 'step-start':
         break;
       default:
         throw new Error(`Unknown part type: ${JSON.stringify(part)}`);
@@ -220,10 +218,10 @@ function makeSystemMessage(content: string): UIMessage {
   return {
     id: generateId(),
     content,
-    role: "system",
+    role: 'system',
     parts: [
       {
-        type: "text",
+        type: 'text',
         text: content,
       },
     ],
@@ -231,7 +229,7 @@ function makeSystemMessage(content: string): UIMessage {
 }
 
 function estimateSize(entry: Dirent): number {
-  if (entry.type === "file") {
+  if (entry.type === 'file') {
     return 4 + entry.content.length;
   } else {
     return 6;

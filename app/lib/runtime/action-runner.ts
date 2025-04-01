@@ -7,7 +7,7 @@ import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
 import { convexStore, waitForConvexProjectConnection } from '~/lib/stores/convex';
-import { initializeConvexAuth } from '../convexAuth';
+import { initializeConvexAuth } from '~/lib/convexAuth';
 
 const logger = createScopedLogger('ActionRunner');
 
