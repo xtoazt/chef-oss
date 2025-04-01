@@ -75,7 +75,15 @@ export const Head = createHead(() => (
 export function Layout({ children }: { children: React.ReactNode }) {
   const theme = useStore(themeStore);
   const { ENV } = useLoaderData<typeof loader>();
-  const [convex] = useState(() => new ConvexReactClient(ENV.CONVEX_URL!));
+  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || ENV.CONVEX_URL!;
+  if (import.meta.env.VITE_CONVEX_URL) {
+    console.log('got baked-in CONVEX_URL');
+  }
+  if (ENV.CONVEX_URL) {
+    console.log('got dynamic CONVEX_URL from server');
+  }
+
+  const [convex] = useState(() => new ConvexReactClient(CONVEX_URL));
 
   useEffect(() => {
     document.querySelector('html')?.setAttribute('data-theme', theme);
