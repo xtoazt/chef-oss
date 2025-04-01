@@ -19,10 +19,10 @@ import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
 import type { WebContainer } from '@webcontainer/api';
-import { formatSize } from '~/utils/formatSize';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
+import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
 
 const BACKUP_DEBOUNCE_MS = 1000 * 10;
 
@@ -74,36 +74,6 @@ export class WorkbenchStore {
     this.startBackup();
   }
 
-  async buildSnapshot(format: 'binary' | 'zip'): Promise<Uint8Array> {
-    const container = await webcontainer;
-    const start = Date.now();
-    const snapshot = await container.export('.', {
-      excludes: ['.env.local'],
-      format,
-    });
-    const end = Date.now();
-    console.log(`Built snapshot in ${end - start}ms`);
-
-    return snapshot;
-  }
-  async compressSnapshot(snapshot: Uint8Array): Promise<Uint8Array> {
-    // Dynamic import only executed on the client
-    if (typeof window === 'undefined') {
-      throw new Error('compressSnapshot can only be used in browser environments');
-    }
-
-    const start = Date.now();
-
-    const lz4 = await import('lz4-wasm');
-    const compressed = lz4.compress(snapshot);
-    const end = Date.now();
-    console.log(
-      `Compressed snapshot ${formatSize(snapshot.length)} to ${formatSize(compressed.length)} in ${end - start}ms`,
-    );
-
-    return compressed;
-  }
-
   async startBackup() {
     let isUploading = false;
     let pendingUpload = false;
@@ -131,13 +101,13 @@ export class WorkbenchStore {
           throw new Error('Session ID is not set');
         }
 
-        const binarySnapshot = await this.buildSnapshot('binary');
+        const binarySnapshot = await buildSnapshot('binary');
 
         if (!(binarySnapshot instanceof Uint8Array)) {
           throw new Error('Snapshot must be a Uint8Array');
         }
 
-        const compressed = await this.compressSnapshot(binarySnapshot);
+        const compressed = await compressSnapshot(binarySnapshot);
         const uploadUrl = await this.#convexClient.mutation(api.snapshot.generateUploadUrl);
         const result = await fetch(uploadUrl, {
           method: 'POST',
