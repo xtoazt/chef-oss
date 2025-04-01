@@ -119,7 +119,6 @@ export default defineConfig((config) => {
       },
     },
     plugins: [
-      wasm(),
       nodePolyfills({
         include: ['buffer', 'process', 'util', 'stream'],
         globals: {
@@ -156,7 +155,7 @@ export default defineConfig((config) => {
       chrome129IssuePlugin(),
       config.mode === 'production' && optimizeCssModules({ apply: 'build' }),
       wasm(),
-//      topLevelAwait(),  // including this breaks the build, only in cloudflare
+      //      topLevelAwait(),  // including this breaks the build, only in cloudflare
     ],
     envPrefix: [
       'VITE_',
