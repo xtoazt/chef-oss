@@ -24,7 +24,7 @@ import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
 
-const BACKUP_DEBOUNCE_MS = 1000 * 10;
+const BACKUP_DEBOUNCE_MS = 1000 * 5;
 
 const { saveAs } = fileSaver;
 
