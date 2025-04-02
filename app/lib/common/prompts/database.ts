@@ -72,26 +72,50 @@ export default function App() {
 The \`useQuery()\` hook is live-updating! It causes the React component is it used in to rerender, so Convex is a perfect fix for
 collaborative, live-updating websites.
 
-In order to use the useQuery hook in a component, it needs to be used inside a ConvexProvider. That might look like this:
+In order to use the useQuery hook in a component, it needs to be used inside a ConvexAuthProvider. That might look like this:
 \`\`\`
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App";
-import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexReactClient } from "convex/react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
 
 const address = import.meta.env.VITE_CONVEX_URL;
 
 const convex = new ConvexReactClient(address);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <ConvexProvider client={convex}>
+  <ConvexAuthProvider client={convex}>
     <App />
-  </ConvexProvider>
+  </ConvexAuthProvider>
 );
 \`\`\`
 
 The import path to import \`api\` from depends on the location of the file this codes written in (it's a relative path import).
 
+IMPORTANT: Notes about authentication in Convex:
+- DO NOT touch \`convex/auth.config.ts\`, \`convex/auth.ts\`, \`package.json\`, or \`src/Main.tsx\` under ANY circumstances.
+- DO NOT touch \`convex/http.ts\` unless explicitly specified by the user.
+- DO NOT change the login in \`src/App.tsx\` unless explicitly specified by the user.
+- If you want to get a user in a mutation or query, use the following syntax:
+\`\`\`typescript
+import { mutation } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { Id } from "./_generated/dataModel";
+export const myMutation = mutation({
+  args: {
+    // ...
+  },
+  handler: async (ctx, args) => {
+    const userId: Id<"users"> = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("Unauthenticated call to mutation");
+    }
+    //...
+  },
+});
+\`\`\`
+You can use the userId to get the user's data from the database or store it as the author of a message, for example. But most times, you just want to check that the user is authenticated.
 ${convexGuidelines}
 
 You'll start with a codebase that uses Convex Auth, so you'll want to use patterns like
