@@ -42,12 +42,12 @@ export function ConvexConnectButtonForInviteCode() {
         sessionId,
         chatId,
       });
-      await convexClient.mutation(api.convexProjects.startConnectConvexProject, {
+      await convexClient.mutation(api.convexProjects.startProvisionConvexProject, {
         sessionId,
         chatId,
       });
     } else {
-      await convexClient.mutation(api.convexProjects.startConnectConvexProject, {
+      await convexClient.mutation(api.convexProjects.startProvisionConvexProject, {
         sessionId,
         chatId,
       });
