@@ -1,6 +1,5 @@
 import { WebContainer } from '@webcontainer/api';
 import { WORK_DIR_NAME } from '~/utils/constants';
-import { loadSnapshot } from '~/lib/snapshot';
 import { cleanStackTrace } from '~/utils/stacktrace';
 
 interface WebContainerContext {
@@ -32,7 +31,6 @@ if (!import.meta.env.SSR) {
       })
       .then(async (webcontainer) => {
         const { workbenchStore } = await import('~/lib/stores/workbench');
-        await loadSnapshot(webcontainer, workbenchStore);
         webcontainerContext.loaded = true;
 
         // Listen for preview errors

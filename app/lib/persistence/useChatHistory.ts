@@ -10,7 +10,9 @@ import type { SerializedMessage } from '@convex/messages';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 import { getLocalStorage, setLocalStorage } from '~/lib/persistence/localStorage';
 import type { Id } from '@convex/_generated/dataModel';
-import { workbenchStore } from '../stores/workbench';
+import { workbenchStore } from '~/lib/stores/workbench';
+import { webcontainer } from '~/lib/webcontainer';
+import { loadSnapshot } from '~/lib/snapshot';
 
 export interface IChatMetadata {
   gitUrl: string;
@@ -72,7 +74,7 @@ export const useChatHistoryConvex = () => {
 
     convex
       .query(api.messages.getWithMessages, { id: mixedId, sessionId })
-      .then((rawMessages) => {
+      .then(async (rawMessages) => {
         if (rawMessages !== null && rawMessages.messages.length > 0) {
           const rewindId = searchParams.get('rewindTo');
           const filteredMessages = rewindId
@@ -89,6 +91,13 @@ export const useChatHistoryConvex = () => {
           setReady(true);
 
           workbenchStore.setReloadedMessages(filteredMessages.map((m) => m.id));
+
+          try {
+            const container = await webcontainer;
+            await loadSnapshot(container, workbenchStore, rawMessages.id);
+          } catch (error) {
+            console.error('Error loading snapshot:', error);
+          }
         } else {
           console.log('navigating to /');
           navigate('/', { replace: true });

@@ -227,7 +227,7 @@ export const importChat = mutation({
   },
 });
 
-export async function getChat(ctx: GenericQueryCtx<DataModel>, id: string, sessionId: Id<'sessions'>) {
+export async function getChat(ctx: QueryCtx, id: string, sessionId: Id<'sessions'>) {
   const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
   if (!chat) {

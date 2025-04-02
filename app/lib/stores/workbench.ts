@@ -79,8 +79,7 @@ export class WorkbenchStore {
     this.startBackup();
   }
 
-  async downloadSnapshot() {
-    const id = chatId.get();
+  async downloadSnapshot(id: string) {
     const sessionId = sessionIdStore.get();
 
     if (!id) {
