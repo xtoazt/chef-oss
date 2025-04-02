@@ -66,7 +66,7 @@ function InviteCodeForm() {
   const sessionId = useConvexSessionIdOrNullOrLoading();
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4">
-      <h1 className="text-2xl font-bold">Please enter an invite code to continue</h1>
+      <h1 className="text-2xl font-bold text-bolt-elements-textPrimary">Please enter an invite code to continue</h1>
       <form
         className="w-full max-w-md flex flex-col gap-2"
         onSubmit={(e) => {
@@ -91,12 +91,12 @@ function InviteCodeForm() {
             'bg-[#F8F8F8] dark:bg-[#1A1A1A]',
             'border border-[#E5E5E5] dark:border-[#333333]',
             'text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary',
-            'focus:outline-none focus:ring-1 focus:ring-purple-500',
+            'focus:outline-none focus:ring-1 focus:ring-[var(--bolt-elements-borderColorActive)]',
             'disabled:opacity-50',
           )}
         />
         <button
-          className="px-4 py-2 rounded-lg text-sm flex items-center mr-auto gap-2 bg-[#8B5CF6] text-white hover:bg-[#7C3AED] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 rounded-lg text-sm flex items-center mr-auto gap-2 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text disabled:opacity-50 disabled:cursor-not-allowed"
           type="submit"
         >
           Continue
