@@ -66,9 +66,11 @@ function InviteCodeForm() {
   const sessionId = useConvexSessionIdOrNullOrLoading();
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4">
-      <h1 className="text-2xl font-bold text-bolt-elements-textPrimary">Please enter an invite code to continue</h1>
+      <h1 className="text-2xl font-bold text-bolt-elements-textPrimary font-display">
+        Please enter an invite code to continue
+      </h1>
       <form
-        className="w-full max-w-md flex flex-col gap-2"
+        className="w-full max-w-md flex flex-wrap gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (sessionId !== null) {
@@ -87,7 +89,7 @@ function InviteCodeForm() {
           onChange={(e) => setCode(e.target.value)}
           placeholder="Enter your invite code"
           className={classNames(
-            'w-full px-3 py-2 rounded-lg text-sm',
+            'grow px-3 py-2 rounded-lg text-sm',
             'bg-[#F8F8F8] dark:bg-[#1A1A1A]',
             'border border-[#E5E5E5] dark:border-[#333333]',
             'text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary',
