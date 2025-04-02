@@ -114,7 +114,7 @@ export const Menu = () => {
         style={{ width: '340px' }}
         className={classNames(
           'flex selection-accent flex-col side-menu fixed top-0 h-full',
-          'bg-white dark:bg-gray-950 border-r border-gray-100 dark:border-gray-800/50',
+          'bg-[var(--bolt-elements-sidebar-background)] border-r border-bolt-elements-borderColor',
           'shadow-sm text-sm',
           'z-sidebar',
         )}
@@ -153,7 +153,7 @@ export const Menu = () => {
             <DialogRoot open={dialogContent !== null}>
               {binDates(filteredList).map(({ category, items }) => (
                 <div key={category} className="mt-2 first:mt-0 space-y-1">
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 sticky top-0 z-1 bg-white dark:bg-gray-950 px-4 py-1">
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 sticky top-0 z-1 bg-[var(--bolt-elements-sidebar-background)] px-4 py-1">
                     {category}
                   </div>
                   <div className="space-y-0.5 pr-1">
