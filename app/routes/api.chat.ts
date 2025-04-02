@@ -6,12 +6,12 @@ import type { ProgressAnnotation } from '~/types/context';
 import { WORK_DIR } from '~/utils/constants';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { getSystemPrompt } from '~/lib/common/prompts/prompts';
-import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 
 const logger = createScopedLogger('api.chat2');
 
 export async function action(args: ActionFunctionArgs) {
-  return chatAction(args);
+  return chatAction(args, args.context.cloudflare.env);
 }
 
 type RequestProgress = {
@@ -19,7 +19,8 @@ type RequestProgress = {
   cumulativeUsage: { completionTokens: number; promptTokens: number; totalTokens: number };
 };
 
-async function chatAction({ request }: ActionFunctionArgs) {
+async function chatAction({ request }: ActionFunctionArgs, env: Env) {
+  const provider = makeProvider(env);
   const { messages } = await request.json<{ messages: Messages }>();
   const progress: RequestProgress = {
     counter: 1,
@@ -192,22 +193,27 @@ function anthropicInjectCacheControl(options?: RequestInit) {
   return { ...options, body: newBody };
 }
 
-const anthropic = createAnthropic({
-  fetch: async (url, options) => {
-    return fetch(url, anthropicInjectCacheControl(options));
-  },
-});
-
-const providers = {
-  anthropic: {
-    maxTokens: 8192,
-    model: anthropic("claude-3-5-sonnet-20241022"),
-    includeSystemPrompt: false,
-  },
-  openai: {
-    maxTokens: 16384,
-    model: openai("gpt-4o-2024-11-20"),
-    includeSystemPrompt: true,
+function makeProvider(env: Env) {
+  const anthropic = createAnthropic({
+    apiKey: env.ANTHROPIC_API_KEY,
+    fetch: async (url, options) => {
+      return fetch(url, anthropicInjectCacheControl(options));
+    },
+  });
+  const openai = createOpenAI({
+    apiKey: env.OPENAI_API_KEY,
+  });
+  const providers = {
+    anthropic: {
+      maxTokens: 8192,
+      model: anthropic("claude-3-5-sonnet-20241022"),
+      includeSystemPrompt: false,
+    },
+    openai: {
+      maxTokens: 16384,
+      model: openai("gpt-4o-2024-11-20"),
+      includeSystemPrompt: true,
+    }
   }
+  return providers.anthropic;
 }
-const provider = providers.anthropic;
