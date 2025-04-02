@@ -26,6 +26,7 @@ import ProgressCompilation from './ProgressCompilation';
 import type { ProgressAnnotation } from '~/types/context';
 import type { ActionRunner } from '~/lib/runtime/action-runner';
 import { ConvexConnection } from '~/components/convex/ConvexConnection';
+import { FlexAuthWrapper } from './FlexAuthWrapper';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -60,6 +61,10 @@ interface BaseChatProps {
   data?: JSONValue[] | undefined;
   actionRunner?: ActionRunner;
 }
+
+export const WrappedBaseChat = (props: BaseChatProps) => {
+  return <FlexAuthWrapper>{<BaseChat {...props} />}</FlexAuthWrapper>;
+};
 
 export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
   (

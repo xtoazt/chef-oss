@@ -10,6 +10,7 @@ import { ConvexError } from 'convex/values';
 import type { SerializedMessage } from '@convex/messages';
 import { getLocalStorage, setLocalStorage } from '~/lib/persistence/localStorage';
 import type { Id } from '@convex/_generated/dataModel';
+import { useConvexSessionIdOrNullOrLoading } from '../stores/convex';
 
 export interface IChatMetadata {
   gitUrl: string;
@@ -34,18 +35,15 @@ export interface ChatHistoryItem {
  * This is the ID of the currently active chat -- it can be a human-friendly URL ID (e.g. `tic-tac-toe`)
  * if it's been set, or the initially allocated ID (a UUID). Callers should be able to handle either.
  */
-export const chatId = atom<string | undefined>(undefined);
+export const chatIdStore = atom<string | undefined>(undefined);
 export const description = atom<string | undefined>(undefined);
 export const chatMetadata = atom<IChatMetadata | undefined>(undefined);
-export const sessionIdStore = atom<Id<'sessions'> | undefined>(undefined);
-
-const SESSION_ID_KEY = 'sessionIdForConvex';
 
 export const useChatHistoryConvex = () => {
   const navigate = useNavigate();
 
   // mixedId means either an initialId or a urlId
-  const { id: mixedId } = useLoaderData<{ id?: string }>();
+  const { id: mixedId } = useLoaderData<{ id?: string; sessionId?: string }>();
   const [searchParams] = useSearchParams();
 
   const [initialMessages, setInitialMessages] = useState<SerializedMessage[]>([]);
@@ -56,24 +54,14 @@ export const useChatHistoryConvex = () => {
 
   const [ready, setReady] = useState<boolean>(false);
   const [urlId, setUrlId] = useState<string | undefined>();
-  const sessionId = useStore(sessionIdStore);
+  const sessionId = useConvexSessionIdOrNullOrLoading();
   const convex = useConvex();
   useEffect(() => {
-    if (sessionId === undefined) {
-      const sessionIdFromLocalStorage = getLocalStorage(SESSION_ID_KEY);
-
-      if (sessionIdFromLocalStorage) {
-        sessionIdStore.set(sessionIdFromLocalStorage);
-      } else {
-        convex.mutation(api.messages.startSession).then((id) => {
-          setLocalStorage(SESSION_ID_KEY, id);
-          sessionIdStore.set(id);
-        });
-      }
+    if (sessionId === undefined || sessionId === null) {
+      return;
     }
-  }, [sessionId]);
-  useEffect(() => {
-    if (sessionId === undefined || mixedId === undefined) {
+    if (mixedId === undefined) {
+      navigate('/', { replace: true });
       return;
     }
 
@@ -90,7 +78,7 @@ export const useChatHistoryConvex = () => {
         setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
         setUrlId(rawMessages.urlId);
         description.set(rawMessages.description);
-        chatId.set(rawMessages.id);
+        chatIdStore.set(rawMessages.id);
         chatMetadata.set(rawMessages.metadata);
         setReady(true);
       } else {
@@ -104,7 +92,7 @@ export const useChatHistoryConvex = () => {
     ready: mixedId === undefined || ready,
     initialMessages: initialDeserializedMessages,
     updateChatMetadata: async (metadata: IChatMetadata) => {
-      const id = chatId.get();
+      const id = chatIdStore.get();
 
       if (!id || !sessionId) {
         return;
@@ -135,12 +123,12 @@ export const useChatHistoryConvex = () => {
        * Synchronously allocate a new ID -- this ID is temporary and will be replaced by a
        * more human-friendly ID when the first message is added.
        */
-      if (initialMessages.length === 0 && !chatId.get()) {
+      if (initialMessages.length === 0 && !chatIdStore.get()) {
         const nextId = crypto.randomUUID();
-        chatId.set(nextId);
+        chatIdStore.set(nextId);
       }
 
-      const id = chatId.get() as string;
+      const id = chatIdStore.get() as string;
 
       if (persistInProgress.current) {
         return;

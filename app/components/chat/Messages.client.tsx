@@ -4,7 +4,7 @@ import { classNames } from '~/utils/classNames';
 import { AssistantMessage } from './AssistantMessage';
 import { UserMessage } from './UserMessage';
 import { useLocation } from '@remix-run/react';
-import { chatId, sessionIdStore } from '~/lib/persistence/useChatHistory';
+import { chatIdStore } from '~/lib/persistence/useChatHistory';
 import { toast } from 'react-toastify';
 import WithTooltip from '~/components/ui/Tooltip';
 import { useStore } from '@nanostores/react';
@@ -13,6 +13,7 @@ import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
+import { sessionIdStore } from '~/lib/stores/convex';
 
 interface MessagesProps {
   id?: string;
@@ -36,7 +37,7 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
 
     const handleFork = async (messageId: string) => {
       try {
-        const currentChatId = chatId.get();
+        const currentChatId = chatIdStore.get();
         const currentSessionId = sessionIdStore.get();
 
         if (!currentChatId || !currentSessionId) {

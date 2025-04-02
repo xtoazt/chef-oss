@@ -3,7 +3,8 @@ import { useStore } from '@nanostores/react';
 import { useConvex } from 'convex/react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { chatId as chatIdStore, description as descriptionStore, sessionIdStore } from '~/lib/persistence';
+import { chatIdStore as chatIdStore, description as descriptionStore } from '~/lib/persistence';
+import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 interface EditChatDescriptionOptions {
   initialDescription?: string;
   customChatId?: string;
@@ -40,7 +41,7 @@ export function useEditChatDescription({
   syncWithGlobalStore,
 }: EditChatDescriptionOptions): EditChatDescriptionHook {
   const chatIdFromStore = useStore(chatIdStore);
-  const sessionId = useStore(sessionIdStore);
+  const sessionId = useConvexSessionIdOrNullOrLoading();
   const [editing, setEditing] = useState(false);
   const [currentDescription, setCurrentDescription] = useState(initialDescription);
   const convex = useConvex();

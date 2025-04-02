@@ -14,7 +14,7 @@ import fileSaver from 'file-saver';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { path } from '~/utils/path';
 import { extractRelativePath } from '~/utils/diff';
-import { chatId, description, sessionIdStore } from '~/lib/persistence';
+import { chatIdStore, description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
@@ -23,6 +23,7 @@ import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
+import { sessionIdStore } from './convex';
 
 const BACKUP_DEBOUNCE_MS = 1000 * 5;
 
@@ -89,11 +90,11 @@ export class WorkbenchStore {
       try {
         isUploading = true;
 
-        const id = chatId.get();
+        const id = chatIdStore.get();
 
         if (!id) {
           // Subscribe to chat ID changes and execute upload when it becomes available
-          chatId.subscribe((newId) => {
+          chatIdStore.subscribe((newId) => {
             if (newId) {
               void handleUploadSnapshot();
             }

@@ -1,14 +1,91 @@
 import { classNames } from '~/utils/classNames';
 import { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
-import { convexStore } from '~/lib/stores/convex';
+import { convexStore, useConvexSessionId, useFlexAuthMode } from '~/lib/stores/convex';
+import { useConvex, useQuery } from 'convex/react';
+import { api } from '@convex/_generated/api';
+import { useChatId } from '~/lib/stores/chat';
 
 // The Convex OAuth App which is allowed to use the callbacks
 const CLIENT_ID = '855ec8198b9c462d';
 
 export function ConvexConnectButton() {
+  const flexAuthMode = useFlexAuthMode();
+  if (flexAuthMode === 'InviteCode') {
+    return <ConvexConnectButtonForInviteCode />;
+  }
+  return <ConvexConnectButtonViaOauth />;
+}
+
+export function ConvexConnectButtonForInviteCode() {
+  const convexClient = useConvex();
+  const sessionId = useConvexSessionId();
+  const chatId = useChatId();
+  const credentials = useQuery(api.convexProjects.loadConnectedConvexProjectCredentials, {
+    sessionId,
+    chatId,
+  });
+
+  useEffect(() => {
+    if (credentials?.kind === 'connected') {
+      convexStore.set({
+        token: credentials.adminKey,
+        deploymentName: credentials.projectSlug,
+        deploymentUrl: credentials.teamSlug,
+      });
+    }
+  }, [credentials]);
+
+  const handleClick = async () => {
+    if (credentials?.kind === 'connected') {
+      await convexClient.mutation(api.convexProjects.disconnectConvexProject, {
+        sessionId,
+        chatId,
+      });
+      await convexClient.mutation(api.convexProjects.startConnectConvexProject, {
+        sessionId,
+        chatId,
+      });
+    } else {
+      await convexClient.mutation(api.convexProjects.startConnectConvexProject, {
+        sessionId,
+        chatId,
+      });
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={credentials === undefined || credentials?.kind === 'connecting'}
+      className={classNames(
+        'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
+        'bg-[#8B5CF6] text-white',
+        'hover:bg-[#7C3AED]',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
+      )}
+    >
+      {credentials?.kind === 'connecting' ? (
+        <>
+          <div className="i-ph:spinner-gap animate-spin" />
+          Connecting...
+        </>
+      ) : (
+        <>
+          <div className="i-ph:plug-charging w-4 h-4" />
+          {credentials?.kind === 'connected' ? 'Connect a different project' : 'Connect'}
+        </>
+      )}
+    </button>
+  );
+}
+
+export function ConvexConnectButtonViaOauth() {
   const [isLoading, setIsLoading] = useState(false);
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const convexClient = useConvex();
+  const sessionId = useConvexSessionId();
+  const chatId = useChatId();
 
   useEffect(() => {
     return () => {
@@ -49,7 +126,9 @@ export function ConvexConnectButton() {
         setPollInterval(null);
         setIsLoading(false);
 
-        convexStore.set({
+        void convexClient.mutation(api.convexProjects.registerConvexProjectViaOauth, {
+          sessionId,
+          chatId,
           token,
           deploymentName,
           deploymentUrl,
