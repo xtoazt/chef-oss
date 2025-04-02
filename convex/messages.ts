@@ -4,6 +4,7 @@ import { ConvexError, v } from 'convex/values';
 import type { VAny, Infer } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { isValidSession } from './sessions';
+import { api } from './_generated/api';
 export type SerializedMessage = Omit<AIMessage, 'createdAt'> & {
   createdAt: number | undefined;
 };
@@ -494,6 +495,11 @@ export async function createNewChatFromMessages(
     throw new ConvexError({ code: 'InvalidState', message: 'Chat already exists' });
   }
 
+  const session = await ctx.db.get(sessionId);
+  if (!session) {
+    throw new Error(`Invalid state -- session should exist: ${sessionId}`);
+  }
+
   const chatId = await ctx.db.insert('chats', {
     creatorId: sessionId,
     initialId: id,
@@ -501,6 +507,15 @@ export async function createNewChatFromMessages(
     timestamp: new Date().toISOString(),
     metadata,
   });
+
+  // This is the invite code flow
+  const shouldAutomaticallyAllocateConvexProject = session.memberId === undefined;
+  if (shouldAutomaticallyAllocateConvexProject) {
+    await ctx.scheduler.runAfter(0, api.convexProjects.startProvisionConvexProject, {
+      sessionId,
+      chatId: id,
+    });
+  }
 
   return chatId;
 }

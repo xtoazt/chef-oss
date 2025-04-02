@@ -7,7 +7,7 @@ import { useChatIdOrNull } from '~/lib/stores/chat';
 import { useQuery, useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
 
-export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }) {
+export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' | 'hidden' }) {
   const [isOpen, setIsOpen] = useState(false);
   const convexClient = useConvex();
   const sessionId = useConvexSessionIdOrNullOrLoading();
@@ -45,6 +45,11 @@ export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }
       console.error('No sessionId or chatId so cannot disconnect');
     }
   };
+
+  if (size === 'hidden') {
+    // Render no UI, but still have the component so it can handle setting the `convexStore` state
+    return null;
+  }
 
   return (
     <div className="relative">

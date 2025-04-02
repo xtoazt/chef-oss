@@ -1,16 +1,13 @@
 import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
 import { useState, useEffect, useRef } from 'react';
 import { atom } from 'nanostores';
-import { useStore } from '@nanostores/react';
 import type { Message } from '@ai-sdk/react';
 import { toast } from 'react-toastify';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import type { SerializedMessage } from '@convex/messages';
-import { getLocalStorage, setLocalStorage } from '~/lib/persistence/localStorage';
-import type { Id } from '@convex/_generated/dataModel';
-import { useConvexSessionIdOrNullOrLoading } from '../stores/convex';
+import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 
 export interface IChatMetadata {
   gitUrl: string;

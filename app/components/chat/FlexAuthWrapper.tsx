@@ -23,7 +23,7 @@ export function FlexAuthWrapper({ children }: { children: React.ReactNode }) {
     code?: string;
     flexAuthMode: 'InviteCode' | 'ConvexOAuth';
   }>();
-  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
   useEffect(() => {
     flexAuthModeStore.set(flexAuthMode);
   }, [flexAuthMode]);
@@ -31,7 +31,7 @@ export function FlexAuthWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (sessionId === undefined) {
       if (flexAuthMode === 'ConvexOAuth') {
-        const isUnauthenticated = !isAuthenticated && !isLoading;
+        const isUnauthenticated = !isAuthenticated && !isConvexAuthLoading;
         if (isUnauthenticated) {
           sessionIdStore.set(null);
         } else if (isAuthenticated) {
@@ -48,7 +48,18 @@ export function FlexAuthWrapper({ children }: { children: React.ReactNode }) {
         });
       }
     }
-  }, [sessionId, isAuthenticated, flexAuthMode, isLoading]);
+  }, [sessionId, isAuthenticated, flexAuthMode, isConvexAuthLoading]);
+
+  const isLoading = sessionId === undefined || flexAuthMode === undefined;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="i-ph:spinner-gap animate-spin" />
+        Loading...
+      </div>
+    );
+  }
 
   return sessionId === null ? <UnauthenticatedPrompt flexAuthMode={flexAuthMode} /> : children;
 }

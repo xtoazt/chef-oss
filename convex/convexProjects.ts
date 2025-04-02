@@ -2,7 +2,7 @@ import { internalAction, internalMutation, mutation, query } from './_generated/
 import { ConvexError, v } from 'convex/values';
 import { getChatByIdOrUrlIdEnsuringAccess } from './messages';
 import { internal } from './_generated/api';
-import { getCurrentMember } from './sessions';
+import { getCurrentMember, getInviteCode } from './sessions';
 
 export const hasConnectedConvexProject = query({
   args: {
@@ -103,7 +103,8 @@ export const startProvisionConvexProject = mutation({
     }
 
     await ctx.db.patch(chat._id, { convexProject: { kind: 'connecting' } });
-    const projectName = chat.urlId ?? 'demo-project';
+    const inviteCode = await getInviteCode(ctx, { sessionId: args.sessionId });
+    const projectName = chat.urlId ?? inviteCode.code;
     await ctx.scheduler.runAfter(0, internal.convexProjects.connectConvexProject, {
       sessionId: args.sessionId,
       chatId: args.chatId,

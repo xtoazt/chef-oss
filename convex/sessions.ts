@@ -232,3 +232,14 @@ export async function getCurrentMember(ctx: QueryCtx) {
   }
   return existingMember;
 }
+
+export async function getInviteCode(ctx: QueryCtx, args: { sessionId: Id<'sessions'> }) {
+  const inviteCode = await ctx.db
+    .query('inviteCodes')
+    .withIndex('bySessionId', (q) => q.eq('sessionId', args.sessionId))
+    .unique();
+  if (inviteCode === null || !inviteCode.isActive) {
+    throw new ConvexError({ code: 'NotAuthorized', message: 'Invite code not found' });
+  }
+  return inviteCode;
+}
