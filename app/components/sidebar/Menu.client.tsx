@@ -113,7 +113,7 @@ export const Menu = () => {
         variants={menuVariants}
         style={{ width: '340px' }}
         className={classNames(
-          'flex selection-accent flex-col side-menu fixed top-0 h-full',
+          'flex flex-col side-menu fixed top-0 h-full',
           'bg-[var(--bolt-elements-sidebar-background)] border-r border-bolt-elements-borderColor',
           'shadow-sm text-sm',
           'z-sidebar',
@@ -125,17 +125,13 @@ export const Menu = () => {
           <div className="p-4 space-y-3">
             <a
               href="/"
-              className="flex gap-2 items-center bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-lg px-4 py-2 transition-colors"
+              className="inline-flex gap-2 items-center bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text hover:text-bolt-elements-button-primary-textHover rounded-lg px-4 py-2 transition-colors"
             >
-              <span className="inline-block i-lucide:message-square h-4 w-4" />
               <span className="text-sm font-medium">Start new chat</span>
             </a>
             <div className="relative w-full">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <span className="i-lucide:search h-4 w-4 text-gray-400 dark:text-gray-500" />
-              </div>
               <input
-                className="w-full bg-gray-50 dark:bg-gray-900 relative pl-9 pr-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500/50 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-800"
+                className="w-full bg-gray-50 dark:bg-gray-900 relative px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-bolt-elements-borderColorActive text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-800"
                 type="search"
                 placeholder="Search chats..."
                 onChange={handleSearchChange}

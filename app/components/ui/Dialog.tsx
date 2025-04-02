@@ -18,8 +18,9 @@ export const DialogButton = memo(({ type, children, onClick, disabled }: DialogB
   return (
     <button
       className={classNames('inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors', {
-        'bg-purple-500 text-white hover:bg-purple-600 dark:bg-purple-500 dark:hover:bg-purple-600': type === 'primary',
-        'bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100':
+        'bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover':
+          type === 'primary',
+        'bg-bolt-elements-button-secondary-background hover:bg-bolt-elements-button-secondary-backgroundHover text-bolt-elements-button-secondary-text hover:text-bolt-elements-button-secondary-textHover':
           type === 'secondary',
         'bg-transparent text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10': type === 'danger',
       })}
