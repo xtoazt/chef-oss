@@ -14,7 +14,7 @@ import fileSaver from 'file-saver';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { path } from '~/utils/path';
 import { extractRelativePath } from '~/utils/diff';
-import { chatId, description, sessionIdStore } from '~/lib/persistence';
+import { chatIdStore, description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
@@ -23,6 +23,9 @@ import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
+import { sessionIdStore } from './convex';
+import { withResolvers } from '~/utils/promises';
+import { BackupStack } from '../runtime/editorTool';
 
 const BACKUP_DEBOUNCE_MS = 1000 * 5;
 
@@ -48,6 +51,8 @@ export class WorkbenchStore {
   #editorStore = new EditorStore(this.#filesStore);
   #terminalStore = new TerminalStore(webcontainer);
   #convexClient: ConvexHttpClient;
+  #toolCalls: Map<string, PromiseWithResolvers<string>> = new Map();
+  #backupStack = new BackupStack();
 
   #reloadedMessages = new Set<string>();
 
@@ -89,11 +94,11 @@ export class WorkbenchStore {
       try {
         isUploading = true;
 
-        const id = chatId.get();
+        const id = chatIdStore.get();
 
         if (!id) {
           // Subscribe to chat ID changes and execute upload when it becomes available
-          chatId.subscribe((newId) => {
+          chatIdStore.subscribe((newId) => {
             if (newId) {
               void handleUploadSnapshot();
             }
@@ -194,8 +199,21 @@ export class WorkbenchStore {
     return this.#filesStore.files;
   }
 
+  get userWrites() {
+    return this.#filesStore.userWrites;
+  }
+
   prewarmWorkdir(container: WebContainer) {
     this.#filesStore.prewarmWorkdir(container);
+  }
+
+  async waitOnToolCall(toolCallId: string): Promise<string> {
+    let resolvers = this.#toolCalls.get(toolCallId);
+    if (!resolvers) {
+      resolvers = withResolvers<string>();
+      this.#toolCalls.set(toolCallId, resolvers);
+    }
+    return await resolvers.promise;
   }
 
   get currentDocument(): ReadableAtom<EditorDocument | undefined> {
@@ -394,6 +412,8 @@ export class WorkbenchStore {
       closed: false,
       type,
       runner: new ActionRunner(
+        this.#toolCalls,
+        this.#backupStack,
         webcontainer,
         () => this.boltTerminal,
         (alert) => {

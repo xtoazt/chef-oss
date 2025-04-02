@@ -28,7 +28,12 @@ export interface ConvexAction extends BaseAction {
   output?: string;
 }
 
-export type BoltAction = FileAction | ShellAction | StartAction | BuildAction | ConvexAction;
+export interface ToolUseAction extends BaseAction {
+  type: 'toolUse';
+  toolName: string;
+}
+
+export type BoltAction = FileAction | ShellAction | StartAction | BuildAction | ConvexAction | ToolUseAction;
 
 export type BoltActionData = BoltAction | BaseAction;
 

@@ -23,6 +23,7 @@ import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
 import { webcontainer } from '~/lib/webcontainer';
+import { FlexAuthWrapper } from './FlexAuthWrapper';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -35,49 +36,57 @@ export function Chat() {
   renderLogger.trace('Chat');
 
   const { ready, initialMessages, storeMessageHistory, importChat } = useChatHistoryConvex();
-  const title = useStore(description);
   useEffect(() => {
     workbenchStore.setReloadedMessages(initialMessages.map((m) => m.id));
   }, [initialMessages]);
+  const title = useStore(description);
 
   return (
     <>
-      {ready && (
-        <ChatImpl
-          description={title}
-          initialMessages={initialMessages}
-          storeMessageHistory={storeMessageHistory}
-          importChat={importChat}
-        />
-      )}
-      <ToastContainer
-        closeButton={({ closeToast }) => {
-          return (
-            <button className="Toastify__close-button" onClick={closeToast}>
-              <div className="i-ph:x text-lg" />
-            </button>
-          );
-        }}
-        icon={({ type }) => {
-          /**
-           * @todo Handle more types if we need them. This may require extra color palettes.
-           */
-          switch (type) {
-            case 'success': {
-              return <div className="i-ph:check-bold text-bolt-elements-icon-success text-2xl" />;
-            }
-            case 'error': {
-              return <div className="i-ph:warning-circle-bold text-bolt-elements-icon-error text-2xl" />;
-            }
-          }
-
-          return undefined;
-        }}
-        position="bottom-right"
-        pauseOnFocusLoss
-        transition={toastAnimation}
-      />
+      <FlexAuthWrapper>
+        {ready && (
+          <ChatImpl
+            description={title}
+            initialMessages={initialMessages}
+            storeMessageHistory={storeMessageHistory}
+            importChat={importChat}
+          />
+        )}
+      </FlexAuthWrapper>
+      <Toaster />
     </>
+  );
+}
+
+function Toaster() {
+  return (
+    <ToastContainer
+      closeButton={({ closeToast }) => {
+        return (
+          <button className="Toastify__close-button" onClick={closeToast}>
+            <div className="i-ph:x text-lg" />
+          </button>
+        );
+      }}
+      icon={({ type }) => {
+        /**
+         * @todo Handle more types if we need them. This may require extra color palettes.
+         */
+        switch (type) {
+          case 'success': {
+            return <div className="i-ph:check-bold text-bolt-elements-icon-success text-2xl" />;
+          }
+          case 'error': {
+            return <div className="i-ph:warning-circle-bold text-bolt-elements-icon-error text-2xl" />;
+          }
+        }
+
+        return undefined;
+      }}
+      position="bottom-right"
+      pauseOnFocusLoss
+      transition={toastAnimation}
+    />
   );
 }
 
@@ -148,13 +157,23 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     data: chatData,
     setData,
   } = useChat({
+    initialMessages,
+    initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
     api: '/api/chat',
-    experimental_prepareRequestBody: ({ messages }) => {
+    sendExtraMessageFields: true,
+    experimental_prepareRequestBody: ({ messages, requestBody, requestData }) => {
       return {
         messages: chatContextManager.current.prepareContext(messages),
+        firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
       };
     },
-    sendExtraMessageFields: true,
+    maxSteps: 64,
+    async onToolCall({ toolCall }) {
+      console.log("Starting tool call", toolCall);
+      const result = await workbenchStore.waitOnToolCall(toolCall.toolCallId);
+      console.log("Tool call finished", result);
+      return result;
+    },
     onError: (e) => {
       console.log('Error', e);
       logger.error('Request failed\n\n', e, error);
@@ -185,8 +204,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
       logger.debug('Finished streaming');
     },
-    initialMessages,
-    initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
   });
   const isLoading = status === 'streaming' || status === 'submitted';
   useEffect(() => {
@@ -202,7 +219,7 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     // Wait for the WebContainer to fully finish booting before sending a message.
     webcontainer.then(() => {
       append({ role: 'user', content: prompt });
-    })
+    });
   }, [model, provider, searchParams]);
 
   const { enhancingPrompt, promptEnhanced, enhancePrompt, resetEnhancer } = usePromptEnhancer();
@@ -441,10 +458,10 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
         if (message.role === 'user') {
           return message;
         }
-
         return {
           ...message,
-          content: parsedMessages[i] || '',
+          content: parsedMessages[i]?.content || '',
+          parts: parsedMessages[i]?.parts || [],
         };
       })}
       enhancePrompt={() => {

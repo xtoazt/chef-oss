@@ -1,10 +1,12 @@
-import { generateId, type UIMessage } from 'ai';
+import { generateId, type ToolInvocation, type UIMessage } from 'ai';
 import { renderFile } from '~/utils/fileUtils';
 import type { Dirent } from './stores/files';
 import { PREWARM_PATHS, WORK_DIR } from '~/utils/constants';
 import { workbenchStore } from './stores/workbench';
 import { StreamingMessageParser } from './runtime/message-parser';
 import { path } from '~/utils/path';
+import { editorToolParameters } from './runtime/editorTool';
+import { bashToolParameters } from './runtime/bashTool';
 // import { bashToolParameters, editorToolParameters } from "./tools";
 
 // It's wasteful to actually tokenize the content, so we'll just use character
@@ -12,17 +14,16 @@ import { path } from '~/utils/path';
 const MAX_RELEVANT_FILES_SIZE = 8192;
 const MAX_RELEVANT_FILES = 16;
 
-const _MAX_COLLAPSED_MESSAGES_SIZE = 8192;
+const MAX_COLLAPSED_MESSAGES_SIZE = 4096;
 
 type UIMessagePart = UIMessage['parts'][number];
 
 type ParsedAssistantMessage = {
-  filesWritten: string[];
-  textContent: string;
+  filesTouched: Map<string, number>;
 };
 
 export class ChatContextManager {
-  assistantMessageCache: WeakMap<UIMessagePart, ParsedAssistantMessage> = new WeakMap();
+  assistantMessageCache: WeakMap<UIMessage, ParsedAssistantMessage> = new WeakMap();
   messageSizeCache: WeakMap<UIMessage, number> = new WeakMap();
   partSizeCache: WeakMap<UIMessagePart, number> = new WeakMap();
 
@@ -43,6 +44,8 @@ export class ChatContextManager {
   }
 
   private relevantFiles(messages: UIMessage[]): UIMessage[] {
+    const currentDocument = workbenchStore.currentDocument.get();
+
     // Seed the set with the PREWARM_PATHS.
     const cache = workbenchStore.files.get();
     const allPaths = Object.keys(cache).toSorted();
@@ -54,25 +57,37 @@ export class ChatContextManager {
         console.log('Missing prewarm entry', path);
         continue;
       }
-      lastUsed.set(path, -1);
+      lastUsed.set(path, 0);
     }
 
     // Iterate over the messages and update the last used time for each path.
-    for (let i = 0; i < messages.length; i++) {
-      const message = messages[i];
-      for (const part of message.parts) {
-        const parsed = this.parsedAssistantMessage(message, part);
-        if (!parsed) {
+    let partCounter = 0;
+    for (const message of messages) {
+      const createdAt = message.createdAt?.getTime();
+      const parsed = this.parsedAssistantMessage(message);
+      if (!parsed) {
+        continue;
+      }
+      for (const [absPath, partIndex] of parsed.filesTouched.entries()) {
+        const entry = cache[absPath];
+        if (!entry || entry.type !== 'file') {
           continue;
         }
-        for (const absPath of parsed.filesWritten) {
-          const entry = cache[absPath];
-          if (!entry || entry.type !== 'file') {
-            continue;
-          }
-          lastUsed.set(absPath, i);
-        }
+        const lastUsedTime = (createdAt ?? partCounter) + partIndex;
+        lastUsed.set(absPath, lastUsedTime);
       }
+      partCounter += message.parts.length;
+    }
+
+    for (const [path, lastUsedTime] of workbenchStore.userWrites.entries()) {
+      let existing = lastUsed.get(path) ?? 0;
+      lastUsed.set(path, Math.max(existing, lastUsedTime));
+    }
+
+    // If there's a currently open document, remove it from the relevance list
+    // since we'll unconditionally include it later.
+    if (currentDocument) {
+      lastUsed.delete(currentDocument.filePath);
     }
 
     const sortedByLastUsed = Array.from(lastUsed.entries()).sort((a, b) => b[1] - a[1]);
@@ -107,74 +122,123 @@ export class ChatContextManager {
         }
       }
     }
+
+    if (currentDocument) {
+      let message = `The user currently has an editor open at ${currentDocument.filePath}. Here are the contents:\n`
+      message += renderFile(currentDocument.value);
+      relevantFiles.push(makeSystemMessage(message));
+    }
+
     console.log(
       `Populated ${relevantFiles.length} relevant files with size ${sizeEstimate}:\n${debugInfo.join('\n')}`,
+      allPaths,
       relevantFiles,
     );
     return relevantFiles;
   }
 
   private collapseMessages(messages: UIMessage[]): UIMessage[] {
-    const result: UIMessage[] = [];
-    for (const message of messages) {
-      if (message.role !== 'assistant') {
-        result.push(message);
-        continue;
+    const before = messages.flatMap((m) => m.parts).map((p) => this.partSize(p)).reduce((a, b) => a + b, 0);
+    const [iCutoff, jCutoff] = this.messagePartCutoff(messages);
+    const summaryLines = [];
+    const fullMessages = [];
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+      if (i < iCutoff) {
+        for (const part of message.parts) {
+          const summary = summarizePart(message, part);
+          if (summary) {
+            summaryLines.push(summary);
+          }
+        }
+      } else if (i === iCutoff) {
+        const filteredParts = message.parts.filter((p, j) => {
+          if (p.type !== "tool-invocation" || p.toolInvocation.state !== "result") {
+            return true;
+          }
+          return j > jCutoff;
+        });
+        for (let j = 0; j < filteredParts.length; j++) {
+          const part = filteredParts[j];
+          if (part.type === "tool-invocation" && part.toolInvocation.state === "result" && j <= jCutoff) {
+            const summary = summarizePart(message, part);
+            if (summary) {
+              summaryLines.push(summary);
+            }
+          }
+        }
+        const remainingMessage = {
+          ...message,
+          content: StreamingMessageParser.stripArtifacts(message.content),
+          parts: filteredParts,
+        };
+        fullMessages.push(remainingMessage);
+      } else {
+        fullMessages.push(message);
       }
-      const parsed = this.parsedAssistantMessage(message, message.parts[0]);
-      if (!parsed) {
-        result.push(message);
-        continue;
-      }
-      result.push(makeSystemMessage(parsed.textContent));
     }
+    const result: UIMessage[] = [];
+    if (summaryLines.length > 0) {
+      result.push(makeSystemMessage(`Conversation summary:\n${summaryLines.join('\n')}`));
+    }
+    result.push(...fullMessages);
+    const after = result.flatMap((m) => m.parts).map((p) => this.partSize(p)).reduce((a, b) => a + b, 0);
+    console.log(`Collapsed ${before} -> ${after} bytes in message history`, messages, result);
     return result;
   }
 
-  private parsedAssistantMessage(message: UIMessage, part: UIMessagePart): ParsedAssistantMessage | null {
+  private messagePartCutoff(messages: UIMessage[]): [number, number] {
+    let remaining = MAX_COLLAPSED_MESSAGES_SIZE;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      for (let j = message.parts.length - 1; j >= 0; j--) {
+        const part = message.parts[j];
+        if (part.type === 'tool-invocation' && part.toolInvocation.state !== "result") {
+          continue;
+        }
+        const size = this.partSize(part);
+        if (size > remaining) {
+          return [i, j];
+        }
+        remaining -= size;
+      }
+    }
+    return [-1, -1];
+  }
+
+  private parsedAssistantMessage(message: UIMessage): ParsedAssistantMessage | null {
     if (message.role !== 'assistant') {
       return null;
     }
-    if (part.type !== 'text') {
-      return null;
-    }
-    const cached = this.assistantMessageCache.get(part);
+    const cached = this.assistantMessageCache.get(message);
     if (cached) {
       return cached;
     }
 
-    const filesWritten: string[] = [];
-    const parser = new StreamingMessageParser({
-      callbacks: {
-        onActionClose: (data) => {
-          if (data.action.type === 'file') {
-            const relPath = data.action.filePath;
-            const absPath = path.join(WORK_DIR, relPath);
-            filesWritten.push(absPath);
-          }
-        },
-      },
-    });
-    parser.parse(message.id, message.content);
+    const filesTouched = new Map<string, number>();
+    for (const file of extractFileArtifacts(message.id, message.content)) {
+      filesTouched.set(file, 0);
+    }
+    for (let j = 0; j < message.parts.length; j++) {
+      const part = message.parts[j];
+      if (part.type === "text") {
+        const files = extractFileArtifacts(message.id, part.text);
+        for (const file of files) {
+          filesTouched.set(file, j);
+        }
+      }
+      if (part.type == "tool-invocation"
+        && part.toolInvocation.toolName == "str_replace_editor"
+        && part.toolInvocation.state !== "partial-call") {
+        const args = editorToolParameters.parse(part.toolInvocation.args);
+        filesTouched.set(args.path, j);
+      }
+    }
     const result = {
-      filesWritten,
-      textContent: StreamingMessageParser.stripArtifacts(message.content),
+      filesTouched,
     };
-    this.assistantMessageCache.set(part, result);
+    this.assistantMessageCache.set(message, result);
     return result;
-  }
-
-  private messageSize(message: UIMessage) {
-    const cached = this.messageSizeCache.get(message);
-    if (cached) {
-      return cached;
-    }
-    let total = 0;
-    for (const part of message.parts) {
-      total += this.partSize(part);
-    }
-    this.messageSizeCache.set(message, total);
-    return total;
   }
 
   private partSize(part: UIMessagePart) {
@@ -214,6 +278,16 @@ export class ChatContextManager {
   }
 }
 
+function summarizePart(message: UIMessage, part: UIMessagePart): string | null {
+  if (part.type === "text") {
+    return `${message.role}: ${StreamingMessageParser.stripArtifacts(part.text)}`;
+  }
+  if (part.type === "tool-invocation" && part.toolInvocation.state === "result") {
+    return abbreviateToolInvocation(part.toolInvocation);
+  }
+  return null;
+}
+
 function makeSystemMessage(content: string): UIMessage {
   return {
     id: generateId(),
@@ -234,4 +308,60 @@ function estimateSize(entry: Dirent): number {
   } else {
     return 6;
   }
+}
+
+function abbreviateToolInvocation(toolInvocation: ToolInvocation): string {
+  if (toolInvocation.state !== "result") {
+    throw new Error(`Invalid tool invocation state: ${toolInvocation.state}`);
+  }
+  const wasError = toolInvocation.result.startsWith("Error:");
+  let toolCall: string;
+  switch (toolInvocation.toolName) {
+    case "str_replace_editor": {
+      const args = editorToolParameters.parse(toolInvocation.args);
+      switch (args.command) {
+        case "create":
+          toolCall = `created ${args.path}`;
+          break;
+        case "view":
+          toolCall = `viewed ${args.path}`;
+          break;
+        case "str_replace":
+        case "insert":
+          toolCall = `edited ${args.path}`;
+          break;
+        case "undo_edit":
+          toolCall = `undid an edit to ${args.path}`;
+          break;
+        default:
+          throw new Error(`Unknown command: ${args.command}`);
+      }
+      break;
+    }
+    case "bash": {
+      const args = bashToolParameters.parse(toolInvocation.args);
+      toolCall = `ran the command ${args.command}`;
+      break;
+    }
+    default:
+      throw new Error(`Unknown tool name: ${toolInvocation.toolName}`);
+  }
+  return `Tool call: The assistant ${toolCall} ${wasError ? "and got an error" : "successfully"}.`;
+}
+
+function extractFileArtifacts(id: string, content: string) {
+  const filesTouched: Set<string> = new Set();
+  const parser = new StreamingMessageParser({
+    callbacks: {
+      onActionClose: (data) => {
+        if (data.action.type === 'file') {
+          const relPath = data.action.filePath;
+          const absPath = path.join(WORK_DIR, relPath);
+          filesTouched.add(absPath);
+        }
+      },
+    },
+  });
+  parser.parse(id, content);
+  return Array.from(filesTouched);
 }

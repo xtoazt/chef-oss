@@ -9,6 +9,9 @@ export default [
   ...blitzPlugin.configs.recommended(),
   {
     rules: {
+      '@blitz/lines-around-comment': 'off',
+      '@blitz/newline-before-return': 'off',
+      '@blitz/catch-error-name': 'off',
       '@typescript-eslint/no-this-alias': 'off',
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/naming-convention': 'off',
@@ -29,6 +32,8 @@ export default [
       'no-eval': ['error'],
       'linebreak-style': ['error', 'unix'],
       'arrow-spacing': ['error', { before: true, after: true }],
+      'multiline-comment-style': 'off',
+      'padding-line-between-statements': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error', // or 'warn' if you prefer
         {

@@ -8,16 +8,23 @@ This is fork of the `stable` branch of [bolt.diy](https://github.com/stackblitz-
 - use node 18 or 20, e.g. `nvm use 18`
 - install pnpm somehow, e.g. `npm install -g pnpm
 - run `pnpm i`
-- run `pnpx convex dev --configure existing --team convex --project bolt-diy-f612e`
+- set up the .env.local file (do this BEFORE running the next command)
+- run `pnpx convex dev --configure existing --team convex --project bolt-diy-f612e --once`
 
-Create a .env.local file, include at least
+When you create the .env.local file, include at least
 
 ```
-# makes it so you won't have to paste one in
+# Get one from `https://console.anthropic.com/settings/keys` or ask
 ANTHROPIC_API_KEY=sk-ant-api03-...
-# Optional, less important now that we download less from GitHub.
-# Prevents being rate-limited by GitHub (which causes "Failed to download template")
-VITE_GITHUB_ACCESS_TOKEN=ghp_...
+
+# Our test Auth0 account
+VITE_AUTH0_DOMAIN=https://convexdev-test.us.auth0.com
+VITE_AUTH0_CLIENT_ID=oEo9vzuqoz5vmtFThMqNrmmCKulsMBPD
+
+# It's important to add this before running a convex commmand
+# (but otherwise you can change CONVEX_URL to VITE_CONVEX_URL later)
+VITE_CONVEX_URL='placeholder'
+
 # maybe useful
 VITE_LOG_LEVEL=debug
 ```
@@ -30,6 +37,22 @@ pnpm run dev
 # and in another terminal,
 pnpx convex dev
 ```
+
+### Auth
+
+There are two forms of auth, dictated by the `FLEX_AUTH_MODE` environment variable.
+
+#### `FLEX_AUTH_MODE=InviteCode`
+
+- Convex projects are provisioned automatically against one of our teams
+- The credentials are saved as default environment variables on the `bolt-diy-f612` Convex project
+- You need a "code" to access Flex. There's an internal mutation you can run to issue yourself a code (e.g. `sshader-test`).
+- Each code corresponds to a user, so if you're doing this in production, issue a code with your name in it.
+
+#### `FLEX_AUTH_MODE=ConvexOAuth`
+
+- Users sign in with their Github account to Convex (as of writing, actually a test Convex Auth0 app)
+- Users go through an OAuth flow to link projects in their account to Flex
 
 # Working on the template
 

@@ -46,6 +46,7 @@ export class FilesStore {
    * Map of files that matches the state of WebContainer.
    */
   files: MapStore<FileMap> = import.meta.hot?.data.files ?? map({});
+  userWrites: Map<string, number> = import.meta.hot?.data.userWrites ?? new Map();
 
   get filesCount() {
     return this.#size;
@@ -57,6 +58,7 @@ export class FilesStore {
     if (import.meta.hot) {
       import.meta.hot.data.files = this.files;
       import.meta.hot.data.modifiedFiles = this.#modifiedFiles;
+      import.meta.hot.data.userWrites = this.userWrites;
     }
 
     this.#init();
@@ -127,6 +129,7 @@ export class FilesStore {
 
       // we immediately update the file and don't rely on the `change` event coming from the watcher
       this.files.setKey(filePath, { type: 'file', content, isBinary: false });
+      this.userWrites.set(filePath, Date.now());
 
       logger.info('File updated');
     } catch (error) {

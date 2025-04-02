@@ -1,23 +1,28 @@
 import { useStore } from '@nanostores/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { computed } from 'nanostores';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { createHighlighter, type BundledLanguage, type BundledTheme, type HighlighterGeneric } from 'shiki';
 import type { ActionState } from '~/lib/runtime/action-runner';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
-import { convexStore } from '~/lib/stores/convex';
+import { useConvexSessionId } from '~/lib/stores/convex';
 import { ConvexConnectAlert } from '~/components/convex/ConvexConnectAlert';
 import { ConvexDeployTerminal } from '~/components/convex/ConvexDeployTerminal';
+import { api } from '@convex/_generated/api';
+import { useQuery } from 'convex/react';
+import { useChatId } from '~/lib/stores/chat';
+import type { ToolInvocation } from 'ai';
+import { Markdown } from './Markdown';
 
 const highlighterOptions = {
   langs: ['shell'],
   themes: ['light-plus', 'dark-plus'],
 };
 
-const shellHighlighter: HighlighterGeneric<BundledLanguage, BundledTheme> =
+export const shellHighlighter: HighlighterGeneric<BundledLanguage, BundledTheme> =
   import.meta.hot?.data.shellHighlighter ?? (await createHighlighter(highlighterOptions));
 
 if (import.meta.hot) {
@@ -128,14 +133,14 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
 });
 
 interface ShellCodeBlockProps {
-  classsName?: string;
+  className?: string;
   code: string;
 }
 
-function ShellCodeBlock({ classsName, code }: ShellCodeBlockProps) {
+export function ShellCodeBlock({ className, code }: ShellCodeBlockProps) {
   return (
     <div
-      className={classNames('text-xs', classsName)}
+      className={classNames('text-xs', className)}
       dangerouslySetInnerHTML={{
         __html: shellHighlighter.codeToHtml(code, {
           lang: 'shell',
@@ -150,7 +155,7 @@ interface ActionListProps {
   actions: ActionState[];
 }
 
-const actionVariants = {
+export const actionVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
 };
@@ -164,8 +169,12 @@ function openArtifactInWorkbench(filePath: any) {
 }
 
 const ActionList = memo(({ actions }: ActionListProps) => {
-  const convexProject = useStore(convexStore);
-  const isConvexConnected = convexProject !== null;
+  const chatId = useChatId();
+  const sessionId = useConvexSessionId();
+  const isConvexConnected = useQuery(api.convexProjects.hasConnectedConvexProject, {
+    sessionId,
+    chatId,
+  });
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
@@ -235,7 +244,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
               </div>
               {(type === 'shell' || type === 'start') && (
                 <ShellCodeBlock
-                  classsName={classNames('mt-1', {
+                  className={classNames('mt-1', {
                     'mb-3.5': !isLast,
                   })}
                   code={content}
@@ -255,7 +264,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
   );
 });
 
-function getIconColor(status: ActionState['status']) {
+export function getIconColor(status: ActionState['status']) {
   switch (status) {
     case 'pending': {
       return 'text-bolt-elements-textTertiary';

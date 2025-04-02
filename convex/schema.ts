@@ -18,7 +18,15 @@ export default defineSchema({
    * unguessable (i.e. we should never list session IDs or return them in function
    * results).
    */
-  sessions: defineTable({}),
+  sessions: defineTable({
+    // When auth-ing with convex.dev, we'll save a `convexMembers` document and
+    // reference it here.
+    memberId: v.optional(v.id('convexMembers')),
+  }).index('byMemberId', ['memberId']),
+
+  convexMembers: defineTable({
+    tokenIdentifier: v.string(),
+  }).index('byTokenIdentifier', ['tokenIdentifier']),
 
   /*
    * All chats have two IDs -- an `initialId` that is always set (UUID) and a `urlId`
@@ -36,13 +44,44 @@ export default defineSchema({
     timestamp: v.string(),
     metadata: v.optional(IChatMetadataValidator),
     snapshotId: v.optional(v.id('_storage')),
+    convexProject: v.optional(
+      v.union(
+        v.object({
+          kind: v.literal('connected'),
+          projectSlug: v.string(),
+          teamSlug: v.string(),
+          // for this member's dev deployment
+          deploymentUrl: v.string(),
+          deploymentName: v.string(),
+        }),
+        v.object({
+          kind: v.literal('connecting'),
+        }),
+      ),
+    ),
   })
     .index('byCreatorAndId', ['creatorId', 'initialId'])
     .index('byCreatorAndUrlId', ['creatorId', 'urlId']),
+
+  convexProjectCredentials: defineTable({
+    projectSlug: v.string(),
+    teamSlug: v.string(),
+    memberId: v.optional(v.id('convexMembers')),
+    projectDeployKey: v.string(),
+  }).index('bySlugs', ['teamSlug', 'projectSlug']),
 
   chatMessages: defineTable({
     content: v.any() as VAny<SerializedMessage>,
     rank: v.number(),
     chatId: v.id('chats'),
   }).index('byChatId', ['chatId', 'rank']),
+  inviteCodes: defineTable({
+    code: v.string(),
+    sessionId: v.id('sessions'),
+    lastUsedTime: v.union(v.number(), v.null()),
+    issuedReason: v.string(),
+    isActive: v.boolean(),
+  })
+    .index('byCode', ['code'])
+    .index('bySessionId', ['sessionId']),
 });

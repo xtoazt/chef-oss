@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
-import { chatId, sessionIdStore, useChatHistoryConvex, type ChatHistoryItem } from '~/lib/persistence';
+import { chatIdStore, useChatHistoryConvex, type ChatHistoryItem } from '~/lib/persistence';
 import { cubicEasingFn } from '~/utils/easings';
 import { logger } from '~/utils/logger';
 import { HistoryItem } from './HistoryItem';
@@ -12,7 +12,7 @@ import { useSearchFilter } from '~/lib/hooks/useSearchFilter';
 import { classNames } from '~/utils/classNames';
 import { useConvex, useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
-import { useStore } from '@nanostores/react';
+import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 
 const menuVariants = {
   closed: {
@@ -40,7 +40,7 @@ type DialogContent = { type: 'delete'; item: ChatHistoryItem } | null;
 export const Menu = () => {
   const { duplicateCurrentChat } = useChatHistoryConvex();
   const menuRef = useRef<HTMLDivElement>(null);
-  const sessionId = useStore(sessionIdStore);
+  const sessionId = useConvexSessionIdOrNullOrLoading();
   const convex = useConvex();
   const list = useQuery(api.messages.getAll, sessionId ? { sessionId } : 'skip') ?? [];
   const [open, setOpen] = useState(false);
@@ -58,7 +58,7 @@ export const Menu = () => {
       convex
         .mutation(api.messages.remove, { id: item.id, sessionId })
         .then(() => {
-          if (chatId.get() === item.id) {
+          if (chatIdStore.get() === item.id) {
             // hard page navigation to clear the stores
             window.location.pathname = '/';
           }
