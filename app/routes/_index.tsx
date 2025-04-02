@@ -4,16 +4,17 @@ import { WrappedBaseChat } from '~/components/chat/BaseChat';
 import { Chat } from '~/components/chat/Chat.client';
 import { Header } from '~/components/header/Header';
 import { SafariWarning } from '~/components/SafariWarning';
-import { handleConvexAuthMode, getFlexAuthModeInLoader } from '~/lib/persistence/convex';
+import { getFlexAuthModeInLoader } from '~/lib/persistence/convex';
 
 export const meta: MetaFunction = () => {
   return [{ title: 'Bolt' }, { name: 'description', content: 'Talk with Bolt, an AI assistant from StackBlitz' }];
 };
 
 export const loader = async (args: LoaderFunctionArgs) => {
-  const sessionId = await handleConvexAuthMode(args);
+  const url = new URL(args.request.url);
+  const code = url.searchParams.get('code');
   const flexAuthMode = getFlexAuthModeInLoader(args.context);
-  return Response.json({ sessionId, flexAuthMode });
+  return Response.json({ code, flexAuthMode });
 };
 
 /**

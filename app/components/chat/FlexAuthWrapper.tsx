@@ -19,8 +19,8 @@ import { classNames } from '~/utils/classNames';
 export function FlexAuthWrapper({ children }: { children: React.ReactNode }) {
   const sessionId = useConvexSessionIdOrNullOrLoading();
   const convex = useConvex();
-  const { sessionId: sessionIdFromLoader, flexAuthMode } = useLoaderData<{
-    sessionId?: string;
+  const { code: codeFromLoader, flexAuthMode } = useLoaderData<{
+    code?: string;
     flexAuthMode: 'InviteCode' | 'ConvexOAuth';
   }>();
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -36,13 +36,15 @@ export function FlexAuthWrapper({ children }: { children: React.ReactNode }) {
           sessionIdStore.set(null);
         } else if (isAuthenticated) {
           setInitialConvexSessionId(convex, {
-            sessionIdFromLoader,
+            codeFromLoader,
+            flexAuthMode,
           });
         }
       }
       if (flexAuthMode === 'InviteCode') {
         setInitialConvexSessionId(convex, {
-          sessionIdFromLoader,
+          codeFromLoader,
+          flexAuthMode,
         });
       }
     }
