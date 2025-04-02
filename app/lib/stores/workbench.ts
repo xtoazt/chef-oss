@@ -79,6 +79,36 @@ export class WorkbenchStore {
     this.startBackup();
   }
 
+  async downloadSnapshot() {
+    const id = chatId.get();
+    const sessionId = sessionIdStore.get();
+
+    if (!id) {
+      throw new Error('No chat ID found');
+    }
+
+    if (!sessionId) {
+      throw new Error('No session ID found');
+    }
+
+    const snapshotUrl = await this.#convexClient.query(api.snapshot.getSnapshotUrl, { chatId: id, sessionId });
+    if (!snapshotUrl) {
+      const resp = await fetch('https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin');
+      if (!resp.ok) {
+        const body = await resp.text();
+        throw new Error(`Failed to download snapshot (${resp.statusText}): ${body}`);
+      }
+      return await resp.arrayBuffer();
+    } else {
+      // Download the snapshot from Convex
+      const resp = await fetch(snapshotUrl);
+      if (!resp.ok) {
+        throw new Error(`Failed to download snapshot (${resp.statusText}): ${resp.statusText}`);
+      }
+      return await resp.arrayBuffer();
+    }
+  }
+
   async startBackup() {
     let isUploading = false;
     let pendingUpload = false;
