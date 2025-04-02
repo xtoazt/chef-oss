@@ -1,12 +1,8 @@
-import {
-  Authenticated,
-  Unauthenticated,
-  useQuery,
-  useMutation,
-} from "convex/react";
+import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
+import { Toaster } from "./components/ui/toaster";
 
 export default function App() {
   return (
@@ -20,6 +16,7 @@ export default function App() {
           <Content />
         </div>
       </main>
+      <Toaster />
     </div>
   );
 }
@@ -40,14 +37,10 @@ function Content() {
       <div className="text-center">
         <h1 className="text-5xl font-bold accent-text mb-4">Build with Flex</h1>
         <Authenticated>
-          <p className="text-xl text-slate-600 dark:text-slate-300">
-            Welcome back, {loggedInUser?.email ?? "friend"}!
-          </p>
+          <p className="text-xl text-slate-600 dark:text-slate-300">Welcome back, {loggedInUser?.email ?? "friend"}!</p>
         </Authenticated>
         <Unauthenticated>
-          <p className="text-xl text-slate-600 dark:text-slate-300">
-            Sign in to get started
-          </p>
+          <p className="text-xl text-slate-600 dark:text-slate-300">Sign in to get started</p>
         </Unauthenticated>
       </div>
 

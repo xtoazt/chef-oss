@@ -21,6 +21,8 @@ You don't need to install "convex/react", it's part of the 'convex' package you 
 
 IMPORTANT: Once you run \`npx convex dev --once\` and it exits with no errors, you should start run the start action again with \`npm run dev\` or whatever the appropriate long-running dev server command is. DON'T FORGET TO RUN \`npm run dev\` AFTER A CONVEX DEPLOY ACTION!
 
+IMPORTANT: ONLY use functions that are defined in the \`convex/\` directory. If they are not defined in the \`convex/\` directory, you CANNOT use them.
+
 
 Here's an example of using Convex from a React app.
 
@@ -28,6 +30,9 @@ Here's an example of using Convex from a React app.
 import React, { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { Button } from "@/components/ui/button";
+import { Form } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
 export default function App() {
   const messages = useQuery(api.messages.list) || [];
@@ -56,16 +61,45 @@ export default function App() {
           </li>
         ))}
       </ul>
-      <form onSubmit={handleSendMessage}>
+      <Form onSubmit={handleSendMessage}>
         <input
           value={newMessageText}
           onChange={(event) => setNewMessageText(event.target.value)}
           placeholder="Write a message…"
         />
-        <input type="submit" value="Send" disabled={!newMessageText} />
-      </form>
+        <Button type="submit" disabled={!newMessageText}>
+          Send
+        </Button>
+      </Form>
     </main>
   );
+}
+\`\`\`
+
+When creating the frontend, only create files within the \`src\` directory. DO NOT touch the \`src/components\` directory.
+
+IMPORTANT: Always use react! Use good UI styling principles and use shadcn for components. Only use the following shadcn components, which are already installed:
+  - accordion
+  - alert
+  - button
+  - card
+  - checkbox
+  - form
+  - input
+  - label
+  - select
+  - toast
+  - toaster
+
+Below is an example of using the shadcn button component:
+
+\`\`\`
+import { Button } from "@/components/ui/button";
+
+export default function App() {
+  return (
+    <Button>Click me</Button>
+  )
 }
 \`\`\`
 
@@ -93,10 +127,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 The import path to import \`api\` from depends on the location of the file this codes written in (it's a relative path import).
 
+You'll start with a codebase that uses Convex Auth, so you'll want to use patterns like
+
 IMPORTANT: Notes about authentication in Convex:
 - DO NOT touch \`convex/auth.config.ts\`, \`convex/auth.ts\`, \`package.json\`, or \`src/Main.tsx\` under ANY circumstances.
 - DO NOT touch \`convex/http.ts\` unless explicitly specified by the user.
 - DO NOT change the login in \`src/App.tsx\` unless explicitly specified by the user.
+- \`api.auth.users\` DOES NOT EXIST.
 - If you want to get a user in a mutation or query, use the following syntax:
 \`\`\`typescript
 import { mutation } from "./_generated/server";
@@ -111,27 +148,33 @@ export const myMutation = mutation({
     if (userId === null) {
       throw new Error("Unauthenticated call to mutation");
     }
+    const user = await ctx.db.get(userId);
     //...
   },
 });
 \`\`\`
 You can use the userId to get the user's data from the database or store it as the author of a message, for example. But most times, you just want to check that the user is authenticated.
+The "users" table looks like this:
+
+\`\`\`typescript
+users: defineTable({
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+  })
+    .index("email", ["email"])
+    .index("phone", ["phone"]),
+\`\`\`
+
+If you want to get a user from the userId, you can do \`ctx.db.get(userId)\`.
+
+You can also add usernames to the users table that can be used throughout the app. You can have users specify this during sign up, or you can have them edit it later.
+
 ${convexGuidelines}
-
-You'll start with a codebase that uses Convex Auth, so you'll want to use patterns like
-
-\`\`\`
-import { getAuthUserId } from "@convex-dev/auth/server"
-
-// then later, inside a mutation or query or an action:
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) {
-    throw new Error("Client is not authenticated!")
-  }
-  const user = await ctx.db.get(userId);
-\`\`\`
-
-to get the current user.
 
 </database_instructions>`;
 
