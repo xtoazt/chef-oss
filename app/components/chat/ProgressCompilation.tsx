@@ -39,15 +39,14 @@ export default function ProgressCompilation({ data }: { data?: ProgressAnnotatio
         className={classNames(
           'bg-bolt-elements-background-depth-2',
           'border border-bolt-elements-borderColor',
-          'shadow-lg rounded-lg  relative w-full max-w-chat mx-auto z-prompt',
-          'p-1',
+          'rounded-lg relative w-full max-w-chat mx-auto z-prompt',
         )}
       >
         <div
           className={classNames(
             'bg-bolt-elements-item-backgroundAccent',
-            'p-1 rounded-lg text-bolt-elements-item-contentAccent',
-            'flex ',
+            'p-2 rounded-lg text-bolt-elements-item-contentAccent',
+            'flex',
           )}
         >
           <div className="flex-1">

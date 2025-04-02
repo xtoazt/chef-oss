@@ -51,7 +51,7 @@ export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }
                   {projectInfo ? 'Connected Convex Project' : 'Connect a Convex Project'}
                 </div>
               </DialogTitle>
-              <div className="flex items-center justify-between bg-[#F8F8F8] dark:bg-[#1A1A1A] rounded-lg mx-3">
+              <div className="flex items-center justify-between rounded-lg mx-3">
                 <div>
                   {projectInfo ? (
                     <>

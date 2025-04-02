@@ -72,8 +72,7 @@ export function ConvexConnectButton() {
       disabled={isLoading}
       className={classNames(
         'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
-        'bg-[#8B5CF6] text-white',
-        'hover:bg-[#7C3AED]',
+        'bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text hover:text-bolt-elements-button-primary-textHover',
         'disabled:opacity-50 disabled:cursor-not-allowed',
       )}
     >
