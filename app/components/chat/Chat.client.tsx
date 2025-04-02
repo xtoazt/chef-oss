@@ -22,6 +22,7 @@ import { logStore } from '~/lib/stores/logs';
 import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
+import { webcontainer } from '~/lib/webcontainer';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -197,7 +198,11 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
     setSearchParams({});
     runAnimation();
-    append({ role: 'user', content: prompt });
+
+    // Wait for the WebContainer to fully finish booting before sending a message.
+    webcontainer.then(() => {
+      append({ role: 'user', content: prompt });
+    })
   }, [model, provider, searchParams]);
 
   const { enhancingPrompt, promptEnhanced, enhancePrompt, resetEnhancer } = usePromptEnhancer();
@@ -281,6 +286,9 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     }
 
     runAnimation();
+
+    // Wait for the WebContainer to fully finish booting before sending a message.
+    await webcontainer;
 
     if (!chatStarted) {
       setMessages([
