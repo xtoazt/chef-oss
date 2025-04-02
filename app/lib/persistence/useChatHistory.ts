@@ -8,8 +8,6 @@ import { api } from '@convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import type { SerializedMessage } from '@convex/messages';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
-import { getLocalStorage, setLocalStorage } from '~/lib/persistence/localStorage';
-import type { Id } from '@convex/_generated/dataModel';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { webcontainer } from '~/lib/webcontainer';
 import { loadSnapshot } from '~/lib/snapshot';
