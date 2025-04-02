@@ -321,7 +321,7 @@ export class StreamingMessageParser {
       }
 
       (actionAttributes as FileAction).filePath = filePath;
-    } else if (!['shell', 'start', 'convex'].includes(actionType)) {
+    } else if (!['shell', 'start', 'convex', 'toolUse'].includes(actionType)) {
       logger.warn(`Unknown action type '${actionType}'`);
     }
 

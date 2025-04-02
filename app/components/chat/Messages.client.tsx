@@ -102,7 +102,7 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                     {isUserMessage ? (
                       <UserMessage content={content} />
                     ) : (
-                      <AssistantMessage content={content} annotations={message.annotations} />
+                      <AssistantMessage messageId={messageId} content={content} parts={message.parts} />
                     )}
                   </div>
                   {!isUserMessage && (

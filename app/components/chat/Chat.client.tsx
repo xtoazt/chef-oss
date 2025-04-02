@@ -157,13 +157,23 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     data: chatData,
     setData,
   } = useChat({
+    initialMessages,
+    initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
     api: '/api/chat',
-    experimental_prepareRequestBody: ({ messages }) => {
+    sendExtraMessageFields: true,
+    experimental_prepareRequestBody: ({ messages, requestBody, requestData }) => {
       return {
         messages: chatContextManager.current.prepareContext(messages),
+        firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
       };
     },
-    sendExtraMessageFields: true,
+    maxSteps: 64,
+    async onToolCall({ toolCall }) {
+      console.log("Starting tool call", toolCall);
+      const result = await workbenchStore.waitOnToolCall(toolCall.toolCallId);
+      console.log("Tool call finished", result);
+      return result;
+    },
     onError: (e) => {
       console.log('Error', e);
       logger.error('Request failed\n\n', e, error);
@@ -194,8 +204,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
       logger.debug('Finished streaming');
     },
-    initialMessages,
-    initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
   });
   const isLoading = status === 'streaming' || status === 'submitted';
   useEffect(() => {
@@ -450,10 +458,10 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
         if (message.role === 'user') {
           return message;
         }
-
         return {
           ...message,
-          content: parsedMessages[i] || '',
+          content: parsedMessages[i]?.content || '',
+          parts: parsedMessages[i]?.parts || [],
         };
       })}
       enhancePrompt={() => {
