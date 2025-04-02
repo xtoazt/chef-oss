@@ -7,7 +7,6 @@ import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
 import { convexStore, waitForConvexProjectConnection } from '~/lib/stores/convex';
-import { initializeConvexAuth } from '~/lib/convexAuth';
 import type { ToolInvocation } from 'ai';
 import { withResolvers } from '~/utils/promises';
 import { BackupStack, editor, editorToolParameters } from './editorTool';
@@ -543,6 +542,7 @@ export class ActionRunner {
       }
     }
 
+    const { initializeConvexAuth } = await import('~/lib/convexAuth');
     try {
       await initializeConvexAuth(convexProject);
     } catch (error) {
