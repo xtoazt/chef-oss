@@ -15,6 +15,11 @@ Create a .env.local file, include at least
 ```
 # makes it so you won't have to paste one in
 ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# Our test Auth0 account
+VITE_AUTH0_DOMAIN=https://convexdev-test.us.auth0.com
+VITE_AUTH0_CLIENT_ID=oEo9vzuqoz5vmtFThMqNrmmCKulsMBPD
+
 # Optional, less important now that we download less from GitHub.
 # Prevents being rate-limited by GitHub (which causes "Failed to download template")
 VITE_GITHUB_ACCESS_TOKEN=ghp_...
