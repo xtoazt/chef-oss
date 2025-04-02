@@ -104,7 +104,16 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
       onError: (error: any) => `Custom error: ${error.message}`,
     });
 
-    return new Response(dataStream, {
+    // Cloudflare expects binary data in its streams.
+    const encoder = new TextEncoder();
+    const binaryStream = dataStream.pipeThrough(new TransformStream({
+      transform(chunk, controller) {
+        const toSerialize = typeof chunk === 'string' ? chunk : JSON.stringify(chunk);
+        const binary = encoder.encode(toSerialize);
+        controller.enqueue(binary);
+      },
+    }));
+    return new Response(binaryStream, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
