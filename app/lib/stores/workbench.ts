@@ -392,7 +392,12 @@ export class WorkbenchStore {
   }
 
   setReloadedMessages(messages: string[]) {
+    console.log('setReloadedMessages', messages);
     this.#reloadedMessages = new Set(messages);
+  }
+
+  isReloadedMessage(messageId: string) {
+    return this.#reloadedMessages.has(messageId);
   }
 
   addArtifact({ messageId, title, id, type }: ArtifactCallbackData) {
@@ -470,6 +475,12 @@ export class WorkbenchStore {
     }
 
     const action = artifact.runner.actions.get()[data.actionId];
+
+    // Skip running actions if they are part of a reloaded message
+    if (this.isReloadedMessage(messageId)) {
+      artifact.runner.updateAction(data.actionId, { executed: true, status: 'complete' });
+      return;
+    }
 
     if (!action || action.executed) {
       return;

@@ -8,6 +8,9 @@ import { api } from '@convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import type { SerializedMessage } from '@convex/messages';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
+import { getLocalStorage, setLocalStorage } from '~/lib/persistence/localStorage';
+import type { Id } from '@convex/_generated/dataModel';
+import { workbenchStore } from '../stores/workbench';
 
 export interface IChatMetadata {
   gitUrl: string;
@@ -52,6 +55,7 @@ export const useChatHistoryConvex = () => {
   const [ready, setReady] = useState<boolean>(false);
   const [urlId, setUrlId] = useState<string | undefined>();
   const sessionId = useConvexSessionIdOrNullOrLoading();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const convex = useConvex();
   useEffect(() => {
     if (sessionId === undefined || sessionId === null) {
@@ -62,31 +66,43 @@ export const useChatHistoryConvex = () => {
       return;
     }
 
+    setIsLoading(true);
+
     // TODO -- this should clear `initialMessages` if the chat has changed
 
-    convex.query(api.messages.getWithMessages, { id: mixedId, sessionId }).then((rawMessages) => {
-      if (rawMessages !== null && rawMessages.messages.length > 0) {
-        const rewindId = searchParams.get('rewindTo');
-        const filteredMessages = rewindId
-          ? rawMessages.messages.slice(0, rawMessages.messages.findIndex((m) => m.id === rewindId) + 1)
-          : rawMessages.messages;
+    convex
+      .query(api.messages.getWithMessages, { id: mixedId, sessionId })
+      .then((rawMessages) => {
+        if (rawMessages !== null && rawMessages.messages.length > 0) {
+          const rewindId = searchParams.get('rewindTo');
+          const filteredMessages = rewindId
+            ? rawMessages.messages.slice(0, rawMessages.messages.findIndex((m) => m.id === rewindId) + 1)
+            : rawMessages.messages;
 
-        setInitialMessages(filteredMessages);
-        setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
-        setUrlId(rawMessages.urlId);
-        description.set(rawMessages.description);
-        chatIdStore.set(rawMessages.id);
-        chatMetadata.set(rawMessages.metadata);
-        setReady(true);
-      } else {
-        console.log('navigating to /');
-        navigate('/', { replace: true });
-      }
-    });
+          setInitialMessages(filteredMessages);
+          console.log('initialMessages', filteredMessages);
+          setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
+          setUrlId(rawMessages.urlId);
+          description.set(rawMessages.description);
+          chatIdStore.set(rawMessages.id);
+          chatMetadata.set(rawMessages.metadata);
+          setReady(true);
+
+          workbenchStore.setReloadedMessages(filteredMessages.map((m) => m.id));
+        } else {
+          console.log('navigating to /');
+          navigate('/', { replace: true });
+        }
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error fetching messages:', error);
+        setIsLoading(false);
+      });
   }, [mixedId, sessionId, convex]);
 
   return {
-    ready: mixedId === undefined || ready,
+    ready: mixedId === undefined || (ready && !isLoading),
     initialMessages: initialDeserializedMessages,
     updateChatMetadata: async (metadata: IChatMetadata) => {
       const id = chatIdStore.get();

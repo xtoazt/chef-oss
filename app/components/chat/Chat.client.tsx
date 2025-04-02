@@ -36,9 +36,6 @@ export function Chat() {
   renderLogger.trace('Chat');
 
   const { ready, initialMessages, storeMessageHistory, importChat } = useChatHistoryConvex();
-  useEffect(() => {
-    workbenchStore.setReloadedMessages(initialMessages.map((m) => m.id));
-  }, [initialMessages]);
   const title = useStore(description);
 
   return (
