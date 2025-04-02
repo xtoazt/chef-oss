@@ -1,7 +1,8 @@
 "use client";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
-
+import { Input } from "./components/ui/input";
+import { Button } from "./components/ui/button";
 export function SignInForm() {
   const { signIn } = useAuthActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
@@ -20,23 +21,23 @@ export function SignInForm() {
           });
         }}
       >
-        <input
+        <Input
           className="input-field"
           type="email"
           name="email"
           placeholder="Email"
           required
         />
-        <input
+        <Input
           className="input-field"
           type="password"
           name="password"
           placeholder="Password"
           required
         />
-        <button className="auth-button" type="submit">
+        <Button className="auth-button" type="submit">
           {flow === "signIn" ? "Sign in" : "Sign up"}
-        </button>
+        </Button>
 
         <div className="text-center text-sm text-slate-600 dark:text-slate-400">
           <span>
@@ -51,6 +52,10 @@ export function SignInForm() {
             {flow === "signIn" ? "Sign up instead" : "Sign in instead"}
           </span>
         </div>
+
+        <Button variant="outline" onClick={() => signIn("anonymous")}>
+          Sign in anonymously
+        </Button>
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">

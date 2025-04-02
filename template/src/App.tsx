@@ -11,8 +11,8 @@ import { SignOutButton } from "./SignOutButton";
 export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-black/80 backdrop-blur-sm p-4 flex justify-between items-center">
-        <h2 className="text-xl font-semibold accent-text">Build with Flex</h2>
+      <header className="sticky top-0 z-10 bg-white/80 dark:bg-black/80 backdrop-blur-sm p-4 flex justify-between items-center border-b">
+        <h2 className="text-xl font-semibold accent-text">Flex</h2>
         <SignOutButton />
       </header>
       <main className="flex-1 flex items-center justify-center p-8">
