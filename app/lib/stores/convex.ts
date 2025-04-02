@@ -63,11 +63,15 @@ export function setInitialConvexSessionId(
     flexAuthMode: 'InviteCode' | 'ConvexOAuth';
   },
 ) {
+  function setSessionId(sessionId: Id<'sessions'> | null) {
+    setLocalStorage(SESSION_ID_KEY, sessionId);
+    sessionIdStore.set(sessionId);
+  }
+
   if (args.codeFromLoader && args.flexAuthMode === 'InviteCode') {
     convex.query(api.sessions.getSession, { code: args.codeFromLoader }).then((sessionId) => {
       if (sessionId) {
-        setLocalStorage(SESSION_ID_KEY, sessionId);
-        sessionIdStore.set(sessionId as Id<'sessions'>);
+        setSessionId(sessionId as Id<'sessions'>);
         removeCodeFromUrl();
       }
     });
@@ -82,9 +86,9 @@ export function setInitialConvexSessionId(
       })
       .then((validatedSessionId) => {
         if (validatedSessionId) {
-          sessionIdStore.set(sessionIdFromLocalStorage as Id<'sessions'>);
+          setSessionId(sessionIdFromLocalStorage as Id<'sessions'>);
         } else {
-          sessionIdStore.set(null);
+          setSessionId(null);
         }
       });
     return;
@@ -94,10 +98,10 @@ export function setInitialConvexSessionId(
     convex
       .mutation(api.sessions.startSession)
       .then((sessionId) => {
-        sessionIdStore.set(sessionId);
+        setSessionId(sessionId);
       })
       .catch((error) => {
-        sessionIdStore.set(null);
+        setSessionId(null);
         console.error('Error starting session', error);
       });
     return;

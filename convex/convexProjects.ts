@@ -91,7 +91,7 @@ export const loadConnectedConvexProjectCredentials = query({
   },
 });
 
-export const startConnectConvexProject = mutation({
+export const startProvisionConvexProject = mutation({
   args: {
     sessionId: v.id('sessions'),
     chatId: v.string(),
@@ -112,7 +112,7 @@ export const startConnectConvexProject = mutation({
   },
 });
 
-export const recordConvexProjectCredentials = internalMutation({
+export const recordProvisionedConvexProjectCredentials = internalMutation({
   args: {
     sessionId: v.id('sessions'),
     chatId: v.string(),
@@ -122,10 +122,9 @@ export const recordConvexProjectCredentials = internalMutation({
     deploymentName: v.string(),
   },
   handler: async (ctx, args) => {
-    const teamSlug = ensureEnvVar('DEMO_TEAM_SLUG');
     await ctx.db.insert('convexProjectCredentials', {
       projectSlug: args.projectSlug,
-      teamSlug,
+      teamSlug: 'demo-team',
       projectDeployKey: args.projectDeployKey,
     });
     const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id: args.chatId, sessionId: args.sessionId });
@@ -137,7 +136,7 @@ export const recordConvexProjectCredentials = internalMutation({
       convexProject: {
         kind: 'connected',
         projectSlug: args.projectSlug,
-        teamSlug,
+        teamSlug: 'demo-team',
         deploymentUrl: args.deploymentUrl,
         deploymentName: args.deploymentName,
       },
@@ -246,7 +245,7 @@ export const connectConvexProject = internalAction({
       adminKey: string;
     } = await response.json();
 
-    await ctx.runMutation(internal.convexProjects.recordConvexProjectCredentials, {
+    await ctx.runMutation(internal.convexProjects.recordProvisionedConvexProjectCredentials, {
       sessionId: args.sessionId,
       chatId: args.chatId,
       projectSlug: data.projectSlug,

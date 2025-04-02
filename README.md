@@ -38,6 +38,22 @@ pnpm run dev
 pnpx convex dev
 ```
 
+### Auth
+
+There are two forms of auth, dictated by the `FLEX_AUTH_MODE` environment variable.
+
+#### `FLEX_AUTH_MODE=InviteCode`
+
+- Convex projects are provisioned automatically against one of our teams
+- The credentials are saved as default environment variables on the `bolt-diy-f612` Convex project
+- You need a "code" to access Flex. There's an internal mutation you can run to issue yourself a code (e.g. `sshader-test`).
+- Each code corresponds to a user, so if you're doing this in production, issue a code with your name in it.
+
+#### `FLEX_AUTH_MODE=ConvexOAuth`
+
+- Users sign in with their Github account to Convex (as of writing, actually a test Convex Auth0 app)
+- Users go through an OAuth flow to link projects in their account to Flex
+
 # Working on the template
 
 There are a few steps to iterating on the template.

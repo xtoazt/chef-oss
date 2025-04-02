@@ -38,31 +38,44 @@ export const issueInviteCode = internalMutation({
     code: v.optional(v.string()),
     issuedReason: v.string(),
   },
+  returns: v.string(),
   handler: async (ctx, args) => {
-    const code = args.code ?? crypto.randomUUID();
-
-    const existing = await ctx.db
-      .query('inviteCodes')
-      .withIndex('byCode', (q) => q.eq('code', code))
-      .collect();
-
-    if (existing.length > 0) {
-      throw new Error('Invite code has already been issued');
-    }
-
-    const sessionId = await ctx.db.insert('sessions', {});
-
-    await ctx.db.insert('inviteCodes', {
-      sessionId,
-      code,
-      lastUsedTime: null,
-      issuedReason: args.issuedReason,
-      isActive: true,
-    });
-
-    return code;
+    return await _issueInviteCode(ctx, args);
   },
 });
+
+export const issueInviteCodeForPreviewDeployment = internalMutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    return await _issueInviteCode(ctx, { code: 'preview-test', issuedReason: 'Preview deployment' });
+  },
+});
+
+async function _issueInviteCode(ctx: MutationCtx, args: { code?: string; issuedReason: string }) {
+  const code = args.code ?? crypto.randomUUID();
+
+  const existing = await ctx.db
+    .query('inviteCodes')
+    .withIndex('byCode', (q) => q.eq('code', code))
+    .collect();
+
+  if (existing.length > 0) {
+    throw new Error('Invite code has already been issued');
+  }
+
+  const sessionId = await ctx.db.insert('sessions', {});
+
+  await ctx.db.insert('inviteCodes', {
+    sessionId,
+    code,
+    lastUsedTime: null,
+    issuedReason: args.issuedReason,
+    isActive: true,
+  });
+
+  return code;
+}
 
 export const revokeInviteCode = internalMutation({
   args: {
