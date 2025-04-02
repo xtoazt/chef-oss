@@ -88,9 +88,12 @@ export const revokeInviteCode = internalMutation({
 });
 
 export async function isValidSession(ctx: QueryCtx, args: { sessionId: Id<'sessions'> }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (identity) {
-    return await isValidSessionForConvexOAuth(ctx, args);
+  const session = await ctx.db.get(args.sessionId);
+  if (!session) {
+    return false;
+  }
+  if (session.memberId) {
+    return await isValidSessionForConvexOAuth(ctx, { sessionId: args.sessionId, memberId: session.memberId });
   }
   return await isValidSessionForInviteCode(ctx, args);
 }
@@ -104,24 +107,21 @@ async function isValidSessionForInviteCode(ctx: QueryCtx, args: { sessionId: Id<
   return inviteCode !== null && inviteCode.isActive;
 }
 
-async function isValidSessionForConvexOAuth(ctx: QueryCtx, args: { sessionId: Id<'sessions'> }): Promise<boolean> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    return false;
-  }
-  const member = await ctx.db
-    .query('convexMembers')
-    .withIndex('byTokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
-    .unique();
-
+async function isValidSessionForConvexOAuth(
+  ctx: QueryCtx,
+  args: { sessionId: Id<'sessions'>; memberId: Id<'convexMembers'> },
+): Promise<boolean> {
+  const member = await ctx.db.get(args.memberId);
   if (!member) {
     return false;
   }
-  const session = await ctx.db
-    .query('sessions')
-    .withIndex('byMemberId', (q) => q.eq('memberId', member._id))
-    .unique();
-  return args.sessionId === session?._id;
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    // Having the sessionId should be enough -- they should be unguessable
+    return true;
+  }
+  // But if we have the identity, it better match
+  return identity.tokenIdentifier === member.tokenIdentifier;
 }
 
 export const registerConvexOAuthConnection = internalMutation({
