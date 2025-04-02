@@ -8,9 +8,12 @@ import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
-import { convexStore } from '~/lib/stores/convex';
+import { useConvexSessionId } from '~/lib/stores/convex';
 import { ConvexConnectAlert } from '~/components/convex/ConvexConnectAlert';
 import { ConvexDeployTerminal } from '~/components/convex/ConvexDeployTerminal';
+import { api } from '@convex/_generated/api';
+import { useQuery } from 'convex/react';
+import { useChatId } from '~/lib/stores/chat';
 
 const highlighterOptions = {
   langs: ['shell'],
@@ -164,8 +167,12 @@ function openArtifactInWorkbench(filePath: any) {
 }
 
 const ActionList = memo(({ actions }: ActionListProps) => {
-  const convexProject = useStore(convexStore);
-  const isConvexConnected = convexProject !== null;
+  const chatId = useChatId();
+  const sessionId = useConvexSessionId();
+  const isConvexConnected = useQuery(api.convexProjects.hasConnectedConvexProject, {
+    sessionId,
+    chatId,
+  });
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>

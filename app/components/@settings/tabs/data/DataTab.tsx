@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { DialogRoot, DialogClose, Dialog, DialogTitle } from '~/components/ui/Dialog';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
-import { sessionIdStore } from '~/lib/persistence';
+import { sessionIdStore } from '~/lib/stores/convex';
 
 export default function DataTab() {
   const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);

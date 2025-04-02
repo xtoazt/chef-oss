@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react';
 import type { LinksFunction, LoaderFunctionArgs } from '@remix-run/cloudflare';
-import { json, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from '@remix-run/react';
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from '@remix-run/react';
 import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
@@ -9,7 +9,8 @@ import { useEffect, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ClientOnly } from 'remix-utils/client-only';
-import { ConvexProvider } from 'convex/react';
+import { Auth0Provider } from '@auth0/auth0-react';
+import { ConvexProviderWithAuth0 } from 'convex/react-auth0';
 
 import reactToastifyStyles from 'react-toastify/dist/ReactToastify.css?url';
 import globalStyles from './styles/index.scss?url';
@@ -18,9 +19,9 @@ import xtermStyles from '@xterm/xterm/css/xterm.css?url';
 import 'virtual:uno.css';
 
 export async function loader({ context }: LoaderFunctionArgs) {
-  // Cloudflare uses context.cloudflare.env.CONVEX_URL is used. Locally you might have a .env.local still.
-  const CONVEX_URL = (context.cloudflare.env as Record<string, any>).CONVEX_URL || process.env.CONVEX_URL;
-  return json({ ENV: { CONVEX_URL } });
+  const convexUrl = getConvexUrlInLoader(context);
+  const authMode = getFlexAuthModeInLoader(context);
+  return Response.json({ ENV: { CONVEX_URL: convexUrl, FLEX_AUTH_MODE: authMode } });
 }
 
 export const links: LinksFunction = () => [
@@ -75,7 +76,7 @@ export const Head = createHead(() => (
 export function Layout({ children }: { children: React.ReactNode }) {
   const theme = useStore(themeStore);
   const loaderData = useRouteLoaderData<typeof loader>('root');
-  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || loaderData?.ENV.CONVEX_URL;
+  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || (loaderData as any)?.ENV.CONVEX_URL;
   if (!CONVEX_URL) {
     throw new Error(`Missing CONVEX_URL: ${CONVEX_URL}`);
   }
@@ -91,7 +92,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <ClientOnly>
         {() => (
           <DndProvider backend={HTML5Backend}>
-            <ConvexProvider client={convex}>{children}</ConvexProvider>
+            <Auth0Provider
+              domain={import.meta.env.VITE_AUTH0_DOMAIN}
+              clientId={import.meta.env.VITE_AUTH0_CLIENT_ID}
+              authorizationParams={{
+                redirect_uri: window.location.origin,
+              }}
+              useRefreshTokens={true}
+              cacheLocation="localstorage"
+            >
+              <ConvexProviderWithAuth0 client={convex}>{children}</ConvexProviderWithAuth0>
+            </Auth0Provider>
           </DndProvider>
         )}
       </ClientOnly>
@@ -103,6 +114,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 import { logStore } from './lib/stores/logs';
 import { ConvexReactClient } from 'convex/react';
+import { getFlexAuthModeInLoader, getConvexUrlInLoader } from './lib/persistence/convex';
 
 export default function App() {
   const theme = useStore(themeStore);

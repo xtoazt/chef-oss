@@ -3,6 +3,7 @@ import type { Message as AIMessage } from 'ai';
 import { ConvexError, v } from 'convex/values';
 import type { VAny, Infer } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
+import { isValidSession } from './sessions';
 export type SerializedMessage = Omit<AIMessage, 'createdAt'> & {
   createdAt: number | undefined;
 };
@@ -518,30 +519,24 @@ function getChatByUrlId(ctx: QueryCtx, { id, sessionId }: { id: string; sessionI
     .unique();
 }
 
-// TODO move this to common.ts
 export async function getChatByIdOrUrlIdEnsuringAccess(
   ctx: QueryCtx,
   { id, sessionId }: { id: string; sessionId: Id<'sessions'> },
 ) {
-  const byId = await getChatByInitialId(ctx, { id, sessionId });
+  const isValid = await isValidSession(ctx, { sessionId });
+  if (!isValid) {
+    return null;
+  }
 
+  const byId = await getChatByInitialId(ctx, { id, sessionId });
   if (byId !== null) {
     return byId;
   }
 
   const byUrlId = await getChatByUrlId(ctx, { id, sessionId });
-
   return byUrlId;
 }
 
 function getIdentifier(chat: Doc<'chats'>): string {
   return chat.urlId ?? chat.initialId!;
 }
-
-export const startSession = mutation({
-  args: {},
-  returns: v.id('sessions'),
-  handler: async (ctx) => {
-    return ctx.db.insert('sessions', {});
-  },
-});

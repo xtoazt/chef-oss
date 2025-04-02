@@ -1,22 +1,49 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogButton, DialogClose, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
 import { classNames } from '~/utils/classNames';
 import { ConvexConnectButton } from './ConvexConnectButton';
-import { useStore } from '@nanostores/react';
-import { parseConvexToken } from '~/utils/convex';
-import { convexStore } from '~/lib/stores/convex';
+import { convexStore, useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
+import { useChatIdOrNull } from '~/lib/stores/chat';
+import { useQuery, useConvex } from 'convex/react';
+import { api } from '@convex/_generated/api';
 
 export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }) {
   const [isOpen, setIsOpen] = useState(false);
+  const convexClient = useConvex();
+  const sessionId = useConvexSessionIdOrNullOrLoading();
+  const chatId = useChatIdOrNull();
+  const projectInfo = useQuery(
+    api.convexProjects.loadConnectedConvexProjectCredentials,
+    sessionId && chatId
+      ? {
+          sessionId,
+          chatId,
+        }
+      : 'skip',
+  );
 
-  const convexProject = useStore(convexStore);
+  useEffect(() => {
+    if (projectInfo?.kind === 'connected') {
+      convexStore.set({
+        token: projectInfo.adminKey,
+        deploymentName: projectInfo.deploymentName,
+        deploymentUrl: projectInfo.deploymentUrl,
+      });
+    }
+  }, [projectInfo]);
 
-  const isConnected = convexProject !== null;
-  const token = convexProject?.token;
-  const projectInfo = token ? parseConvexToken(token) : null;
+  const isConnected = projectInfo !== null;
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     convexStore.set(null);
+    if (sessionId && chatId) {
+      void convexClient.mutation(api.convexProjects.disconnectConvexProject, {
+        sessionId,
+        chatId,
+      });
+    } else {
+      console.error('No sessionId or chatId so cannot disconnect');
+    }
   };
 
   return (
@@ -33,7 +60,7 @@ export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }
         >
           <img className="w-4 h-4" height="20" width="20" src="/icons/Convex.svg" alt="Convex" />
           {isConnected && projectInfo && (
-            <span className="ml-1 text-xs max-w-[100px] truncate">{projectInfo.projectName}</span>
+            <span className="ml-1 text-xs max-w-[100px] truncate">{`project:${projectInfo.teamSlug}:${projectInfo.projectSlug}`}</span>
           )}
           {!isConnected && size === 'full' && (
             <span className={classNames('text-bolt-elements-button-primary-text font-medium')}>Connect to Convex</span>
@@ -56,9 +83,9 @@ export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }
                   {projectInfo ? (
                     <>
                       <h4 className="text-sm font-medium text-bolt-elements-textPrimary">
-                        Project: {projectInfo.projectName}
+                        Project: {projectInfo.projectSlug}
                       </h4>
-                      <p className="text-xs text-bolt-elements-textSecondary">Team: {projectInfo.teamId}</p>
+                      <p className="text-xs text-bolt-elements-textSecondary">Team: {projectInfo.teamSlug}</p>
                     </>
                   ) : (
                     <h4 className="text-sm font-medium text-bolt-elements-textSecondary">No project connected</h4>
@@ -72,7 +99,9 @@ export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }
                     Disconnect
                   </button>
                 ) : (
-                  <ConvexConnectButton />
+                  <div className="flex justify-end gap-2 mt-6 px-3">
+                    {sessionId && chatId ? <ConvexConnectButton /> : null}
+                  </div>
                 )}
               </div>
               <div className="flex justify-end gap-2 mt-6 px-3">

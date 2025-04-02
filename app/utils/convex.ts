@@ -6,7 +6,7 @@ interface ConvexProjectInfo {
 
 export function parseConvexToken(token: string): ConvexProjectInfo | null {
   try {
-    // The token format is "project:teamId:projectName|..."
+    // The token format is "project:teamSlug:projectSlug|..."
     const [projectPart] = token.split('|');
     const [, teamId, projectName] = projectPart.split(':');
 

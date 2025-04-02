@@ -1,0 +1,221 @@
+import { v } from 'convex/values';
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from './_generated/server';
+import { ConvexError } from 'convex/values';
+import type { Id } from './_generated/dataModel';
+import { getChatByIdOrUrlIdEnsuringAccess } from './messages';
+
+export const getSession = query({
+  args: {
+    code: v.string(),
+  },
+  returns: v.id('sessions'),
+  handler: async (ctx, args) => {
+    const inviteCode = await ctx.db
+      .query('inviteCodes')
+      .withIndex('byCode', (q) => q.eq('code', args.code))
+      .unique();
+
+    if (!inviteCode) {
+      throw new ConvexError({ code: 'NotAuthorized', message: 'Invalid invite code' });
+    }
+
+    return inviteCode.sessionId;
+  },
+});
+
+export const verifySession = query({
+  args: {
+    sessionId: v.id('sessions'),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return isValidSession(ctx, args);
+  },
+});
+
+export const issueInviteCode = internalMutation({
+  args: {
+    code: v.optional(v.string()),
+    issuedReason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const code = args.code ?? crypto.randomUUID();
+
+    const existing = await ctx.db
+      .query('inviteCodes')
+      .withIndex('byCode', (q) => q.eq('code', code))
+      .collect();
+
+    if (existing.length > 0) {
+      throw new Error('Invite code has already been issued');
+    }
+
+    const sessionId = await ctx.db.insert('sessions', {});
+
+    await ctx.db.insert('inviteCodes', {
+      sessionId,
+      code,
+      lastUsedTime: null,
+      issuedReason: args.issuedReason,
+      isActive: true,
+    });
+
+    return code;
+  },
+});
+
+export const revokeInviteCode = internalMutation({
+  args: {
+    code: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const code = args.code ?? crypto.randomUUID();
+
+    const existing = await ctx.db
+      .query('inviteCodes')
+      .withIndex('byCode', (q) => q.eq('code', code))
+      .collect();
+
+    for (const inviteCode of existing) {
+      if (inviteCode.isActive) {
+        await ctx.db.patch(inviteCode._id, {
+          isActive: false,
+        });
+      }
+    }
+    console.log(`Revoked ${existing.length} invite codes`, code);
+  },
+});
+
+export async function isValidSession(ctx: QueryCtx, args: { sessionId: Id<'sessions'> }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (identity) {
+    return await isValidSessionForConvexOAuth(ctx, args);
+  }
+  return await isValidSessionForInviteCode(ctx, args);
+}
+
+async function isValidSessionForInviteCode(ctx: QueryCtx, args: { sessionId: Id<'sessions'> }) {
+  const inviteCode = await ctx.db
+    .query('inviteCodes')
+    .withIndex('bySessionId', (q) => q.eq('sessionId', args.sessionId))
+    .unique();
+
+  return inviteCode !== null && inviteCode.isActive;
+}
+
+async function isValidSessionForConvexOAuth(ctx: QueryCtx, args: { sessionId: Id<'sessions'> }): Promise<boolean> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    return false;
+  }
+  const member = await ctx.db
+    .query('convexMembers')
+    .withIndex('byTokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+    .unique();
+
+  if (!member) {
+    return false;
+  }
+  const session = await ctx.db
+    .query('sessions')
+    .withIndex('byMemberId', (q) => q.eq('memberId', member._id))
+    .unique();
+  return args.sessionId === session?._id;
+}
+
+export const registerConvexOAuthConnection = internalMutation({
+  args: {
+    sessionId: v.id('sessions'),
+    chatId: v.id('chats'),
+    projectSlug: v.string(),
+    teamSlug: v.string(),
+    deploymentUrl: v.string(),
+    deploymentName: v.string(),
+    projectDeployKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, {
+      id: args.chatId,
+      sessionId: args.sessionId,
+    });
+    if (!chat) {
+      throw new ConvexError({ code: 'NotAuthorized', message: 'Chat not found' });
+    }
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || !session.memberId) {
+      throw new ConvexError({ code: 'NotAuthorized', message: 'Chat not found' });
+    }
+    await ctx.db.patch(args.chatId, {
+      convexProject: {
+        kind: 'connected',
+        projectSlug: args.projectSlug,
+        teamSlug: args.teamSlug,
+        deploymentUrl: args.deploymentUrl,
+        deploymentName: args.deploymentName,
+      },
+    });
+    const credentials = await ctx.db
+      .query('convexProjectCredentials')
+      .withIndex('bySlugs', (q) => q.eq('teamSlug', args.teamSlug).eq('projectSlug', args.projectSlug))
+      .collect();
+    if (credentials.length === 0) {
+      await ctx.db.insert('convexProjectCredentials', {
+        teamSlug: args.teamSlug,
+        projectSlug: args.projectSlug,
+        projectDeployKey: args.projectDeployKey,
+        memberId: session.memberId,
+      });
+    }
+  },
+});
+
+export const startSession = mutation({
+  args: {},
+  returns: v.id('sessions'),
+  handler: async (ctx) => {
+    const member = await getOrCreateCurrentMember(ctx);
+    const existingSession = await ctx.db
+      .query('sessions')
+      .withIndex('byMemberId', (q) => q.eq('memberId', member))
+      .unique();
+    if (existingSession) {
+      return existingSession._id;
+    }
+    return ctx.db.insert('sessions', {
+      memberId: member,
+    });
+  },
+});
+
+async function getOrCreateCurrentMember(ctx: MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new ConvexError({ code: 'NotAuthorized', message: 'Unauthorized' });
+  }
+  const existingMember = await ctx.db
+    .query('convexMembers')
+    .withIndex('byTokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+    .unique();
+  if (existingMember) {
+    return existingMember._id;
+  }
+  return ctx.db.insert('convexMembers', {
+    tokenIdentifier: identity.tokenIdentifier,
+  });
+}
+
+export async function getCurrentMember(ctx: QueryCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new ConvexError({ code: 'NotAuthorized', message: 'Unauthorized' });
+  }
+  const existingMember = await ctx.db
+    .query('convexMembers')
+    .withIndex('byTokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+    .unique();
+  if (!existingMember) {
+    throw new ConvexError({ code: 'NotAuthorized', message: 'Unauthorized' });
+  }
+  return existingMember;
+}

@@ -1,4 +1,10 @@
+import type { Id } from '@convex/_generated/dataModel';
 import { atom } from 'nanostores';
+import { useStore } from '@nanostores/react';
+import { getLocalStorage, setLocalStorage } from '~/lib/persistence';
+import { ConvexReactClient } from 'convex/react';
+import { api } from '@convex/_generated/api';
+import { CONVEX_INVITE_CODE_QUERY_PARAM } from '~/lib/persistence/convex';
 
 export type ConvexProject = {
   token: string;
@@ -22,4 +28,97 @@ export function waitForConvexProjectConnection(): Promise<void> {
       }
     });
   });
+}
+
+export const flexAuthModeStore = atom<'InviteCode' | 'ConvexOAuth' | null>(null);
+
+export function useFlexAuthMode(): 'InviteCode' | 'ConvexOAuth' {
+  const flexAuthMode = useStore(flexAuthModeStore);
+  if (flexAuthMode === null) {
+    throw new Error('Flex auth mode is not set');
+  }
+  return flexAuthMode;
+}
+
+export function useConvexSessionIdOrNullOrLoading(): Id<'sessions'> | null | undefined {
+  const sessionId = useStore(sessionIdStore);
+  return sessionId;
+}
+
+export function useConvexSessionId(): Id<'sessions'> {
+  const sessionId = useStore(sessionIdStore);
+  if (sessionId === undefined || sessionId === null) {
+    throw new Error('Session ID is not set');
+  }
+  return sessionId;
+}
+
+const SESSION_ID_KEY = 'sessionIdForConvex';
+export const sessionIdStore = atom<Id<'sessions'> | null | undefined>(undefined);
+
+export function setInitialConvexSessionId(
+  convex: ConvexReactClient,
+  args: {
+    sessionIdFromLoader: string | undefined;
+  },
+) {
+  if (args.sessionIdFromLoader) {
+    setLocalStorage(SESSION_ID_KEY, args.sessionIdFromLoader);
+    sessionIdStore.set(args.sessionIdFromLoader as Id<'sessions'>);
+    removeCodeFromUrl();
+    return;
+  }
+
+  const sessionIdFromLocalStorage = getLocalStorage(SESSION_ID_KEY);
+  if (sessionIdFromLocalStorage) {
+    convex
+      .query(api.sessions.verifySession, {
+        sessionId: sessionIdFromLocalStorage as Id<'sessions'>,
+      })
+      .then((validatedSessionId) => {
+        if (validatedSessionId) {
+          sessionIdStore.set(sessionIdFromLocalStorage as Id<'sessions'>);
+        } else {
+          sessionIdStore.set(null);
+        }
+      });
+  }
+  const flexAuthMode = flexAuthModeStore.get();
+  if (flexAuthMode === 'ConvexOAuth') {
+    convex
+      .mutation(api.sessions.startSession)
+      .then((sessionId) => {
+        sessionIdStore.set(sessionId);
+      })
+      .catch((error) => {
+        sessionIdStore.set(null);
+        console.error('Error starting session', error);
+      });
+  }
+
+  // If there's not a sessionId in local storage or from the loader, set it to null
+  sessionIdStore.set(null);
+}
+
+export async function setConvexSessionIdFromCode(
+  convex: ConvexReactClient,
+  code: string,
+  onError: (error: Error) => void,
+) {
+  convex
+    .query(api.sessions.getSession, { code })
+    .then((sessionId) => {
+      sessionIdStore.set(sessionId);
+      setLocalStorage(SESSION_ID_KEY, sessionId);
+    })
+    .catch((error) => {
+      sessionIdStore.set(null);
+      onError(error);
+    });
+}
+
+function removeCodeFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete(CONVEX_INVITE_CODE_QUERY_PARAM);
+  window.history.replaceState({}, '', url);
 }
