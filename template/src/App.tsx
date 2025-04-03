@@ -12,7 +12,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm p-4 flex justify-between items-center border-b">
-        <h2 className="text-xl font-semibold accent-text">Flex</h2>
+        <h2 className="text-xl font-semibold accent-text">Flow</h2>
         <SignOutButton />
       </header>
       <main className="flex-1 flex items-center justify-center p-8">
@@ -39,7 +39,7 @@ function Content() {
   return (
     <div className="flex flex-col gap-8">
       <div className="text-center">
-        <h1 className="text-5xl font-bold accent-text mb-4">Build with Flex</h1>
+        <h1 className="text-5xl font-bold accent-text mb-4">Build with Flow</h1>
         <Authenticated>
           <p className="text-xl text-slate-600">Welcome back, {loggedInUser?.email ?? "friend"}!</p>
         </Authenticated>

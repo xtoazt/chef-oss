@@ -299,7 +299,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         minHeight: TEXTAREA_MIN_HEIGHT,
                         maxHeight: TEXTAREA_MAX_HEIGHT,
                       }}
-                      placeholder="How can Flex help you today?"
+                      placeholder="How can Flow help you today?"
                       translate="no"
                     />
                     <ClientOnly>

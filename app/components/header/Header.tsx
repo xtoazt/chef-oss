@@ -25,7 +25,7 @@ export function Header() {
       <div className="flex items-center gap-2 z-logo text-bolt-elements-textPrimary cursor-pointer">
         <div className="i-ph:sidebar-simple-duotone text-xl" />
         <a href="/" className="text-xl font-semibold flex flex-col leading-tight">
-          <div className="flex items-center gap-1">Convex Flex</div>
+          <div className="flex items-center gap-1">Convex Flow</div>
           <span className="flex items-center gap-1 text-xs">
             powered by <span className="i-bolt:logo-text?mask w-[26px] inline-block">Bolt</span>
           </span>
