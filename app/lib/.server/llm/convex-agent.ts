@@ -57,7 +57,7 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
         }
       }
       const anthropic = createAnthropic({
-        apiKey: env.ANTHROPIC_API_KEY,
+        apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
         fetch: async (url, options) => {
           return fetch(url, anthropicInjectCacheControl(systemPrompt, options));
         },
@@ -79,6 +79,13 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
         messages: cleanupAssistantMessages(messages),
         tools,
         onFinish: (result) => onFinishHandler(dataStream, progress, result),
+
+        experimental_telemetry: {
+          isEnabled: true,
+          metadata: {
+            firstUserMessage,
+          },
+        }
       });
       void logErrors(result.fullStream);
       result.mergeIntoDataStream(dataStream);
@@ -188,4 +195,8 @@ async function logErrors(stream: AsyncIterable<TextStreamPart<any>>) {
       return;
     }
   }
+}
+
+export function getEnv(env: Env, name: keyof Env): string | undefined {
+  return env[name] || process.env[name];
 }

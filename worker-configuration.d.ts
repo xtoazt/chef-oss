@@ -18,4 +18,8 @@ interface Env {
   XAI_API_KEY: string;
   PERPLEXITY_API_KEY: string;
   AWS_BEDROCK_CONFIG: string;
+
+  AXIOM_API_TOKEN: string;
+  AXIOM_API_URL: string;
+  AXIOM_DATASET_NAME: string;
 }

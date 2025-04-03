@@ -1,7 +1,12 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
 import type { Messages } from '~/lib/.server/llm/stream-text';
 import { createScopedLogger } from '~/utils/logger';
-import { convexAgent } from '~/lib/.server/llm/convex-agent';
+import { convexAgent, getEnv } from '~/lib/.server/llm/convex-agent';
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
+import {
+  BatchSpanProcessor,
+  WebTracerProvider,
+} from '@opentelemetry/sdk-trace-web';
 
 const logger = createScopedLogger('api.chat');
 
@@ -10,6 +15,37 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 async function chatAction({ request }: ActionFunctionArgs, env: Env) {
+  const AXIOM_API_TOKEN = getEnv(env, 'AXIOM_API_TOKEN');
+  const AXIOM_API_URL = getEnv(env, 'AXIOM_API_URL');
+  const AXIOM_DATASET_NAME = getEnv(env, 'AXIOM_DATASET_NAME');
+  if (AXIOM_API_TOKEN && AXIOM_API_URL && AXIOM_DATASET_NAME) {
+    const exporter = new OTLPTraceExporter({
+      url: AXIOM_API_URL,
+      headers: {
+        Authorization: `Bearer ${AXIOM_API_TOKEN}`,
+        "X-Axiom-Dataset": AXIOM_DATASET_NAME,
+      },
+    });
+    const provider = new WebTracerProvider({
+      spanProcessors: [
+        new BatchSpanProcessor(exporter, {
+          // The maximum queue size. After the size is reached spans are dropped.
+          maxQueueSize: 100,
+          // The maximum batch size of every export. It must be smaller or equal to maxQueueSize.
+          maxExportBatchSize: 10,
+          // The interval between two consecutive exports
+          scheduledDelayMillis: 500,
+          // How long the export can run before it is cancelled
+          exportTimeoutMillis: 30000,
+        })
+      ],
+    });
+    provider.register();
+    logger.info("✅ Axiom instrumentation registered!")
+  } else {
+    logger.warn("⚠️ AXIOM_API_TOKEN, AXIOM_API_URL, and AXIOM_DATASET_NAME not set, skipping Axiom instrumentation.")
+  }
+
   const body = await request.json<{ messages: Messages, firstUserMessage: boolean }>();
   const { messages, firstUserMessage } = body;
   try {
