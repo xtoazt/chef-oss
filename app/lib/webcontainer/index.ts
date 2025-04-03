@@ -40,30 +40,34 @@ if (!import.meta.env.SSR) {
         await loadSnapshot(webcontainer, workbenchStore);
         webcontainerContext.loaded = true;
 
-        logger.info('Waiting for Convex project connection...');
-        const convexProject = await waitForConvexProjectConnection();
-        logger.info('Setting up Convex env vars...');
-        await setupConvexEnvVars(webcontainer, convexProject);
-        logger.info('Initializing Convex Auth...');
-        const { initializeConvexAuth } = await import('../convexAuth');
-        await initializeConvexAuth(convexProject);
+        if(window.location.pathname !== '/admin/build-snapshot') {
 
-        // Listen for preview errors
-        webcontainer.on('preview-message', (message) => {
-          logger.info('WebContainer preview message:', message);
+          logger.info('Waiting for Convex project connection...');
+          const convexProject = await waitForConvexProjectConnection();
 
-          // Handle both uncaught exceptions and unhandled promise rejections
-          if (message.type === 'PREVIEW_UNCAUGHT_EXCEPTION' || message.type === 'PREVIEW_UNHANDLED_REJECTION') {
-            const isPromise = message.type === 'PREVIEW_UNHANDLED_REJECTION';
-            workbenchStore.actionAlert.set({
-              type: 'preview',
-              title: isPromise ? 'Unhandled Promise Rejection' : 'Uncaught Exception',
-              description: message.message,
-              content: `Error occurred at ${message.pathname}${message.search}${message.hash}\nPort: ${message.port}\n\nStack trace:\n${cleanStackTrace(message.stack || '')}`,
-              source: 'preview',
-            });
-          }
-        });
+          logger.info('Setting up Convex env vars...');
+          await setupConvexEnvVars(webcontainer, convexProject);
+          logger.info('Initializing Convex Auth...');
+          const { initializeConvexAuth } = await import('../convexAuth');
+          await initializeConvexAuth(convexProject);
+
+          // Listen for preview errors
+          webcontainer.on('preview-message', (message) => {
+            logger.info('WebContainer preview message:', message);
+
+            // Handle both uncaught exceptions and unhandled promise rejections
+            if (message.type === 'PREVIEW_UNCAUGHT_EXCEPTION' || message.type === 'PREVIEW_UNHANDLED_REJECTION') {
+              const isPromise = message.type === 'PREVIEW_UNHANDLED_REJECTION';
+              workbenchStore.actionAlert.set({
+                type: 'preview',
+                title: isPromise ? 'Unhandled Promise Rejection' : 'Uncaught Exception',
+                description: message.message,
+                content: `Error occurred at ${message.pathname}${message.search}${message.hash}\nPort: ${message.port}\n\nStack trace:\n${cleanStackTrace(message.stack || '')}`,
+                source: 'preview',
+              });
+            }
+          });
+        }
 
         logger.info('Done booting WebContainer!');
         (globalThis as any).webcontainer = webcontainer;
