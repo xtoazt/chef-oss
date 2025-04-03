@@ -5,6 +5,7 @@ import { classNames } from '~/utils/classNames';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
 import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
+import { DeployButton } from './DeployButton';
 
 export function Header() {
   const chat = useStore(chatStore);
@@ -37,8 +38,11 @@ export function Header() {
           </span>
           <ClientOnly>
             {() => (
-              <div className="mr-1">
-                <HeaderActionButtons />
+              <div className="flex items-center gap-2">
+                <DeployButton />
+                <div className="mr-1">
+                  <HeaderActionButtons />
+                </div>
               </div>
             )}
           </ClientOnly>
