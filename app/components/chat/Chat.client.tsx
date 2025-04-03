@@ -6,7 +6,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { cssTransition, toast, ToastContainer } from 'react-toastify';
 import { useMessageParser, usePromptEnhancer, useShortcuts, useSnapScroll } from '~/lib/hooks';
 import { description, useChatHistoryConvex } from '~/lib/persistence';
-import { chatStore } from '~/lib/stores/chat';
+import { chatStore, useChatIdOrNull } from '~/lib/stores/chat';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, PROMPT_COOKIE_KEY, PROVIDER_LIST } from '~/utils/constants';
 import { cubicEasingFn } from '~/utils/easings';
@@ -24,6 +24,9 @@ import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
 import { webcontainer } from '~/lib/webcontainer';
 import { FlexAuthWrapper } from './FlexAuthWrapper';
+import { convexStore, useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
+import { useQuery } from 'convex/react';
+import { api } from '@convex/_generated/api';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -37,6 +40,28 @@ export function Chat() {
 
   const { ready, initialMessages, storeMessageHistory, importChat, initializeChat } = useChatHistoryConvex();
   const title = useStore(description);
+
+  const sessionId = useConvexSessionIdOrNullOrLoading();
+  const chatId = useChatIdOrNull();
+  const projectInfo = useQuery(
+    api.convexProjects.loadConnectedConvexProjectCredentials,
+    sessionId && chatId
+      ? {
+          sessionId,
+          chatId,
+        }
+      : 'skip',
+  );
+
+  useEffect(() => {
+    if (projectInfo?.kind === 'connected') {
+      convexStore.set({
+        token: projectInfo.adminKey,
+        deploymentName: projectInfo.deploymentName,
+        deploymentUrl: projectInfo.deploymentUrl,
+      });
+    }
+  }, [projectInfo]);
 
   return (
     <>
