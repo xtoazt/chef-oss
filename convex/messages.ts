@@ -141,60 +141,6 @@ export const duplicate = mutation({
   },
 });
 
-export const fork = mutation({
-  args: {
-    sessionId: v.id('sessions'),
-    id: v.string(),
-    messageId: v.string(),
-  },
-  returns: v.object({
-    id: v.string(),
-    description: v.optional(v.string()),
-  }),
-  handler: async (ctx, args) => {
-    const { id, messageId, sessionId } = args;
-    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
-
-    if (!chat) {
-      throw new ConvexError({ code: 'NotFound', message: 'Chat not found' });
-    }
-
-    const messages = await ctx.db
-      .query('chatMessages')
-      .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
-      .collect();
-
-    // Find the index of the message to fork at
-    const messageIndex = messages.findIndex((msg) => msg.content.id === messageId);
-
-    if (messageIndex === -1) {
-      throw new ConvexError({ code: 'NotFound', message: 'Message not found' });
-    }
-
-    // Get messages up to and including the selected message
-    const messagesToFork = messages.slice(0, messageIndex + 1);
-
-    const forkedChatId = await createNewChatFromMessages(ctx, {
-      id: crypto.randomUUID(),
-      sessionId: args.sessionId,
-      description: `${chat.description} (fork)`,
-      metadata: chat.metadata,
-      snapshotId: chat.snapshotId,
-    });
-    const forkedChat = await ctx.db.get(forkedChatId);
-    await _appendMessages(ctx, {
-      sessionId: args.sessionId,
-      chat: forkedChat!,
-      messages: messagesToFork.map((m) => m.content),
-    });
-
-    return {
-      id: getIdentifier(forkedChat!),
-      description: `${chat.description} (fork)`,
-    };
-  },
-});
-
 export const importChat = mutation({
   args: {
     sessionId: v.id('sessions'),
