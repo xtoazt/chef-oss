@@ -1,5 +1,5 @@
-import { allowedHTMLElements } from "~/utils/markdown";
-import { convexGuidelines } from "./convexGuidelines";
+import { allowedHTMLElements } from '~/utils/markdown';
+import { convexGuidelines } from './convexGuidelines';
 
 // This is the very first part of the system prompt that tells the model what
 // role to play.
@@ -43,7 +43,6 @@ installed in the 'node_modules' directory. You MUST use this template. This temp
 technologies:
 - Vite + React for the frontend
 - TailwindCSS for styling
-- Shadcn/UI for UI components
 - Convex for the database, functions, scheduling, HTTP handlers, and search.
 - Convex Auth for authentication.
 
@@ -202,6 +201,8 @@ export default function App() {
 
 The \`useQuery()\` hook is live-updating! It causes the React component is it used in to rerender, so Convex is a
 perfect fix for collaborative, live-updating websites.
+
+If you want to use a UI element, you MUST create it. DO NOT use external libraries like Shadcn/UI.
 
 </client_guidelines>
 
