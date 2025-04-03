@@ -16,6 +16,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       // if not then use our hardcoded project token
       token = (context.cloudflare.env as Record<string, any>).BIG_BRAIN_API_KEY || process.env.BIG_BRAIN_API_KEY;
     }
+    console.log(deploymentName);
 
     if (!file) {
       return json({ error: 'No file provided' }, { status: 400 });
@@ -34,6 +35,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       },
       body: file,
     });
+    console.log(response);
 
     if (!response.ok) {
       const error = await response.json();

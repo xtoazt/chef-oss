@@ -43,7 +43,7 @@ function Button({ active = false, disabled = false, children, onClick, className
 }
 
 export function DeployButton() {
-  const [status, setStatus] = useState<'idle' | 'building' | 'zipping' | 'deploying' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'building' | 'zipping' | 'deploying' | 'error' | 'success'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const convex = useStore(convexStore);
@@ -106,7 +106,7 @@ export function DeployButton() {
         throw new Error(errorData?.error ?? 'Deployment failed');
       }
 
-      setStatus('idle');
+      setStatus('success');
     } catch (error) {
       console.error('Deployment error:', error);
       setStatus('error');
@@ -128,20 +128,35 @@ export function DeployButton() {
         return 'Deploying...';
       case 'error':
         return 'Deploy';
+      case 'success':
+        return 'Deployed';
       default:
         return 'Deploy';
     }
   };
 
   return (
-    <Button
-      disabled={isDisabled}
-      onClick={handleDeploy}
-      title={status === 'error' ? errorMessage : undefined}
-      className="mr-4"
-    >
-      <div className={classNames('w-4 h-4', isLoading ? 'i-ph:spinner-gap animate-spin' : 'i-ph:rocket-launch')} />
-      <span>{getButtonText()}</span>
-    </Button>
+    <div className="flex items-center gap-2">
+      <Button
+        disabled={isDisabled}
+        onClick={handleDeploy}
+        title={status === 'error' ? errorMessage : undefined}
+        className="mr-4"
+      >
+        <div className={classNames('w-4 h-4', isLoading ? 'i-ph:spinner-gap animate-spin' : 'i-ph:rocket-launch')} />
+        <span>{getButtonText()}</span>
+      </Button>
+      {status === 'success' && convex && (
+        <a
+          href={`https://${convex.deploymentName}.convex.app`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent hover:bg-bolt-elements-item-backgroundAccent/90 transition-colors"
+        >
+          <div className="i-ph:arrow-square-out w-4 h-4" />
+          <span>View site</span>
+        </a>
+      )}
+    </div>
   );
 }
