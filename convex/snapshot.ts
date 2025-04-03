@@ -25,9 +25,15 @@ export const saveSnapshot = mutation({
       throw new Error('Chat not found');
     }
 
-    // If there's an existing snapshot, clean it up
+    // If there's an existing snapshot and it's not being used by another chat, clean it up
     if (chat.snapshotId) {
-      await ctx.storage.delete(chat.snapshotId);
+      const chatsWithSnapshot = await ctx.db
+        .query('chats')
+        .withIndex('bySnapshotId', (q) => q.eq('snapshotId', chat.snapshotId))
+        .take(2);
+      if (chatsWithSnapshot.length == 1) {
+        await ctx.storage.delete(chat.snapshotId);
+      }
     }
 
     await ctx.db.patch(chat._id, {

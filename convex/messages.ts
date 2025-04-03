@@ -125,6 +125,7 @@ export const duplicate = mutation({
       sessionId: args.sessionId,
       description: `${existing.description || 'Chat'} (copy)`,
       metadata: existing.metadata,
+      snapshotId: existing.snapshotId,
     });
     const chat = await ctx.db.get(chatId);
     await _appendMessages(ctx, {
@@ -178,6 +179,7 @@ export const fork = mutation({
       sessionId: args.sessionId,
       description: `${chat.description} (fork)`,
       metadata: chat.metadata,
+      snapshotId: chat.snapshotId,
     });
     const forkedChat = await ctx.db.get(forkedChatId);
     await _appendMessages(ctx, {
@@ -568,9 +570,10 @@ export async function createNewChatFromMessages(
     sessionId: Id<'sessions'>;
     description?: string;
     metadata?: IChatMetadata;
+    snapshotId?: Id<'_storage'>;
   },
 ): Promise<Id<'chats'>> {
-  const { id, sessionId, description, metadata } = args;
+  const { id, sessionId, description, metadata, snapshotId } = args;
   const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
   if (existing) {
@@ -588,6 +591,7 @@ export async function createNewChatFromMessages(
     description,
     timestamp: new Date().toISOString(),
     metadata,
+    snapshotId,
   });
 
   // This is the invite code flow
