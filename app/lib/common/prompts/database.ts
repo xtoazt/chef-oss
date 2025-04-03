@@ -30,9 +30,6 @@ Here's an example of using Convex from a React app.
 import React, { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { Button } from "@/components/ui/button";
-import { Form } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 
 export default function App() {
   const messages = useQuery(api.messages.list) || [];
@@ -61,16 +58,16 @@ export default function App() {
           </li>
         ))}
       </ul>
-      <Form onSubmit={handleSendMessage}>
+      <form onSubmit={handleSendMessage}>
         <input
           value={newMessageText}
           onChange={(event) => setNewMessageText(event.target.value)}
           placeholder="Write a message…"
         />
-        <Button type="submit" disabled={!newMessageText}>
+        <button type="submit" disabled={!newMessageText}>
           Send
-        </Button>
-      </Form>
+        </button>
+      </form>
     </main>
   );
 }

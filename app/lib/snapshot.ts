@@ -6,8 +6,7 @@ import type { WorkbenchStore } from './stores/workbench';
 
 export async function loadSnapshot(webcontainer: WebContainer, workbenchStore: WorkbenchStore) {
   console.time('loadSnapshot');
-  // const resp = await fetch('https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin');
-  const resp = await fetch("/snapshot.bin")
+  const resp = await fetch('https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin');
   if (!resp.ok) {
     const body = await resp.text();
     throw new Error(`Failed to download snapshot (${resp.statusText}): ${body}`);
