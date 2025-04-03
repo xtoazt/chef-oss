@@ -31,8 +31,16 @@ export interface ChatHistoryItem {
 }
 
 /*
- * This is the ID of the currently active chat -- it can be a human-friendly URL ID (e.g. `tic-tac-toe`)
- * if it's been set, or the initially allocated ID (a UUID). Callers should be able to handle either.
+ * All chats eventually have two IDs:
+ * - The initialId is the ID of the chat when it is first created (a UUID)
+ * - The urlId is the ID of the chat that is displayed in the URL. This is a human-friendly ID that is
+ *   displayed in the URL.
+ *
+ * Functions accept either ID.
+ *
+ * The urlId is set when the first message is added from an LLM response.
+ *
+ * `chatIdStore` stores the intialId
  */
 export const chatIdStore = atom<string | undefined>(undefined);
 export const description = atom<string | undefined>(undefined);
@@ -45,9 +53,13 @@ export const useChatHistoryConvex = () => {
   const { id: mixedId } = useLoaderData<{ id?: string; sessionId?: string }>();
   const [searchParams] = useSearchParams();
 
+  // Messages that should be displayed + fed into the chat -- this is a prefix
+  // of the messages stored in the database (because there's a feature to rewind to a user message)
   const [initialMessages, setInitialMessages] = useState<SerializedMessage[]>([]);
+  // The deserialized version of `initialMessages`
   const [initialDeserializedMessages, setInitialDeserializedMessages] = useState<Message[]>([]);
 
+  // The messages that have been persisted to the database
   const [persistedMessages, setPersistedMessages] = useState<Message[]>([]);
   const persistInProgress = useRef(false);
 
@@ -66,30 +78,38 @@ export const useChatHistoryConvex = () => {
     }
 
     setIsLoading(true);
+    const currentChatId = chatIdStore.get();
+    if (currentChatId && mixedId !== currentChatId) {
+      // The chat has changed. Clear all state.
 
-    // TODO -- this should clear `initialMessages` if the chat has changed
+      description.set(undefined);
+      chatMetadata.set(undefined);
+
+      setInitialMessages([]);
+      setInitialDeserializedMessages([]);
+
+      setPersistedMessages([]);
+      persistInProgress.current = false;
+
+      setReady(false);
+      setUrlId(undefined);
+    }
+    const rewindId = searchParams.get('rewindTo');
 
     convex
-      .query(api.messages.getWithMessages, { id: mixedId, sessionId })
+      .mutation(api.messages.getInitialMessages, { id: mixedId, sessionId, rewindToMessageId: rewindId })
       .then(async (rawMessages) => {
         if (rawMessages !== null && rawMessages.messages.length > 0) {
-          const rewindId = searchParams.get('rewindTo');
-          const filteredMessages = rewindId
-            ? rawMessages.messages.slice(0, rawMessages.messages.findIndex((m) => m.id === rewindId) + 1)
-            : rawMessages.messages;
-
-          setInitialMessages(filteredMessages);
-          console.log('initialMessages', filteredMessages);
-          setInitialDeserializedMessages(filteredMessages.map(deserializeMessageForConvex));
+          setInitialMessages(rawMessages.messages);
+          setInitialDeserializedMessages(rawMessages.messages.map(deserializeMessageForConvex));
           setUrlId(rawMessages.urlId);
           description.set(rawMessages.description);
-          chatIdStore.set(rawMessages.id);
+          chatIdStore.set(rawMessages.initialId);
           chatMetadata.set(rawMessages.metadata);
-
           try {
             const container = await webcontainer;
             const { workbenchStore } = await import('~/lib/stores/workbench');
-            workbenchStore.setReloadedMessages(filteredMessages.map((m) => m.id));
+            workbenchStore.setReloadedMessages(rawMessages.messages.map((m) => m.id));
             await loadSnapshot(container, workbenchStore, rawMessages.id);
           } catch (error) {
             console.error('Error loading snapshot:', error);
@@ -99,6 +119,7 @@ export const useChatHistoryConvex = () => {
           console.log('navigating to /');
           navigate('/', { replace: true });
         }
+
         setIsLoading(false);
       })
       .catch((error) => {
@@ -129,6 +150,39 @@ export const useChatHistoryConvex = () => {
         console.error(error);
       }
     },
+    initializeChat: async () => {
+      if (!sessionId) {
+        console.error('Cannot start chat with no session ID');
+        return;
+      }
+
+      /*
+       * Synchronously allocate a new ID -- this ID is temporary and will be replaced by a
+       * more human-friendly ID when the first message is added.
+       */
+      if (!chatIdStore.get()) {
+        const nextId = crypto.randomUUID();
+        chatIdStore.set(nextId);
+      }
+
+      const id = chatIdStore.get() as string;
+
+      const result = await convex.mutation(api.messages.addMessages, {
+        id,
+        sessionId,
+        messages: [],
+        expectedLength: 0,
+      });
+
+      setPersistedMessages([]);
+      persistInProgress.current = false;
+
+      if (urlId !== result.id) {
+        setUrlId(result.id);
+        navigateChat(result.id);
+      }
+    },
+
     storeMessageHistory: async (messages: Message[]) => {
       if (messages.length === 0) {
         return;

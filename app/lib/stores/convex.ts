@@ -14,17 +14,17 @@ export type ConvexProject = {
 
 export const convexStore = atom<ConvexProject | null>(null);
 
-export function waitForConvexProjectConnection(): Promise<void> {
-  return new Promise<void>((resolve) => {
+export function waitForConvexProjectConnection(): Promise<ConvexProject> {
+  return new Promise((resolve) => {
     if (convexStore.get() !== null) {
-      resolve();
+      resolve(convexStore.get()!);
       return;
     }
 
     const unsubscribe = convexStore.subscribe((project) => {
       if (project !== null) {
         unsubscribe();
-        resolve();
+        resolve(project);
       }
     });
   });

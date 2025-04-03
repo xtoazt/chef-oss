@@ -310,6 +310,74 @@ export const getWithMessages = query({
   },
 });
 
+export const getInitialMessages = mutation({
+  args: {
+    sessionId: v.id('sessions'),
+    id: v.string(),
+    rewindToMessageId: v.union(v.string(), v.null()),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      id: v.string(),
+      initialId: v.string(),
+      urlId: v.optional(v.string()),
+      description: v.optional(v.string()),
+      timestamp: v.string(),
+      metadata: v.optional(IChatMetadataValidator),
+      messages: v.array(v.any() as VAny<SerializedMessage>),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const { id, rewindToMessageId, sessionId } = args;
+    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
+
+    if (!chat) {
+      return null;
+    }
+
+    const chatInfo = {
+      id: getIdentifier(chat),
+      initialId: chat.initialId,
+      urlId: chat.urlId,
+      description: chat.description,
+      timestamp: chat.timestamp,
+      metadata: chat.metadata,
+    };
+
+    const messages = await ctx.db
+      .query('chatMessages')
+      .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
+      .collect();
+
+    if (!rewindToMessageId) {
+      return {
+        ...chatInfo,
+        messages: messages.map((m) => m.content),
+      };
+    }
+
+    const messageIndex = messages.findIndex((msg) => msg.content.id === rewindToMessageId);
+
+    if (messageIndex === -1) {
+      console.error('Message to rewind to not found', rewindToMessageId);
+      return {
+        ...chatInfo,
+        messages: messages.map((m) => m.content),
+      };
+    }
+
+    for (const message of messages.slice(messageIndex + 1)) {
+      await ctx.db.delete(message._id);
+    }
+
+    return {
+      ...chatInfo,
+      messages: messages.slice(0, messageIndex + 1).map((m) => m.content),
+    };
+  },
+});
+
 export const getAll = query({
   args: {
     sessionId: v.id('sessions'),
@@ -390,6 +458,13 @@ async function _appendMessages(
     expectedLength?: number;
   },
 ) {
+  if (args.messages.length === 0) {
+    return {
+      id: getIdentifier(args.chat),
+      description: args.chat.description,
+    };
+  }
+
   const { chat, messages, expectedLength } = args;
 
   const lastMessage = await ctx.db

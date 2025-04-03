@@ -1,7 +1,9 @@
 import { WebContainer } from '@webcontainer/api';
 import { WORK_DIR_NAME } from '~/utils/constants';
 import { cleanStackTrace } from '~/utils/stacktrace';
-import { loadSnapshot } from '../snapshot';
+import { loadSnapshot } from '~/lib/snapshot';
+import { waitForConvexProjectConnection, type ConvexProject } from '~/lib/stores/convex';
+import { createScopedLogger } from '~/utils/logger';
 
 interface WebContainerContext {
   loaded: boolean;
@@ -18,6 +20,8 @@ if (import.meta.hot) {
 export let webcontainer: Promise<WebContainer> = new Promise(() => {
   // noop for ssr
 });
+
+const logger = createScopedLogger('webcontainer');
 
 if (!import.meta.env.SSR) {
   webcontainer =
@@ -36,9 +40,17 @@ if (!import.meta.env.SSR) {
         await loadSnapshot(webcontainer, workbenchStore);
         webcontainerContext.loaded = true;
 
+        logger.info('Waiting for Convex project connection...');
+        const convexProject = await waitForConvexProjectConnection();
+        logger.info('Setting up Convex env vars...');
+        await setupConvexEnvVars(webcontainer, convexProject);
+        logger.info('Initializing Convex Auth...');
+        const { initializeConvexAuth } = await import('../convexAuth');
+        await initializeConvexAuth(convexProject);
+
         // Listen for preview errors
         webcontainer.on('preview-message', (message) => {
-          console.log('WebContainer preview message:', message);
+          logger.info('WebContainer preview message:', message);
 
           // Handle both uncaught exceptions and unhandled promise rejections
           if (message.type === 'PREVIEW_UNCAUGHT_EXCEPTION' || message.type === 'PREVIEW_UNHANDLED_REJECTION') {
@@ -53,16 +65,53 @@ if (!import.meta.env.SSR) {
           }
         });
 
-        console.log('Done booting WebContainer!');
+        logger.info('Done booting WebContainer!');
         (globalThis as any).webcontainer = webcontainer;
         return webcontainer;
       })
       .catch((error) => {
-        console.error('Error booting WebContainer:', error);
+        logger.error('Error booting WebContainer:', error);
         throw error;
       });
 
   if (import.meta.hot) {
     import.meta.hot.data.webcontainer = webcontainer;
+  }
+}
+
+async function setupConvexEnvVars(webcontainer: WebContainer, convexProject: ConvexProject) {
+  const { token } = convexProject;
+
+  const envFilePath = '.env.local';
+  const envVarName = 'CONVEX_DEPLOY_KEY';
+  const envVarLine = `${envVarName}=${token}\n`;
+
+  let content: string | null = null;
+  try {
+    content = await webcontainer.fs.readFile(envFilePath, 'utf-8');
+  } catch (err: any) {
+    if (!err.toString().includes('ENOENT')) {
+      throw err;
+    }
+  }
+
+  if (content === null) {
+    // Create the file if it doesn't exist
+    await webcontainer.fs.writeFile(envFilePath, envVarLine);
+    logger.debug('Created .env.local with Convex token');
+  } else {
+    const lines = content.split('\n');
+
+    // Check if the env var already exists
+    const envVarExists = lines.some((line) => line.startsWith(`${envVarName}=`));
+
+    if (!envVarExists) {
+      // Add the env var to the end of the file
+      const newContent = content.endsWith('\n') ? `${content}${envVarLine}` : `${content}\n${envVarLine}`;
+      await webcontainer.fs.writeFile(envFilePath, newContent);
+      logger.debug('Added Convex token to .env.local');
+    } else {
+      logger.debug('Convex token already exists in .env.local');
+    }
   }
 }

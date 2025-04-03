@@ -6,7 +6,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { cssTransition, toast, ToastContainer } from 'react-toastify';
 import { useMessageParser, usePromptEnhancer, useShortcuts, useSnapScroll } from '~/lib/hooks';
 import { description, useChatHistoryConvex } from '~/lib/persistence';
-import { chatStore } from '~/lib/stores/chat';
+import { chatStore, useChatIdOrNull } from '~/lib/stores/chat';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, PROMPT_COOKIE_KEY, PROVIDER_LIST } from '~/utils/constants';
 import { cubicEasingFn } from '~/utils/easings';
@@ -24,6 +24,9 @@ import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
 import { webcontainer } from '~/lib/webcontainer';
 import { FlexAuthWrapper } from './FlexAuthWrapper';
+import { convexStore, useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
+import { useQuery } from 'convex/react';
+import { api } from '@convex/_generated/api';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -35,8 +38,30 @@ const logger = createScopedLogger('Chat');
 export function Chat() {
   renderLogger.trace('Chat');
 
-  const { ready, initialMessages, storeMessageHistory, importChat } = useChatHistoryConvex();
+  const { ready, initialMessages, storeMessageHistory, importChat, initializeChat } = useChatHistoryConvex();
   const title = useStore(description);
+
+  const sessionId = useConvexSessionIdOrNullOrLoading();
+  const chatId = useChatIdOrNull();
+  const projectInfo = useQuery(
+    api.convexProjects.loadConnectedConvexProjectCredentials,
+    sessionId && chatId
+      ? {
+          sessionId,
+          chatId,
+        }
+      : 'skip',
+  );
+
+  useEffect(() => {
+    if (projectInfo?.kind === 'connected') {
+      convexStore.set({
+        token: projectInfo.adminKey,
+        deploymentName: projectInfo.deploymentName,
+        deploymentUrl: projectInfo.deploymentUrl,
+      });
+    }
+  }, [projectInfo]);
 
   return (
     <>
@@ -47,6 +72,7 @@ export function Chat() {
             initialMessages={initialMessages}
             storeMessageHistory={storeMessageHistory}
             importChat={importChat}
+            initializeChat={initializeChat}
           />
         )}
       </FlexAuthWrapper>
@@ -109,10 +135,11 @@ interface ChatProps {
   initialMessages: Message[];
   storeMessageHistory: (messages: Message[]) => Promise<void>;
   importChat: (description: string, messages: Message[]) => Promise<void>;
+  initializeChat: () => Promise<void>;
   description?: string;
 }
 
-export const ChatImpl = memo(({ description, initialMessages, storeMessageHistory }: ChatProps) => {
+export const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, initializeChat }: ChatProps) => {
   useShortcuts();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -158,7 +185,7 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
     api: '/api/chat',
     sendExtraMessageFields: true,
-    experimental_prepareRequestBody: ({ messages, requestBody, requestData }) => {
+    experimental_prepareRequestBody: ({ messages }) => {
       return {
         messages: chatContextManager.current.prepareContext(messages),
         firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
@@ -166,9 +193,9 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     },
     maxSteps: 64,
     async onToolCall({ toolCall }) {
-      console.log("Starting tool call", toolCall);
+      console.log('Starting tool call', toolCall);
       const result = await workbenchStore.waitOnToolCall(toolCall.toolCallId);
-      console.log("Tool call finished", result);
+      console.log('Tool call finished', result);
       return result;
     },
     onError: (e) => {
@@ -298,6 +325,7 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
       abort();
       return;
     }
+    await initializeChat();
 
     runAnimation();
 

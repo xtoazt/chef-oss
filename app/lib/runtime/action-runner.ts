@@ -6,7 +6,6 @@ import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
-import { convexStore, waitForConvexProjectConnection } from '~/lib/stores/convex';
 import type { ToolInvocation } from 'ai';
 import { withResolvers } from '~/utils/promises';
 import { BackupStack, editor, editorToolParameters } from './editorTool';
@@ -209,10 +208,10 @@ export class ActionRunner {
           return;
         }
         case 'convex': {
-          await this.#runConvexAction(actionId, action);
+          logger.error('Convex action is not supported anymore. Use tool calls instead.');
           break;
         }
-        case "toolUse": {
+        case 'toolUse': {
           await this.#runToolUseAction(actionId, action);
           break;
         }
@@ -397,57 +396,13 @@ export class ActionRunner {
     };
   }
 
-  async #runConvexAction(actionId: string, action: ActionState) {
-    if (action.type !== 'convex') {
-      unreachable('Expected convex action');
-    }
-
-    const convexLogger = createScopedLogger('ActionRunner:Convex');
-    const webcontainer = await this.#webcontainer;
-
-    await waitForConvexProjectConnection();
-
-    await this.#setupConvexEnvVars();
-
-    const updateAction = this.updateAction.bind(this);
-
-    // Run convex dev --once
-
-    const process = await webcontainer.spawn('npx', ['convex', 'dev', '--once'], {
-      env: { npm_config_yes: true },
-    });
-
-    action.abortSignal.addEventListener('abort', () => {
-      process.kill();
-    });
-
-    let fullOutput = '';
-    process.output.pipeTo(
-      new WritableStream({
-        write(data) {
-          fullOutput += data;
-          convexLogger.debug('Convex output', data);
-          updateAction(actionId, { output: fullOutput });
-        },
-      }),
-    );
-
-    const exitCode = await process.exit;
-
-    if (exitCode !== 0) {
-      throw new ActionCommandError('Convex Dev Failed', fullOutput || 'No Output Available');
-    }
-
-    convexLogger.info(`Convex process terminated with code ${exitCode}`);
-  }
-
   async #runToolUseAction(actionId: string, action: ActionState) {
     const parsed: ToolInvocation = JSON.parse(action.content);
-    if (parsed.state === "result") {
+    if (parsed.state === 'result') {
       return;
     }
-    if (parsed.state === "partial-call") {
-      throw new Error("Tool call is still in progress");
+    if (parsed.state === 'partial-call') {
+      throw new Error('Tool call is still in progress');
     }
 
     let resolvers = this.toolCalls.get(parsed.toolCallId);
@@ -458,16 +413,16 @@ export class ActionRunner {
     let result: string;
     try {
       switch (parsed.toolName) {
-        case "str_replace_editor": {
+        case 'str_replace_editor': {
           const args = editorToolParameters.parse(parsed.args);
           const container = await this.#webcontainer;
           result = await editor(container, args, this.backupStack);
           break;
         }
-        case "bash": {
+        case 'bash': {
           const args = bashToolParameters.parse(parsed.args);
           if (!args.command.length) {
-            throw new Error("A nonempty command is required");
+            throw new Error('A nonempty command is required');
           }
           const shell = this.#shellTerminal();
           await shell.ready();
@@ -491,64 +446,11 @@ export class ActionRunner {
     } catch (e: any) {
       console.error('Error on tool call', e);
       let message = e.toString();
-      if (!message.startsWith("Error:")) {
-        message = "Error: " + message;
+      if (!message.startsWith('Error:')) {
+        message = 'Error: ' + message;
       }
       resolvers.resolve(message);
       throw e;
     }
   }
-
-  async #setupConvexEnvVars() {
-    const webcontainer = await this.#webcontainer;
-
-    const convexProject = convexStore.get();
-
-    if (!convexProject) {
-      throw new Error('No Convex project found');
-    }
-
-    const { token } = convexProject;
-
-    const envFilePath = '.env.local';
-    const envVarName = 'CONVEX_DEPLOY_KEY';
-    const envVarLine = `${envVarName}=${token}\n`;
-
-    let content: string | null = null;
-    try {
-      content = await webcontainer.fs.readFile(envFilePath, 'utf-8');
-    } catch (err: any) {
-      if (!err.toString().includes('ENOENT')) {
-        throw err;
-      }
-    }
-    if (content === null) {
-      // Create the file if it doesn't exist
-      await webcontainer.fs.writeFile(envFilePath, envVarLine);
-      logger.debug('Created .env.local with Convex token');
-    } else {
-      const lines = content.split('\n');
-
-      // Check if the env var already exists
-      const envVarExists = lines.some((line) => line.startsWith(`${envVarName}=`));
-
-      if (!envVarExists) {
-        // Add the env var to the end of the file
-        const newContent = content.endsWith('\n') ? `${content}${envVarLine}` : `${content}\n${envVarLine}`;
-        await webcontainer.fs.writeFile(envFilePath, newContent);
-        logger.debug('Added Convex token to .env.local');
-      } else {
-        logger.debug('Convex token already exists in .env.local');
-      }
-    }
-
-    const { initializeConvexAuth } = await import('~/lib/convexAuth');
-    try {
-      await initializeConvexAuth(convexProject);
-    } catch (error) {
-      logger.error('Failed to initialize Convex Auth', error);
-    }
-  }
 }
-
-
