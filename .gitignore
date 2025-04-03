@@ -46,3 +46,4 @@ docs/instructions/Roadmap.md
 *.md
 
 package-lock.json
+template/pnpm-lock.yaml
