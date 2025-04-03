@@ -6,12 +6,13 @@ import {
 import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
+import { Toaster } from "./components/ui/toaster";
 
 export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-black/80 backdrop-blur-sm p-4 flex justify-between items-center">
-        <h2 className="text-xl font-semibold accent-text">Build with Flex</h2>
+      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm p-4 flex justify-between items-center border-b">
+        <h2 className="text-xl font-semibold accent-text">Flex</h2>
         <SignOutButton />
       </header>
       <main className="flex-1 flex items-center justify-center p-8">
@@ -19,6 +20,7 @@ export default function App() {
           <Content />
         </div>
       </main>
+      <Toaster />
     </div>
   );
 }
@@ -39,14 +41,10 @@ function Content() {
       <div className="text-center">
         <h1 className="text-5xl font-bold accent-text mb-4">Build with Flex</h1>
         <Authenticated>
-          <p className="text-xl text-slate-600 dark:text-slate-300">
-            Welcome back, {loggedInUser?.email ?? "friend"}!
-          </p>
+          <p className="text-xl text-slate-600">Welcome back, {loggedInUser?.email ?? "friend"}!</p>
         </Authenticated>
         <Unauthenticated>
-          <p className="text-xl text-slate-600 dark:text-slate-300">
-            Sign in to get started
-          </p>
+          <p className="text-xl text-slate-600">Sign in to get started</p>
         </Unauthenticated>
       </div>
 

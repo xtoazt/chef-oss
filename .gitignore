@@ -44,3 +44,6 @@ changelogUI.md
 docs/instructions/Roadmap.md
 .cursorrules
 *.md
+
+package-lock.json
+template/pnpm-lock.yaml

@@ -21,6 +21,8 @@ You don't need to install "convex/react", it's part of the 'convex' package you 
 
 IMPORTANT: Once you run \`npx convex dev --once\` and it exits with no errors, you should start run the start action again with \`npm run dev\` or whatever the appropriate long-running dev server command is. DON'T FORGET TO RUN \`npm run dev\` AFTER A CONVEX DEPLOY ACTION!
 
+IMPORTANT: ONLY use functions that are defined in the \`convex/\` directory. If they are not defined in the \`convex/\` directory, you CANNOT use them.
+
 
 Here's an example of using Convex from a React app.
 
@@ -62,12 +64,18 @@ export default function App() {
           onChange={(event) => setNewMessageText(event.target.value)}
           placeholder="Write a message…"
         />
-        <input type="submit" value="Send" disabled={!newMessageText} />
+        <button type="submit" disabled={!newMessageText}>
+          Send
+        </button>
       </form>
     </main>
   );
 }
 \`\`\`
+
+When creating the frontend, only create files within the \`src\` directory.
+
+IMPORTANT: Always use react! Use good UI styling principles.
 
 The \`useQuery()\` hook is live-updating! It causes the React component is it used in to rerender, so Convex is a perfect fix for
 collaborative, live-updating websites.
@@ -93,10 +101,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 The import path to import \`api\` from depends on the location of the file this codes written in (it's a relative path import).
 
+You'll start with a codebase that uses Convex Auth, so you'll want to use patterns like
+
 IMPORTANT: Notes about authentication in Convex:
 - DO NOT touch \`convex/auth.config.ts\`, \`convex/auth.ts\`, \`package.json\`, or \`src/Main.tsx\` under ANY circumstances.
 - DO NOT touch \`convex/http.ts\` unless explicitly specified by the user.
 - DO NOT change the login in \`src/App.tsx\` unless explicitly specified by the user.
+- \`api.auth.users\` DOES NOT EXIST.
 - If you want to get a user in a mutation or query, use the following syntax:
 \`\`\`typescript
 import { mutation } from "./_generated/server";
@@ -111,27 +122,33 @@ export const myMutation = mutation({
     if (userId === null) {
       throw new Error("Unauthenticated call to mutation");
     }
+    const user = await ctx.db.get(userId);
     //...
   },
 });
 \`\`\`
 You can use the userId to get the user's data from the database or store it as the author of a message, for example. But most times, you just want to check that the user is authenticated.
+The "users" table looks like this:
+
+\`\`\`typescript
+users: defineTable({
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+  })
+    .index("email", ["email"])
+    .index("phone", ["phone"]),
+\`\`\`
+
+If you want to get a user from the userId, you can do \`ctx.db.get(userId)\`.
+
+You can also add usernames to the users table that can be used throughout the app. You can have users specify this during sign up, or you can have them edit it later.
+
 ${convexGuidelines}
-
-You'll start with a codebase that uses Convex Auth, so you'll want to use patterns like
-
-\`\`\`
-import { getAuthUserId } from "@convex-dev/auth/server"
-
-// then later, inside a mutation or query or an action:
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) {
-    throw new Error("Client is not authenticated!")
-  }
-  const user = await ctx.db.get(userId);
-\`\`\`
-
-to get the current user.
 
 </database_instructions>`;
 
