@@ -101,7 +101,7 @@ export class WorkbenchStore {
 
   async downloadSnapshot(id?: string) {
     const snapshotUrl = await this.snapshotUrl(id);
-      // Download the snapshot from Convex
+    // Download the snapshot from Convex
     const resp = await fetch(snapshotUrl);
     if (!resp.ok) {
       throw new Error(`Failed to download snapshot (${resp.statusText}): ${resp.statusText}`);
@@ -212,9 +212,6 @@ export class WorkbenchStore {
         },
       );
     })();
-
-    // Initial snapshot
-    await handleUploadSnapshot();
 
     return () => {
       if (debounceTimeout) {
