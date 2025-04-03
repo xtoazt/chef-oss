@@ -1,8 +1,6 @@
 "use client";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
-import { Input } from "./components/ui/input";
-import { Button } from "./components/ui/button";
 import { toast } from "./hooks/use-toast";
 
 export function SignInForm() {
@@ -30,11 +28,12 @@ export function SignInForm() {
           });
         }}
       >
-        <Input className="input-field" type="email" name="email" placeholder="Email" required />
-        <Input className="input-field" type="password" name="password" placeholder="Password" required />
-        <Button className="auth-button" type="submit" disabled={submitting}>
+        <button className="auth-button" onClick={() => signIn("anonymous")}>Sign in anonymously</button>
+        <input className="input-field" type="email" name="email" placeholder="Email" required />
+        <input className="input-field" type="password" name="password" placeholder="Password" required />
+        <button className="auth-button" type="submit" disabled={submitting}>
           {flow === "signIn" ? "Sign in" : "Sign up"}
-        </Button>
+        </button>
 
         <div className="text-center text-sm text-slate-600 dark:text-slate-400">
           <span>{flow === "signIn" ? "Don't have an account? " : "Already have an account? "}</span>
@@ -45,10 +44,6 @@ export function SignInForm() {
             {flow === "signIn" ? "Sign up instead" : "Sign in instead"}
           </span>
         </div>
-
-        <Button variant="outline" onClick={() => signIn("anonymous")}>
-          Sign in anonymously
-        </Button>
       </form>
     </div>
   );

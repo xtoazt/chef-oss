@@ -76,32 +76,9 @@ export default function App() {
 }
 \`\`\`
 
-When creating the frontend, only create files within the \`src\` directory. DO NOT touch the \`src/components\` directory.
+When creating the frontend, only create files within the \`src\` directory.
 
-IMPORTANT: Always use react! Use good UI styling principles and use shadcn for components. Only use the following shadcn components, which are already installed:
-  - accordion
-  - alert
-  - button
-  - card
-  - checkbox
-  - form
-  - input
-  - label
-  - select
-  - toast
-  - toaster
-
-Below is an example of using the shadcn button component:
-
-\`\`\`
-import { Button } from "@/components/ui/button";
-
-export default function App() {
-  return (
-    <Button>Click me</Button>
-  )
-}
-\`\`\`
+IMPORTANT: Always use react! Use good UI styling principles.
 
 The \`useQuery()\` hook is live-updating! It causes the React component is it used in to rerender, so Convex is a perfect fix for
 collaborative, live-updating websites.
