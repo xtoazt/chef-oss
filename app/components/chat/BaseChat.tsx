@@ -16,7 +16,6 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import styles from './BaseChat.module.scss';
 
 import FilePreview from './FilePreview';
-import { SpeechRecognitionButton } from '~/components/chat/SpeechRecognition';
 import type { ProviderInfo } from '~/types/model';
 import { ScreenshotStateManager } from './ScreenshotStateManager';
 import { toast } from 'react-toastify';
@@ -432,13 +431,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                             <div className="i-bolt:stars text-xl"></div>
                           )}
                         </IconButton>
-
-                        <SpeechRecognitionButton
-                          isListening={isListening}
-                          onStart={startListening}
-                          onStop={stopListening}
-                          disabled={isStreaming}
-                        />
                       </div>
                       {input.length > 3 ? (
                         <div className="text-xs text-bolt-elements-textTertiary">
