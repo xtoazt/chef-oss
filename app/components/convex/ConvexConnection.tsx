@@ -2,13 +2,21 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogButton, DialogClose, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
 import { classNames } from '~/utils/classNames';
 import { ConvexConnectButton } from './ConvexConnectButton';
-import { convexStore, useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
-import { useChatIdOrNull } from '~/lib/stores/chat';
+import { convexStore, flexAuthModeStore, useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
+import { chatStore, useChatIdOrNull } from '~/lib/stores/chat';
 import { useQuery, useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
+import { useStore } from '@nanostores/react';
 
 export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' | 'hidden' }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isDesiredOpen, setIsOpen] = useState(false);
+
+  const chatStarted = useStore(chatStore).started;
+  const connected = !useStore(convexStore);
+  const forceOpen = useStore(flexAuthModeStore) === 'ConvexOAuth' && connected && chatStarted;
+  const isOpen = isDesiredOpen || forceOpen;
+  const forcedOpen = forceOpen && !isDesiredOpen;
+
   const convexClient = useConvex();
   const sessionId = useConvexSessionIdOrNullOrLoading();
   const chatId = useChatIdOrNull();
@@ -93,7 +101,14 @@ export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' |
                       <p className="text-xs text-bolt-elements-textSecondary">Team: {projectInfo.teamSlug}</p>
                     </>
                   ) : (
-                    <h4 className="text-sm font-medium text-bolt-elements-textSecondary">No project connected</h4>
+                    <>
+                      <h4 className="text-sm font-medium text-bolt-elements-textSecondary">No project connected</h4>
+                      {forcedOpen && (
+                        <p className="text-sm text-bolt-elements-textSecondary mt-2">
+                          You're one OAuth dance away from an application running on Convex!
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
                 {projectInfo ? (
