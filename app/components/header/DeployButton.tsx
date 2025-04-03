@@ -151,9 +151,10 @@ export function DeployButton() {
           href={`https://${convex.deploymentName}.convex.app`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-bolt-elements-textPrimary hover:text-bolt-elements-textAccent transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent hover:bg-bolt-elements-item-backgroundAccent/90 transition-colors"
         >
-          View deployment
+          <div className="i-ph:arrow-square-out w-4 h-4" />
+          <span>View deployment</span>
         </a>
       )}
     </div>
