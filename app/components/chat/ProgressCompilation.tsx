@@ -29,7 +29,7 @@ export default function ProgressCompilation({ data }: { data?: ProgressAnnotatio
     setProgressList(newData);
   }, [data]);
 
-  if (progressList.length === 0) {
+  if (progressList.length === 0 || progressList.every((x) => x.status === 'complete')) {
     return <></>;
   }
 
