@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react';
 import type { LinksFunction, LoaderFunctionArgs } from '@remix-run/cloudflare';
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from '@remix-run/react';
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, json, useRouteLoaderData } from '@remix-run/react';
 import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
@@ -20,8 +20,10 @@ import 'virtual:uno.css';
 
 export async function loader({ context }: LoaderFunctionArgs) {
   const convexUrl = getConvexUrlInLoader(context);
+  const convexOauthClientId = getConvexOAuthClientIdInLoader(context)
   const authMode = getFlexAuthModeInLoader(context);
-  return Response.json({ ENV: { CONVEX_URL: convexUrl, FLEX_AUTH_MODE: authMode } });
+  // These environment variables are available in the client (they aren't secret).
+  return json({ ENV: { CONVEX_URL: convexUrl, FLEX_AUTH_MODE: authMode, CONVEX_OAUTH_CLIENT_ID: convexOauthClientId } });
 }
 
 export const links: LinksFunction = () => [
@@ -114,7 +116,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 import { logStore } from './lib/stores/logs';
 import { ConvexReactClient } from 'convex/react';
-import { getFlexAuthModeInLoader, getConvexUrlInLoader } from './lib/persistence/convex';
+import { getFlexAuthModeInLoader, getConvexUrlInLoader, getConvexOAuthClientIdInLoader } from './lib/persistence/convex';
 
 export default function App() {
   const theme = useStore(themeStore);

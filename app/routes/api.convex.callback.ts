@@ -1,11 +1,10 @@
 import type { LoaderFunctionArgs } from '@remix-run/node';
 
-const CLIENT_ID = '855ec8198b9c462d';
-const CLIENT_SECRET = '3019129ad5e44b619f673fb87686a939';
-
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request, context }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
+  const CLIENT_ID = (context.cloudflare.env as Record<string, any>).CONVEX_OAUTH_CLIENT_ID || process.env.CONVEX_OAUTH_CLIENT_ID;
+  const CLIENT_SECRET = (context.cloudflare.env as Record<string, any>).CONVEX_OAUTH_CLIENT_SECRET || process.env.CONVEX_OAUTH_CLIENT_SECRET;
 
   if (!code) {
     return Response.json({ error: 'No authorization code provided' }, { status: 400 });

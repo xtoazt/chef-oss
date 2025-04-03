@@ -1,3 +1,4 @@
+import { useRouteLoaderData } from '@remix-run/react';
 import { classNames } from '~/utils/classNames';
 import { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
@@ -5,9 +6,7 @@ import { convexStore, useConvexSessionId, useFlexAuthMode } from '~/lib/stores/c
 import { useConvex, useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { useChatId } from '~/lib/stores/chat';
-
-// The Convex OAuth App which is allowed to use the callbacks
-const CLIENT_ID = '855ec8198b9c462d';
+import type {loader} from '~/root';
 
 export function ConvexConnectButton() {
   const flexAuthMode = useFlexAuthMode();
@@ -86,6 +85,7 @@ export function ConvexConnectButtonViaOauth() {
   const convexClient = useConvex();
   const sessionId = useConvexSessionId();
   const chatId = useChatId();
+  const { ENV: { CONVEX_OAUTH_CLIENT_ID } } = useRouteLoaderData<typeof loader>('root')!;
 
   useEffect(() => {
     return () => {
@@ -105,7 +105,7 @@ export function ConvexConnectButtonViaOauth() {
     localStorage.setItem('convexOAuthState', state);
 
     const params = new URLSearchParams({
-      client_id: CLIENT_ID,
+      client_id: CONVEX_OAUTH_CLIENT_ID,
       redirect_uri: window.location.origin + '/convex/callback',
       response_type: 'code',
       state,
