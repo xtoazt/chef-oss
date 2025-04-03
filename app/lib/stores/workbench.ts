@@ -80,42 +80,33 @@ export class WorkbenchStore {
     this.startBackup();
   }
 
-  async downloadSnapshot(id?: string) {
-    let snapshotUrl;
+  async snapshotUrl(id?: string) {
+    const R2_SNAPSHOT_URL = 'https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin';
     if (!id) {
-      console.log('No chat id yet , downloading from R2');
-      snapshotUrl = 'https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin';
-    } else {
-      const sessionId = sessionIdStore.get();
-
-      if (!sessionId) {
-        throw new Error('No session ID found');
-      }
-      const maybeSnapshotUrl = await this.#convexClient.query(api.snapshot.getSnapshotUrl, { chatId: id, sessionId });
-      if (!maybeSnapshotUrl) {
-        console.log('No snapshot URL found, downloading from R2');
-        snapshotUrl = 'https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin';
-      } else {
-        snapshotUrl = maybeSnapshotUrl;
-      }
+      console.log('No chat id yet, downloading from R2');
+      return R2_SNAPSHOT_URL;
     }
+    const sessionId = sessionIdStore.get();
+    if (!sessionId) {
+      throw new Error('No session ID found');
+    }
+    const maybeSnapshotUrl = await this.#convexClient.query(api.snapshot.getSnapshotUrl, { chatId: id, sessionId });
+    if (!maybeSnapshotUrl) {
+      console.log('No snapshot URL found, downloading from R2');
+      return R2_SNAPSHOT_URL;
+    }
+    console.log('Snapshot URL found, downloading from Convex');
+    return maybeSnapshotUrl;
+  }
 
-    if (!snapshotUrl) {
-      const resp = await fetch('https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin');
-      if (!resp.ok) {
-        const body = await resp.text();
-        throw new Error(`Failed to download snapshot (${resp.statusText}): ${body}`);
-      }
-      return await resp.arrayBuffer();
-    } else {
-      console.log('snapshot URL found, downloading from convex');
+  async downloadSnapshot(id?: string) {
+    const snapshotUrl = await this.snapshotUrl(id);
       // Download the snapshot from Convex
-      const resp = await fetch(snapshotUrl);
-      if (!resp.ok) {
-        throw new Error(`Failed to download snapshot (${resp.statusText}): ${resp.statusText}`);
-      }
-      return await resp.arrayBuffer();
+    const resp = await fetch(snapshotUrl);
+    if (!resp.ok) {
+      throw new Error(`Failed to download snapshot (${resp.statusText}): ${resp.statusText}`);
     }
+    return await resp.arrayBuffer();
   }
 
   async startBackup() {
@@ -450,7 +441,6 @@ export class WorkbenchStore {
   }
 
   setReloadedMessages(messages: string[]) {
-    console.log('setReloadedMessages', messages);
     this.#reloadedMessages = new Set(messages);
   }
 

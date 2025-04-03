@@ -13,31 +13,16 @@ export async function loadSnapshot(webcontainer: WebContainer, workbenchStore: W
   await webcontainer.mount(decompressed);
   console.timeLog('loadSnapshot', 'Mounted snapshot');
 
-  // Check which executables exist before chmoding. Node modules may not be in snapshots.
-  const existingExecutables = await Promise.all(
-    EXECUTABLES.map(async (path) => {
-      try {
-        const dir = path.substring(0, path.lastIndexOf('/'));
-        const name = path.substring(path.lastIndexOf('/') + 1);
-        const files = await webcontainer.fs.readdir(dir, { withFileTypes: true });
-        const exists = files.some((file) => file.name === name);
-        return exists ? path : null;
-      } catch {
-        return null;
-      }
-    }),
-  );
-
-  const validExecutables = existingExecutables.filter((path): path is string => path !== null);
-  if (validExecutables.length > 0) {
-    const chmodProc = await webcontainer.spawn('chmod', ['+x', ...validExecutables]);
+  // Mark all binaries as executable. Only log on failures binaries may be missing in
+  // a subsequent snapshot.
+  Promise.all(EXECUTABLES.map(async (absPath) => {
+    const chmodProc = await webcontainer.spawn('chmod', ['+x', absPath]);
     if ((await chmodProc.exit) !== 0) {
       const output = await chmodProc.output.getReader().read();
-      console.log('marked binaries as executable', output.value);
-      throw new Error(`Failed to chmod node binaries: ${output.value}`);
+      console.log(`Failed to chmod ${absPath}: ${output.value}`);
     }
-    console.timeLog('loadSnapshot', 'Marked binaries as executable');
-  }
+  }))
+  console.timeLog('loadSnapshot', 'Marked binaries as executable');
 
   // After loading the snapshot, we need to load the files into the FilesStore since
   // we won't receive file events for snapshot files.
