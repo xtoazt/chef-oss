@@ -4,9 +4,15 @@ import { chatStore } from '~/lib/stores/chat';
 import { classNames } from '~/utils/classNames';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
 import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
+import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 
 export function Header() {
   const chat = useStore(chatStore);
+  const sessionId = useConvexSessionIdOrNullOrLoading();
+
+  if (sessionId === null) {
+    return null;
+  }
 
   return (
     <header
@@ -17,12 +23,10 @@ export function Header() {
     >
       <div className="flex items-center gap-2 z-logo text-bolt-elements-textPrimary cursor-pointer">
         <div className="i-ph:sidebar-simple-duotone text-xl" />
-        <a href="/" className="text-xl font-semibold flex flex-col">
-          {/* <span className="i-bolt:logo-text?mask w-[46px] inline-block" /> */}
+        <a href="/" className="text-xl font-semibold flex flex-col leading-tight">
           <div className="flex items-center gap-1">Convex Flex</div>
           <span className="flex items-center gap-1 text-xs">
-            powered by <img src="/logo-light-styled.png" alt="logo" className="w-[40px] block dark:hidden mt-[3px]" />
-            <img src="/logo-dark-styled.png" alt="logo" className="w-[40px] hidden dark:block mt-[3px]" />
+            powered by <span className="i-bolt:logo-text?mask w-[26px] inline-block">Bolt</span>
           </span>
         </a>
       </div>
