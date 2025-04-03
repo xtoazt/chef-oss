@@ -27,7 +27,7 @@ import type { ProgressAnnotation } from '~/types/context';
 import type { ActionRunner } from '~/lib/runtime/action-runner';
 import { ConvexConnection } from '~/components/convex/ConvexConnection';
 import { FlexAuthWrapper } from './FlexAuthWrapper';
-
+import { useFlexAuthMode } from '~/lib/stores/convex';
 const TEXTAREA_MIN_HEIGHT = 76;
 
 interface BaseChatProps {
@@ -97,6 +97,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     },
     ref,
   ) => {
+    const flexAuthMode = useFlexAuthMode();
     const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
     const [isListening, setIsListening] = useState(false);
     const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
@@ -444,7 +445,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                           a new line
                         </div>
                       ) : null}
-                      <ConvexConnection />
+                      <ConvexConnection size={flexAuthMode === 'InviteCode' ? 'hidden' : 'small'} />
                     </div>
                   </div>
                 </div>
