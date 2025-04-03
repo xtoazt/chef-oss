@@ -154,7 +154,7 @@ export function DeployButton() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent hover:bg-bolt-elements-item-backgroundAccent/90 transition-colors"
         >
           <div className="i-ph:arrow-square-out w-4 h-4" />
-          <span>View deployment</span>
+          <span>View site</span>
         </a>
       )}
     </div>
