@@ -19,12 +19,11 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
   (props: MessagesProps, ref: ForwardedRef<HTMLDivElement> | undefined) => {
     const { id, isStreaming = false, messages = [] } = props;
     const profile = useStore(profileStore);
-
     return (
       <div id={id} className={props.className} ref={ref}>
         {messages.length > 0
           ? messages.map((message, index) => {
-              const { role, content, id: messageId, annotations } = message;
+              const { role, content, annotations } = message;
               const isUserMessage = role === 'user';
               const isFirst = index === 0;
               const isLast = index === messages.length - 1;
@@ -66,7 +65,7 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                     {isUserMessage ? (
                       <UserMessage content={content} />
                     ) : (
-                      <AssistantMessage messageId={messageId} content={content} parts={message.parts} />
+                      <AssistantMessage message={message} />
                     )}
                   </div>
                 </div>

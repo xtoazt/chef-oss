@@ -1,24 +1,29 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { useStore } from '@nanostores/react';
-import type { ToolInvocation } from 'ai';
+import { Terminal as XTerm } from '@xterm/xterm';
 import { AnimatePresence } from 'framer-motion';
 import { motion } from 'framer-motion';
-import { memo, useMemo, useRef, useState } from 'react';
+import { forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { ActionState } from '~/lib/runtime/action-runner';
-import { workbenchStore } from '~/lib/stores/workbench';
+import { workbenchStore, type ArtifactState } from '~/lib/stores/workbench';
+import { type PartId } from '~/lib/stores/Artifacts';
 import { cubicEasingFn } from '~/utils/easings';
 import { editorToolParameters } from '~/lib/runtime/editorTool';
-import { bashToolParameters } from '~/lib/runtime/bashTool';
 import { classNames } from '~/utils/classNames';
 import { path } from '~/utils/path';
 import { WORK_DIR } from '~/utils/constants';
+import type { ConvexToolInvocation } from '~/lib/common/types';
+import { ShellCodeBlock } from './Artifact';
+import { getTerminalTheme } from '../workbench/terminal/theme';
+import { FitAddon } from '@xterm/addon-fit';
 
-export const ToolCall = memo((props: { messageId: string; toolCallId: string }) => {
-  const { messageId, toolCallId } = props;
+export const ToolCall = memo((props: { partId: PartId; toolCallId: string }) => {
+  const { partId, toolCallId } = props;
   const userToggledAction = useRef(false);
   const [showAction, setShowAction] = useState(false);
 
   const artifacts = useStore(workbenchStore.artifacts);
-  const artifact = artifacts[messageId];
+  const artifact = artifacts[partId];
 
   const actions = useStore(artifact.runner.actions);
   const pair = Object.entries(actions).find(([actionId]) => actionId === toolCallId);
@@ -29,7 +34,7 @@ export const ToolCall = memo((props: { messageId: string; toolCallId: string }) 
     setShowAction(!showAction);
   };
 
-  const parsed: ToolInvocation = useMemo(() => JSON.parse(action?.content ?? '{}'), [action?.content]);
+  const parsed: ConvexToolInvocation = useMemo(() => JSON.parse(action?.content ?? '{}'), [action?.content]);
   const title = action && toolTitle(parsed);
   const icon = action && statusIcon(action.status, parsed);
 
@@ -62,7 +67,7 @@ export const ToolCall = memo((props: { messageId: string; toolCallId: string }) 
               exit={{ width: 0 }}
               transition={{ duration: 0.15, ease: cubicEasingFn }}
               className="bg-bolt-elements-artifacts-background hover:bg-bolt-elements-artifacts-backgroundHover"
-              disabled={parsed.state === 'partial-call' || parsed.state === 'call'}
+              disabled={parsed.state === 'partial-call'}
               onClick={toggleAction}
             >
               <div className="p-4">
@@ -90,7 +95,7 @@ export const ToolCall = memo((props: { messageId: string; toolCallId: string }) 
                 transition={{ duration: 0.15 }}
               >
                 <ul className="list-none space-y-2.5">
-                  <ToolUseContents invocation={parsed} />
+                  <ToolUseContents artifact={artifact} invocation={parsed} />
                 </ul>
               </motion.div>
             </div>
@@ -101,156 +106,232 @@ export const ToolCall = memo((props: { messageId: string; toolCallId: string }) 
   );
 });
 
-export const ToolUseContents = memo(({ invocation }: { invocation: ToolInvocation }) => {
-  if (invocation.state !== 'result') {
-    return null;
-  }
+export const ToolUseContents = memo(({ artifact, invocation }: { artifact: ArtifactState; invocation: ConvexToolInvocation }) => {
+  switch (invocation.toolName) {
+    case 'str_replace_editor': {
+      if (invocation.state !== 'result') {
+        return null;
+      }
 
-  if (invocation.toolName === 'bash') {
-    return (
-      <div className="font-mono text-sm bg-bolt-elements-terminals-background text-bolt-elements-textPrimary p-4 rounded-lg border border-bolt-elements-borderColor overflow-x-auto whitespace-pre">
-        {invocation.result}
-      </div>
-    );
-  }
+      const args = editorToolParameters.parse(invocation.args) as
+        | { command: 'create'; path: string; file_text: string }
+        | { command: 'view'; path: string }
+        | { command: 'str_replace'; path: string; old_str: string; new_str: string }
+        | { command: 'insert'; path: string; insert_line: number; new_str: string }
+        | { command: 'undo_edit'; path: string };
 
-  if (invocation.toolName === 'str_replace_editor') {
-    const args = editorToolParameters.parse(invocation.args) as
-      | { command: 'create'; path: string; file_text: string }
-      | { command: 'view'; path: string }
-      | { command: 'str_replace'; path: string; old_str: string; new_str: string }
-      | { command: 'insert'; path: string; insert_line: number; new_str: string }
-      | { command: 'undo_edit'; path: string };
+      if (args.command === 'view') {
+        // Directory listing
+        if (invocation.result.startsWith('Directory:')) {
+          const items = invocation.result.split('\n').slice(1);
+          return (
+            <div className="space-y-1 font-mono text-sm p-4 rounded-lg border border-bolt-elements-borderColor text-bolt-elements-textPrimary">
+              {items.map((item: string, i: number) => {
+                const isDir = item.includes('(dir)');
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <div
+                      className={
+                        isDir
+                          ? 'i-ph:folder-duotone text-bolt-elements-icon-folder'
+                          : 'i-ph:file-text-duotone text-bolt-elements-icon-file'
+                      }
+                    />
+                    {item}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
 
-    if (args.command === 'view') {
-      // Directory listing
-      if (invocation.result.startsWith('Directory:')) {
-        const items = invocation.result.split('\n').slice(1);
+        // File contents with line numbers
+        const lines = invocation.result.split('\n').map((line: string) => {
+          const [_, ...content] = line.split(':');
+          return content.join(':');
+        });
+        const startLine = Number(invocation.result.split('\n')[0].split(':')[0]);
+        return <LineNumberViewer lines={lines} startLineNumber={startLine} />;
+      }
+
+      if (args.command === 'create') {
+        const { file_text } = args;
         return (
-          <div className="space-y-1 font-mono text-sm p-4 rounded-lg border border-bolt-elements-borderColor text-bolt-elements-textPrimary">
-            {items.map((item: string, i: number) => {
-              const isDir = item.includes('(dir)');
-              return (
-                <div key={i} className="flex items-center gap-2">
-                  <div
-                    className={
-                      isDir
-                        ? 'i-ph:folder-duotone text-bolt-elements-icon-folder'
-                        : 'i-ph:file-text-duotone text-bolt-elements-icon-file'
-                    }
-                  />
-                  {item}
-                </div>
-              );
-            })}
+          <div className="space-y-2">
+            <LineNumberViewer lines={file_text.split('\n')} />
           </div>
         );
       }
 
-      // File contents with line numbers
-      const lines = invocation.result.split('\n').map((line: string) => {
-        const [_, ...content] = line.split(':');
-        return content.join(':');
-      });
-      const startLine = Number(invocation.result.split('\n')[0].split(':')[0]);
-      return <LineNumberViewer lines={lines} startLineNumber={startLine} />;
-    }
-
-    if (args.command === 'create') {
-      const { file_text: fileText } = args;
-      return (
-        <div className="space-y-2">
-          <LineNumberViewer lines={fileText.split('\n')} />
-        </div>
-      );
-    }
-
-    if (args.command === 'insert') {
-      const { insert_line: insertLine, new_str: newStr } = args;
-      return (
-        <div className="space-y-2">
-          <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <tbody>
-                  <tr>
-                    <td className="px-4 py-1 text-right select-none border-r border-bolt-elements-borderColor text-bolt-elements-textTertiary w-12 bg-bolt-elements-background-depth-1">
-                      {insertLine}
-                    </td>
-                    <td className="py-1 whitespace-pre group-hover:bg-bolt-elements-background-depth-2 bg-green-500/10 dark:bg-green-500/20 border-l-4 border-green-500">
-                      {newStr}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (args.command === 'str_replace') {
-      const { old_str: oldStr, new_str: newStr } = args;
-      return (
-        <div className="space-y-2">
-          <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <tbody>
-                  {oldStr.split('\n').map((line: string, i: number) => (
-                    <tr key={`old-${i}`} className="group">
+      if (args.command === 'insert') {
+        const { insert_line, new_str } = args;
+        return (
+          <div className="space-y-2">
+            <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <tbody>
+                    <tr>
                       <td className="px-4 py-1 text-right select-none border-r border-bolt-elements-borderColor text-bolt-elements-textTertiary w-12 bg-bolt-elements-background-depth-1">
-                        {i + 1}
-                      </td>
-                      <td className="py-1 whitespace-pre group-hover:bg-bolt-elements-background-depth-2 bg-red-500/10 dark:bg-red-500/20 border-l-4 border-red-500">
-                        {line}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td
-                      colSpan={2}
-                      className="px-4 py-1 text-center text-bolt-elements-textTertiary border-y border-bolt-elements-borderColor"
-                    >
-                      ↓
-                    </td>
-                  </tr>
-                  {newStr.split('\n').map((line: string, i: number) => (
-                    <tr key={`new-${i}`} className="group">
-                      <td className="px-4 py-1 text-right select-none border-r border-bolt-elements-borderColor text-bolt-elements-textTertiary w-12 bg-bolt-elements-background-depth-1">
-                        {i + 1}
+                        {insert_line}
                       </td>
                       <td className="py-1 whitespace-pre group-hover:bg-bolt-elements-background-depth-2 bg-green-500/10 dark:bg-green-500/20 border-l-4 border-green-500">
-                        {line}
+                        {new_str}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      );
-    }
+        );
+      }
 
-    if (args.command === 'undo_edit') {
-      return (
-        <div className="flex items-center gap-2 text-sm text-bolt-elements-textSecondary">
-          <div className="i-ph:arrow-counter-clockwise text-bolt-elements-icon-success" />
-          {invocation.result}
-        </div>
-      );
+      if (args.command === 'str_replace') {
+        const { old_str, new_str } = args;
+        return (
+          <div className="space-y-2">
+            <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <tbody>
+                    {old_str.split('\n').map((line: string, i: number) => (
+                      <tr key={`old-${i}`} className="group">
+                        <td className="px-4 py-1 text-right select-none border-r border-bolt-elements-borderColor text-bolt-elements-textTertiary w-12 bg-bolt-elements-background-depth-1">
+                          {i + 1}
+                        </td>
+                        <td className="py-1 whitespace-pre group-hover:bg-bolt-elements-background-depth-2 bg-red-500/10 dark:bg-red-500/20 border-l-4 border-red-500">
+                          {line}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td
+                        colSpan={2}
+                        className="px-4 py-1 text-center text-bolt-elements-textTertiary border-y border-bolt-elements-borderColor"
+                      >
+                        ↓
+                      </td>
+                    </tr>
+                    {new_str.split('\n').map((line: string, i: number) => (
+                      <tr key={`new-${i}`} className="group">
+                        <td className="px-4 py-1 text-right select-none border-r border-bolt-elements-borderColor text-bolt-elements-textTertiary w-12 bg-bolt-elements-background-depth-1">
+                          {i + 1}
+                        </td>
+                        <td className="py-1 whitespace-pre group-hover:bg-bolt-elements-background-depth-2 bg-green-500/10 dark:bg-green-500/20 border-l-4 border-green-500">
+                          {line}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (args.command === 'undo_edit') {
+        return (
+          <div className="flex items-center gap-2 text-sm text-bolt-elements-textSecondary">
+            <div className="i-ph:arrow-counter-clockwise text-bolt-elements-icon-success" />
+            {invocation.result}
+          </div>
+        );
+      }
+    }
+    case 'deploy': {
+      return <DeployTool artifact={artifact} invocation={invocation} />
+    }
+    default: {
+      // Fallback for other tool types
+      return <pre className="whitespace-pre-wrap overflow-x-auto">{JSON.stringify(invocation, null, 2)}</pre>;
     }
   }
-
-  // Fallback for other tool types
-  return <pre className="whitespace-pre-wrap overflow-x-auto">{JSON.stringify(invocation, null, 2)}</pre>;
 });
 
-function statusIcon(status: ActionState['status'], invocation: ToolInvocation) {
+function DeployTool({ artifact, invocation }: { artifact: ArtifactState; invocation: ConvexToolInvocation }) {
+  if (invocation.toolName !== "deploy") {
+    throw new Error("Terminal can only be used for the deploy tool");
+  }
+
+  if (invocation.state === "call") {
+    return (
+      <div className="space-y-2">
+        <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
+          <DeployTerminal artifact={artifact} invocation={invocation} />
+        </div>
+      </div>
+    )
+  }
+  if (invocation.state === "result") {
+    return (
+      <div className="space-y-2 ">
+        <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
+          <DeployTerminal artifact={artifact} invocation={invocation} />
+        </div>
+      </div>
+    )
+  }
+}
+
+const DeployTerminal = memo(
+  forwardRef(
+    ({ artifact, invocation }: { artifact: ArtifactState; invocation: ConvexToolInvocation }, ref) => {
+      let terminalOutput = useStore(artifact.runner.terminalOutput);
+      if (!terminalOutput && invocation.state === "result" && invocation.result) {
+        terminalOutput = invocation.result;
+      }
+      const terminalElementRef = useRef<HTMLDivElement>(null);
+      const terminalRef = useRef<XTerm>();
+      useEffect(() => {
+        const element = terminalElementRef.current!;
+        const fitAddon = new FitAddon();
+        const terminal = new XTerm({
+          cursorBlink: true,
+          convertEol: true,
+          disableStdin: true,
+          theme: getTerminalTheme({ cursor: '#00000000' }),
+          fontSize: 12,
+          fontFamily: 'Menlo, courier-new, courier, monospace',
+        });
+        terminal.loadAddon(fitAddon);
+
+        terminalRef.current = terminal;
+        terminal.open(element);
+
+        const resizeObserver = new ResizeObserver(() => {
+          fitAddon.fit();
+        });
+        resizeObserver.observe(element);
+
+        return () => {
+          resizeObserver.disconnect();
+          terminal.dispose();
+        };
+      }, []);
+
+      const written = useRef(0);
+      useEffect(() => {
+        if (terminalRef.current && terminalOutput.length > written.current) {
+          terminalRef.current.write(terminalOutput.slice(written.current));
+          written.current = terminalOutput.length;
+        }
+      }, [terminalOutput]);
+
+      return <div className="h-40" ref={terminalElementRef} />;
+    }
+  )
+)
+
+function statusIcon(status: ActionState['status'], invocation: ConvexToolInvocation) {
   let inner: React.ReactNode;
   let color: string;
-  if (invocation.state === 'result' && invocation.result.startsWith('Error:')) {
+  if (
+    invocation.state === 'result' &&
+    typeof invocation.result === 'string' &&
+    invocation.result.startsWith('Error:')
+  ) {
     inner = <div className="i-ph:x" />;
     color = 'text-bolt-elements-icon-error';
   } else {
@@ -282,13 +363,13 @@ function statusIcon(status: ActionState['status'], invocation: ToolInvocation) {
   return <div className={classNames('text-lg', color)}>{inner}</div>;
 }
 
-function toolTitle(invocation: ToolInvocation): React.ReactNode {
+function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
   switch (invocation.toolName) {
     case 'str_replace_editor': {
       if (invocation.state === 'partial-call') {
         return `Editing file...`;
       } else {
-        const args = editorToolParameters.parse(invocation.args);
+        const args = editorToolParameters.parse(invocation.args ?? {});
         const p = path.relative(WORK_DIR, args.path);
         switch (args.command) {
           case 'str_replace': {
@@ -348,19 +429,24 @@ function toolTitle(invocation: ToolInvocation): React.ReactNode {
         }
       }
     }
-    case 'bash': {
-      const args = bashToolParameters.parse(invocation.args);
+    case "deploy": {
+      let msg: string;
+      if (invocation.state === "partial-call" || invocation.state === "call") {
+        msg = "Deploying to Convex...";
+      } else if (invocation.result?.startsWith("Error:")) {
+        msg = "Failed to deploy to Convex";
+      } else {
+        msg = "Deployed to Convex";
+      }
       return (
-        <div className="flex items-center gap-2 text-sm">
-          <div className="i-ph:terminal-window text-bolt-elements-textSecondary" />
-          <code className="font-mono bg-bolt-elements-artifacts-inlineCode-background text-bolt-elements-artifacts-inlineCode-text px-1.5 py-1 rounded-md">
-            {args.command}
-          </code>
+        <div className="flex items-center gap-2">
+          <img className="w-4 h-4 mr-1" height="16" width="16" src="/icons/Convex.svg" alt="Convex" />
+          <span>{msg}</span>
         </div>
-      );
+      )
     }
     default: {
-      return invocation.toolName;
+      return (invocation as any).toolName;
     }
   }
 }

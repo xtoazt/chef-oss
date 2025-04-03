@@ -8,6 +8,7 @@ import { CodeBlock } from './CodeBlock';
 
 import styles from './Markdown.module.scss';
 import ThoughtBox from './ThoughtBox';
+import type { PartId } from '~/lib/stores/Artifacts';
 
 const logger = createScopedLogger('MarkdownComponent');
 
@@ -24,13 +25,13 @@ export const Markdown = memo(({ children, html = false, limitedMarkdown = false 
     return {
       div: ({ className, children, node, ...props }) => {
         if (className?.includes('__boltArtifact__')) {
-          const messageId = node?.properties.dataMessageId as string;
+          const partId = node?.properties.dataPartId as PartId;
 
-          if (!messageId) {
-            logger.error(`Invalid message id ${messageId}`);
+          if (!partId) {
+            logger.error(`Invalid part id ${partId}`);
           }
 
-          return <Artifact messageId={messageId} />;
+          return <Artifact partId={partId} />;
         }
 
         if (className?.includes('__boltThought__')) {

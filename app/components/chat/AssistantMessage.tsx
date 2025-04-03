@@ -2,26 +2,26 @@ import { memo } from 'react';
 import { Markdown } from './Markdown';
 import type { Message } from 'ai';
 import { ToolCall } from './ToolCall';
+import { makePartId, type PartId } from '~/lib/stores/Artifacts';
 
 interface AssistantMessageProps {
-  messageId: string;
-  content: string;
-  parts: Message['parts'];
+  message: Message;
 }
 
-export const AssistantMessage = memo(({ messageId, content, parts }: AssistantMessageProps) => {
-  if (!parts || !parts.some((part) => part.type === 'tool-invocation')) {
+export const AssistantMessage = memo(({ message }: AssistantMessageProps) => {
+  if (!message.parts) {
     return (
       <div className="overflow-hidden w-full">
-        <Markdown html>{content}</Markdown>
+        <Markdown html>{message.content}</Markdown>
       </div>
     );
   }
   const children: React.ReactNode[] = [];
-  for (const part of parts) {
+  for (const [index, part] of message.parts.entries()) {
+    const partId = makePartId(message.id, index);
     if (part.type === 'tool-invocation') {
       children.push(
-        <ToolCall key={children.length} messageId={messageId} toolCallId={part.toolInvocation.toolCallId} />,
+        <ToolCall key={children.length} partId={partId} toolCallId={part.toolInvocation.toolCallId} />,
       );
     }
     if (part.type === 'text') {

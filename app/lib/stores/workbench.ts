@@ -1,4 +1,4 @@
-import { atom, map, type MapStore, type ReadableAtom, type WritableAtom } from 'nanostores';
+import { atom, map, type ReadableAtom, type WritableAtom } from 'nanostores';
 import type { EditorDocument, ScrollPosition } from '~/components/editor/codemirror/CodeMirrorEditor';
 import { ActionRunner } from '~/lib/runtime/action-runner';
 import type { ActionCallbackData, ArtifactCallbackData } from '~/lib/runtime/message-parser';
@@ -25,7 +25,8 @@ import type { Id } from '@convex/_generated/dataModel';
 import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
 import { sessionIdStore } from './convex';
 import { withResolvers } from '~/utils/promises';
-import { BackupStack } from '~/lib/runtime/editorTool';
+import { BackupStack } from '../runtime/editorTool';
+import type { Artifacts, PartId } from './Artifacts';
 
 const BACKUP_DEBOUNCE_MS = 1000 * 5;
 
@@ -41,9 +42,8 @@ export interface ArtifactState {
 
 export type ArtifactUpdateState = Pick<ArtifactState, 'title' | 'closed'>;
 
-type Artifacts = MapStore<Record<string, ArtifactState>>;
-
 export type WorkbenchViewType = 'code' | 'diff' | 'preview' | 'dashboard';
+
 
 export class WorkbenchStore {
   #previewsStore = new PreviewsStore(webcontainer);
@@ -54,7 +54,7 @@ export class WorkbenchStore {
   #toolCalls: Map<string, PromiseWithResolvers<string>> = new Map();
   #backupStack = new BackupStack();
 
-  #reloadedMessages = new Set<string>();
+  #reloadedParts = new Set<string>();
 
   artifacts: Artifacts = import.meta.hot?.data.artifacts ?? map({});
 
@@ -64,7 +64,7 @@ export class WorkbenchStore {
   actionAlert: WritableAtom<ActionAlert | undefined> =
     import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
   modifiedFiles = new Set<string>();
-  artifactIdList: string[] = [];
+  partIdList: PartId[] = [];
   #globalExecutionQueue = Promise.resolve();
   #initialSnapshotLoaded = false;
   constructor() {
@@ -271,7 +271,7 @@ export class WorkbenchStore {
   }
 
   get firstArtifact(): ArtifactState | undefined {
-    return this.#getArtifact(this.artifactIdList[0]);
+    return this.#getArtifact(this.partIdList[0]);
   }
 
   get filesCount(): number {
@@ -284,6 +284,7 @@ export class WorkbenchStore {
   get boltTerminal() {
     return this.#terminalStore.boltTerminal;
   }
+
   get alert() {
     return this.actionAlert;
   }
@@ -437,26 +438,26 @@ export class WorkbenchStore {
     // TODO: what do we wanna do and how do we wanna recover from this?
   }
 
-  setReloadedMessages(messages: string[]) {
-    this.#reloadedMessages = new Set(messages);
+  setReloadedParts(partIds: PartId[]) {
+    this.#reloadedParts = new Set(partIds);
   }
 
-  isReloadedMessage(messageId: string) {
-    return this.#reloadedMessages.has(messageId);
+  isReloadedPart(partId: PartId) {
+    return this.#reloadedParts.has(partId);
   }
 
-  addArtifact({ messageId, title, id, type }: ArtifactCallbackData) {
-    const artifact = this.#getArtifact(messageId);
+  addArtifact({ partId, title, id, type }: ArtifactCallbackData) {
+    const artifact = this.#getArtifact(partId);
 
     if (artifact) {
       return;
     }
 
-    if (!this.artifactIdList.includes(messageId)) {
-      this.artifactIdList.push(messageId);
+    if (!this.partIdList.includes(partId)) {
+      this.partIdList.push(partId);
     }
 
-    this.artifacts.setKey(messageId, {
+    this.artifacts.setKey(partId, {
       id,
       title,
       closed: false,
@@ -467,7 +468,7 @@ export class WorkbenchStore {
         webcontainer,
         () => this.boltTerminal,
         (alert) => {
-          if (this.#reloadedMessages.has(messageId)) {
+          if (this.#reloadedParts.has(partId)) {
             return;
           }
 
@@ -477,14 +478,14 @@ export class WorkbenchStore {
     });
   }
 
-  updateArtifact({ messageId }: ArtifactCallbackData, state: Partial<ArtifactUpdateState>) {
-    const artifact = this.#getArtifact(messageId);
+  updateArtifact({ partId }: ArtifactCallbackData, state: Partial<ArtifactUpdateState>) {
+    const artifact = this.#getArtifact(partId);
 
     if (!artifact) {
       return;
     }
 
-    this.artifacts.setKey(messageId, { ...artifact, ...state });
+    this.artifacts.setKey(partId, { ...artifact, ...state });
   }
   addAction(data: ActionCallbackData) {
     // this._addAction(data);
@@ -492,9 +493,9 @@ export class WorkbenchStore {
     this.addToExecutionQueue(() => this._addAction(data));
   }
   async _addAction(data: ActionCallbackData) {
-    const { messageId } = data;
+    const { partId } = data;
 
-    const artifact = this.#getArtifact(messageId);
+    const artifact = this.#getArtifact(partId);
 
     if (!artifact) {
       unreachable('Artifact not found');
@@ -511,9 +512,9 @@ export class WorkbenchStore {
     }
   }
   async _runAction(data: ActionCallbackData, isStreaming: boolean = false) {
-    const { messageId } = data;
+    const { partId } = data;
 
-    const artifact = this.#getArtifact(messageId);
+    const artifact = this.#getArtifact(partId);
 
     if (!artifact) {
       unreachable('Artifact not found');
@@ -522,7 +523,7 @@ export class WorkbenchStore {
     const action = artifact.runner.actions.get()[data.actionId];
 
     // Skip running actions if they are part of a reloaded message
-    if (this.isReloadedMessage(messageId)) {
+    if (this.isReloadedPart(partId)) {
       artifact.runner.updateAction(data.actionId, { executed: true, status: 'complete' });
       return;
     }
@@ -564,9 +565,9 @@ export class WorkbenchStore {
     return await this._runAction(data, isStreaming);
   }, 100); // TODO: remove this magic number to have it configurable
 
-  #getArtifact(id: string) {
+  #getArtifact(partId: PartId): ArtifactState | undefined {
     const artifacts = this.artifacts.get();
-    return artifacts[id];
+    return artifacts[partId];
   }
 
   async downloadZip() {

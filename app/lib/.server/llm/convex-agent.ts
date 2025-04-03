@@ -11,10 +11,8 @@ import {
 import type { Messages } from './stream-text';
 import type { ProgressAnnotation } from '~/types/context';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { flexSystemPrompt } from '~/lib/common/prompts/flexPrompts';
-import { makeFlexGuidelinesPrompt } from '~/lib/common/prompts/flexPrompts';
-import { convexGuidelines } from '~/lib/common/prompts/convex';
-import { getSystemPrompt } from '~/lib/common/prompts/prompts';
+import { constantPrompt, roleSystemPrompt } from '~/lib/common/prompts/system';
+import { deployTool } from '~/lib/runtime/deployTool';
 
 export type AITextDataStream = ReturnType<typeof createDataStream>;
 
@@ -43,8 +41,6 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
   };
   const dataStream = createDataStream({
     async execute(dataStream) {
-      let systemPrompt: string;
-      let tools: ToolSet;
       dataStream.writeData({
         type: 'progress',
         label: 'response',
@@ -52,17 +48,9 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
         order: progress.counter++,
         message: 'Analyzing Messages',
       } satisfies ProgressAnnotation);
-      if (firstUserMessage) {
-        console.log('Using XML-based coding agent');
-        systemPrompt = getSystemPrompt();
-        tools = {};
-      } else {
-        console.log('Using tool-based coding agent');
-        systemPrompt = makeFlexGuidelinesPrompt(convexGuidelines);
-        tools = {
-          str_replace_editor: genericAnthropic.tools.textEditor_20241022(),
-          bash: genericAnthropic.tools.bash_20241022(),
-        };
+      const systemPrompt = constantPrompt;
+      const tools = {
+        deploy: deployTool,
       }
       const anthropic = createAnthropic({
         apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
@@ -133,7 +121,7 @@ function anthropicInjectCacheControl(guidelinesPrompt: string, options?: Request
   body.system = [
     {
       type: 'text',
-      text: flexSystemPrompt,
+      text: roleSystemPrompt,
     },
     {
       type: 'text',

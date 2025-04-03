@@ -5,7 +5,6 @@ import { Switch } from '~/components/ui/Switch';
 import { useSettings } from '~/lib/hooks/useSettings';
 import { classNames } from '~/utils/classNames';
 import { toast } from 'react-toastify';
-import { PromptLibrary } from '~/lib/common/prompt-library';
 
 interface FeatureToggle {
   id: string;
@@ -220,27 +219,6 @@ export default function FeaturesTab() {
               Choose a prompt from the library to use as the system prompt
             </p>
           </div>
-          <select
-            value={promptId}
-            onChange={(e) => {
-              setPromptId(e.target.value);
-              toast.success('Prompt template updated');
-            }}
-            className={classNames(
-              'p-2 rounded-lg text-sm min-w-[200px]',
-              'bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor',
-              'text-bolt-elements-textPrimary',
-              'focus:outline-none focus:ring-2 focus:ring-purple-500/30',
-              'group-hover:border-purple-500/30',
-              'transition-all duration-200',
-            )}
-          >
-            {PromptLibrary.getList().map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.label}
-              </option>
-            ))}
-          </select>
         </div>
       </motion.div>
     </div>
