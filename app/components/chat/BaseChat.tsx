@@ -370,7 +370,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           <div className="absolute bottom-4 right-6 text-lg font-display font-medium text-bolt-elements-textTertiary flex gap-3">
             <p className="flex items-center">
               Made by{' '}
-              <a href="https://www.convex.dev" className="hover:text-bolt-elements-textPrimary" aria-label="Convex">
+              <a
+                href="https://www.convex.dev"
+                className="hover:text-bolt-elements-textPrimary transition-colors"
+                aria-label="Convex"
+              >
                 <svg
                   width="223"
                   height="37"
@@ -413,7 +417,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             <hr className="w-0.5 h-8 bg-bolt-elements-textTertiary opacity-20" />
             <p className="flex items-center">
               Powered by{' '}
-              <a href="https://bolt.new" className="hover:text-bolt-elements-textPrimary contents">
+              <a href="https://bolt.new" className="hover:text-bolt-elements-textPrimary transition-colors contents">
                 <span className="i-bolt:logo-text?mask w-[4ch] inline-block ml-1">Bolt</span>
               </a>
             </p>
