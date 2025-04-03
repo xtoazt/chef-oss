@@ -80,20 +80,27 @@ export class WorkbenchStore {
     this.startBackup();
   }
 
-  async downloadSnapshot(id: string) {
-    const sessionId = sessionIdStore.get();
-
+  async downloadSnapshot(id?: string) {
+    let snapshotUrl;
     if (!id) {
-      throw new Error('No chat ID found');
+      console.log('No chat id yet , downloading from R2');
+      snapshotUrl = 'https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin';
+    } else {
+      const sessionId = sessionIdStore.get();
+
+      if (!sessionId) {
+        throw new Error('No session ID found');
+      }
+      const maybeSnapshotUrl = await this.#convexClient.query(api.snapshot.getSnapshotUrl, { chatId: id, sessionId });
+      if (!maybeSnapshotUrl) {
+        console.log('No snapshot URL found, downloading from R2');
+        snapshotUrl = 'https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin';
+      } else {
+        snapshotUrl = maybeSnapshotUrl;
+      }
     }
 
-    if (!sessionId) {
-      throw new Error('No session ID found');
-    }
-
-    const snapshotUrl = await this.#convexClient.query(api.snapshot.getSnapshotUrl, { chatId: id, sessionId });
     if (!snapshotUrl) {
-      console.log('No snapshot URL found, downloading from R2');
       const resp = await fetch('https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin');
       if (!resp.ok) {
         const body = await resp.text();

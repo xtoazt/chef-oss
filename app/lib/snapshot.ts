@@ -4,7 +4,7 @@ import { formatSize } from '~/utils/formatSize';
 import { EXECUTABLES } from '~/utils/constants';
 import type { WorkbenchStore } from './stores/workbench';
 
-export async function loadSnapshot(webcontainer: WebContainer, workbenchStore: WorkbenchStore, chatId: string) {
+export async function loadSnapshot(webcontainer: WebContainer, workbenchStore: WorkbenchStore, chatId?: string) {
   console.log('Loading snapshot');
   console.time('loadSnapshot');
   const compressed = await workbenchStore.downloadSnapshot(chatId);
