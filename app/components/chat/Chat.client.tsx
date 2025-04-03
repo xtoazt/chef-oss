@@ -22,7 +22,7 @@ import { logStore } from '~/lib/stores/logs';
 import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
-import { webcontainer } from '~/lib/webcontainer';
+import { ContainerBootState, waitForBootStepCompleted, webcontainer } from '~/lib/webcontainer';
 import { FlexAuthWrapper } from './FlexAuthWrapper';
 import { convexStore, useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 import { useQuery } from 'convex/react';
@@ -329,8 +329,8 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
     runAnimation();
 
-    // Wait for the WebContainer to fully finish booting before sending a message.
-    await webcontainer;
+    // Wait for the WebContainer to have its snapshot loaded before sending a message.
+    await waitForBootStepCompleted(ContainerBootState.LOADING_SNAPSHOT);
 
     if (!chatStarted) {
       setMessages([

@@ -4,6 +4,7 @@ import { cleanStackTrace } from '~/utils/stacktrace';
 import { loadSnapshot } from '~/lib/snapshot';
 import { waitForConvexProjectConnection, type ConvexProject } from '~/lib/stores/convex';
 import { createScopedLogger } from '~/utils/logger';
+import { atom } from 'nanostores';
 
 interface WebContainerContext {
   loaded: boolean;
@@ -21,6 +22,58 @@ export let webcontainer: Promise<WebContainer> = new Promise(() => {
   // noop for ssr
 });
 
+export enum ContainerBootState {
+  ERROR = -1,
+
+  STARTING = 0,
+  LOADING_SNAPSHOT = 1,
+  SETTING_UP_CONVEX_PROJECT = 2,
+  SETTING_UP_CONVEX_ENV_VARS = 3,
+  CONFIGURING_CONVEX_AUTH = 4,
+  READY = 5,
+}
+
+const containerBootStore = atom<{ state: ContainerBootState, startTime: number, error?: Error }>({ state: ContainerBootState.STARTING, startTime: Date.now() });
+
+function setContainerBootState(state: ContainerBootState, error?: Error) {
+  const existing = containerBootStore.get();
+  const msg = `Container boot [${(Date.now() - existing.startTime).toFixed(2)}ms]`;
+  if (error) {
+    logger.error(msg, ContainerBootState[state], error);
+  } else {
+    logger.info(msg, ContainerBootState[state]);
+  }
+  error = error ?? existing.error;
+  containerBootStore.set({ ...existing, state, error });
+}
+
+export function waitForBootStepCompleted(step: ContainerBootState) {
+  return waitForContainerBootState(step + 1);
+}
+
+export function waitForContainerBootState(minState: ContainerBootState) {
+  return new Promise((resolve, reject) => {
+    const result = containerBootStore.get();
+    if (result.state === ContainerBootState.ERROR) {
+      reject(result.error);
+      return;
+    }
+    if (result.state >= minState) {
+      resolve(result);
+      return;
+    }
+    const unsubscribe = containerBootStore.subscribe((result) => {
+      if (result.state >= minState) {
+        unsubscribe();
+        resolve(result);
+      }
+      if (result.state === ContainerBootState.ERROR) {
+        unsubscribe();
+        reject(result.error);
+      }
+    });
+  });
+}
 const logger = createScopedLogger('webcontainer');
 
 if (!import.meta.env.SSR) {
@@ -28,6 +81,7 @@ if (!import.meta.env.SSR) {
     import.meta.hot?.data.webcontainer ??
     Promise.resolve()
       .then(() => {
+        setContainerBootState(ContainerBootState.STARTING);
         return WebContainer.boot({
           coep: 'credentialless',
           workdirName: WORK_DIR_NAME,
@@ -35,51 +89,59 @@ if (!import.meta.env.SSR) {
         });
       })
       .then(async (webcontainer) => {
+        setContainerBootState(ContainerBootState.LOADING_SNAPSHOT);
         const { workbenchStore } = await import('~/lib/stores/workbench');
-        console.log('Rebooting webcontainer');
         await loadSnapshot(webcontainer, workbenchStore);
         webcontainerContext.loaded = true;
 
-        if(window.location.pathname !== '/admin/build-snapshot') {
+        // Listen for preview errors
+        webcontainer.on('preview-message', (message) => {
+          logger.info('WebContainer preview message:', message);
 
-          logger.info('Waiting for Convex project connection...');
-          const convexProject = await waitForConvexProjectConnection();
+          // Handle both uncaught exceptions and unhandled promise rejections
+          if (message.type === 'PREVIEW_UNCAUGHT_EXCEPTION' || message.type === 'PREVIEW_UNHANDLED_REJECTION') {
+            const isPromise = message.type === 'PREVIEW_UNHANDLED_REJECTION';
+            workbenchStore.actionAlert.set({
+              type: 'preview',
+              title: isPromise ? 'Unhandled Promise Rejection' : 'Uncaught Exception',
+              description: message.message,
+              content: `Error occurred at ${message.pathname}${message.search}${message.hash}\nPort: ${message.port}\n\nStack trace:\n${cleanStackTrace(message.stack || '')}`,
+              source: 'preview',
+            });
+          }
+        });
 
-          logger.info('Setting up Convex env vars...');
-          await setupConvexEnvVars(webcontainer, convexProject);
-          logger.info('Initializing Convex Auth...');
-          const { initializeConvexAuth } = await import('../convexAuth');
-          await initializeConvexAuth(convexProject);
-
-          // Listen for preview errors
-          webcontainer.on('preview-message', (message) => {
-            logger.info('WebContainer preview message:', message);
-
-            // Handle both uncaught exceptions and unhandled promise rejections
-            if (message.type === 'PREVIEW_UNCAUGHT_EXCEPTION' || message.type === 'PREVIEW_UNHANDLED_REJECTION') {
-              const isPromise = message.type === 'PREVIEW_UNHANDLED_REJECTION';
-              workbenchStore.actionAlert.set({
-                type: 'preview',
-                title: isPromise ? 'Unhandled Promise Rejection' : 'Uncaught Exception',
-                description: message.message,
-                content: `Error occurred at ${message.pathname}${message.search}${message.hash}\nPort: ${message.port}\n\nStack trace:\n${cleanStackTrace(message.stack || '')}`,
-                source: 'preview',
-              });
-            }
-          });
+        if (window.location.pathname !== '/admin/build-snapshot') {
+          void finishContainerBoot(webcontainer);
+        } else {
+          setContainerBootState(ContainerBootState.READY);
         }
 
-        logger.info('Done booting WebContainer!');
         (globalThis as any).webcontainer = webcontainer;
         return webcontainer;
       })
       .catch((error) => {
-        logger.error('Error booting WebContainer:', error);
+        setContainerBootState(ContainerBootState.ERROR, error);
         throw error;
       });
 
   if (import.meta.hot) {
     import.meta.hot.data.webcontainer = webcontainer;
+  }
+}
+
+async function finishContainerBoot(webcontainer: WebContainer) {
+  try {
+    setContainerBootState(ContainerBootState.SETTING_UP_CONVEX_PROJECT);
+    const convexProject = await waitForConvexProjectConnection();
+    setContainerBootState(ContainerBootState.SETTING_UP_CONVEX_ENV_VARS);
+    await setupConvexEnvVars(webcontainer, convexProject);
+    setContainerBootState(ContainerBootState.CONFIGURING_CONVEX_AUTH);
+    const { initializeConvexAuth } = await import('../convexAuth');
+    await initializeConvexAuth(convexProject);
+    setContainerBootState(ContainerBootState.READY);
+  } catch (error) {
+    setContainerBootState(ContainerBootState.ERROR, error as Error);
   }
 }
 

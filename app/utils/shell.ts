@@ -2,8 +2,12 @@ import type { WebContainer, WebContainerProcess } from '@webcontainer/api';
 import type { ITerminal } from '~/types/terminal';
 import { withResolvers } from './promises';
 import { atom } from 'nanostores';
+import { ContainerBootState, waitForContainerBootState } from '~/lib/webcontainer';
 
 export async function newShellProcess(webcontainer: WebContainer, terminal: ITerminal) {
+  // Wait for setup to fully complete before allowing shells to spawn.
+  await waitForContainerBootState(ContainerBootState.READY);
+
   const args: string[] = [];
 
   // we spawn a JSH process with a fallback cols and rows in case the process is not attached yet to a visible terminal
@@ -140,6 +144,9 @@ export class BoltShell {
 
   async newBoltShellProcess(webcontainer: WebContainer, terminal: ITerminal) {
     const args: string[] = [];
+
+    // Wait for setup to fully complete before allowing shells to spawn.
+    await waitForContainerBootState(ContainerBootState.READY);
 
     // we spawn a JSH process with a fallback cols and rows in case the process is not attached yet to a visible terminal
     const process = await webcontainer.spawn('/bin/jsh', ['--osc', ...args], {

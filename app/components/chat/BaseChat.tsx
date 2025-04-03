@@ -112,7 +112,9 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     }, [data]);
     useEffect(() => {
-      console.log(transcript);
+      if (transcript.trim().length > 0) {
+        console.log('transcript', transcript);
+      }
     }, [transcript]);
 
     useEffect(() => {
