@@ -8,7 +8,6 @@ import { api } from '@convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import type { SerializedMessage } from '@convex/messages';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
-import { workbenchStore } from '~/lib/stores/workbench';
 import { webcontainer } from '~/lib/webcontainer';
 import { loadSnapshot } from '~/lib/snapshot';
 
@@ -87,10 +86,10 @@ export const useChatHistoryConvex = () => {
           chatIdStore.set(rawMessages.id);
           chatMetadata.set(rawMessages.metadata);
 
-          workbenchStore.setReloadedMessages(filteredMessages.map((m) => m.id));
-
           try {
             const container = await webcontainer;
+            const { workbenchStore } = await import('~/lib/stores/workbench');
+            workbenchStore.setReloadedMessages(filteredMessages.map((m) => m.id));
             await loadSnapshot(container, workbenchStore, rawMessages.id);
           } catch (error) {
             console.error('Error loading snapshot:', error);
