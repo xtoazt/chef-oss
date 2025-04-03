@@ -28,11 +28,12 @@ function Button({ active = false, disabled = false, children, onClick, className
           'bg-bolt-elements-item-backgroundDefault hover:bg-bolt-elements-item-backgroundActive text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary':
             !active,
           'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent': active && !disabled,
-          'bg-bolt-elements-item-backgroundDefault text-alpha-gray-20 dark:text-alpha-white-20 cursor-not-allowed':
+          'bg-bolt-elements-item-backgroundDefault text-alpha-gray-20 dark:text-alpha-white-20 cursor-not-allowed hover:bg-bolt-elements-item-backgroundDefault hover:text-bolt-elements-textTertiary':
             disabled,
         },
         className,
       )}
+      disabled={disabled}
       onClick={onClick}
       title={title}
     >
@@ -115,6 +116,7 @@ export function DeployButton() {
 
   const isLoading = status === 'building' || status === 'zipping' || status === 'deploying';
   const isDisabled = isLoading || !convex;
+  console.log(isLoading, convex);
 
   const getButtonText = () => {
     switch (status) {
