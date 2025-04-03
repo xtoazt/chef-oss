@@ -4,12 +4,18 @@ import type { ActionFunctionArgs } from '@remix-run/cloudflare';
 const PROVISION_HOST = 'https://provision.convex.dev';
 //const PROVISION_HOST = "http://127.0.0.1:8000";
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request, context }: ActionFunctionArgs) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const deploymentName = formData.get('deploymentName') as string;
-    const token = formData.get('token') as string;
+    let token = formData.get('token') as string;
+
+    // If it's a project token, great
+    if (!token.includes('project')) {
+      // if not then use our hardcoded project token
+      token = (context.cloudflare.env as Record<string, any>).BIG_BRAIN_API_KEY || process.env.BIG_BRAIN_API_KEY;
+    }
 
     if (!file) {
       return json({ error: 'No file provided' }, { status: 400 });
@@ -19,10 +25,12 @@ export async function action({ request }: ActionFunctionArgs) {
       return json({ error: 'Missing authentication or deployment info' }, { status: 400 });
     }
 
+    const Authorization = `Bearer ${token}`;
+
     const response = await fetch(`${PROVISION_HOST}/api/hosting/deploy?deploymentName=${deploymentName}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization
       },
       body: file
     });
