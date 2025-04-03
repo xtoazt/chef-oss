@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { DialogRoot, DialogClose, Dialog, DialogTitle } from '~/components/ui/Dialog';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';

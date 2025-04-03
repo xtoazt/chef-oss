@@ -18,7 +18,7 @@ import styles from './BaseChat.module.scss';
 import FilePreview from './FilePreview';
 import type { ProviderInfo } from '~/types/model';
 import { ScreenshotStateManager } from './ScreenshotStateManager';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import type { ActionAlert } from '~/types/actions';
 import ChatAlert from './ChatAlert';
 import ProgressCompilation from './ProgressCompilation';

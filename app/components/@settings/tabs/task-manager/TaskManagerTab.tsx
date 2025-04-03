@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { toast } from 'react-toastify'; // Import toast
+import { toast } from 'sonner'; // Import toast
 import { useUpdateCheck } from '~/lib/hooks/useUpdateCheck';
 import { tabConfigurationStore, type TabConfig } from '~/lib/stores/tabConfigurationStore';
 import { useStore } from 'zustand';

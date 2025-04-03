@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSettings } from '~/lib/hooks/useSettings';
 import { logStore } from '~/lib/stores/logs';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { Dialog, DialogRoot, DialogTitle, DialogDescription, DialogButton } from '~/components/ui/Dialog';
 import { classNames } from '~/utils/classNames';
 import { Markdown } from '~/components/chat/Markdown';

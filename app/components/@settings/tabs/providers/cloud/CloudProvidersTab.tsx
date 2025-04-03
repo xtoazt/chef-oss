@@ -6,7 +6,7 @@ import type { IProviderConfig } from '~/types/model';
 import { logStore } from '~/lib/stores/logs';
 import { motion } from 'framer-motion';
 import { classNames } from '~/utils/classNames';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { providerBaseUrlEnvKeys } from '~/utils/constants';
 import { SiAmazon, SiGoogle, SiHuggingface, SiPerplexity, SiOpenai } from 'react-icons/si';
 import { BsRobot, BsCloud } from 'react-icons/bs';

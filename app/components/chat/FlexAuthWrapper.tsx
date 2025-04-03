@@ -4,7 +4,7 @@ import { useConvex } from 'convex/react';
 
 import { useConvexAuth } from 'convex/react';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 import {
   sessionIdStore,

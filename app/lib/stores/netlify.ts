@@ -1,7 +1,7 @@
 import { atom } from 'nanostores';
 import type { NetlifyConnection } from '~/types/netlify';
 import { logStore } from './logs';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 // Initialize with stored connection or defaults
 const storedConnection = typeof window !== 'undefined' ? localStorage.getItem('netlify_connection') : null;

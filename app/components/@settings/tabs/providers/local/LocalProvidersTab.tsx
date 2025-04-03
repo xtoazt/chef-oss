@@ -11,9 +11,9 @@ import type { IconType } from 'react-icons';
 import { BiChip } from 'react-icons/bi';
 import { TbBrandOpenai } from 'react-icons/tb';
 import { providerBaseUrlEnvKeys } from '~/utils/constants';
-import { useToast } from '~/components/ui/use-toast';
 import { Progress } from '~/components/ui/Progress';
 import OllamaModelInstaller from './OllamaModelInstaller';
+import { toast } from 'sonner';
 
 // Add type for provider names to ensure type safety
 type ProviderName = 'Ollama' | 'LMStudio' | 'OpenAILike';
@@ -78,7 +78,6 @@ export default function LocalProvidersTab() {
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
-  const { toast } = useToast();
 
   // Effect to filter and sort providers
   useEffect(() => {

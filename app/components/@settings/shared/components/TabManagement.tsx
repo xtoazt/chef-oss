@@ -6,7 +6,7 @@ import { classNames } from '~/utils/classNames';
 import { tabConfigurationStore } from '~/lib/stores/settings';
 import { TAB_LABELS } from '~/components/@settings/core/constants';
 import type { TabType } from '~/components/@settings/core/types';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { TbLayoutGrid } from 'react-icons/tb';
 import { useSettingsStore } from '~/lib/stores/settings';
 

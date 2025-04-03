@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { classNames } from '~/utils/classNames';
 import { Progress } from '~/components/ui/Progress';
-import { useToast } from '~/components/ui/use-toast';
 import { useSettings } from '~/lib/hooks/useSettings';
+import { toast } from 'sonner';
 
 interface OllamaModelInstallerProps {
   onModelInstalled: () => void;
@@ -141,7 +141,6 @@ export default function OllamaModelInstaller({ onModelInstalled }: OllamaModelIn
   const [installProgress, setInstallProgress] = useState<InstallProgress | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [models, setModels] = useState<ModelInfo[]>(POPULAR_MODELS);
-  const { toast } = useToast();
   const { providers } = useSettings();
 
   // Get base URL from provider settings

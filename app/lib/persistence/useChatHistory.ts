@@ -2,7 +2,7 @@ import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
 import { useState, useEffect, useRef } from 'react';
 import { atom } from 'nanostores';
 import type { Message } from '@ai-sdk/react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { useConvex } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { ConvexError } from 'convex/values';

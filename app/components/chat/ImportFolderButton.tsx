@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Message } from 'ai';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { MAX_FILES, isBinaryFile, shouldIncludeFile } from '~/utils/fileUtils';
 import { createChatFromFolder } from '~/utils/folderImport';
 import { logStore } from '~/lib/stores/logs'; // Assuming logStore is imported from this location

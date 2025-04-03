@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { getLocalStorage } from '~/lib/persistence';
 import { classNames } from '~/utils/classNames';

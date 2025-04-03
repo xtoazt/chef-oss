@@ -1,6 +1,6 @@
 import type { GitHubRepoInfo, GitHubContent, RepositoryStats } from '~/types/GitHub';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import * as Dialog from '@radix-ui/react-dialog';
 import { classNames } from '~/utils/classNames';
 import { getLocalStorage } from '~/lib/persistence';

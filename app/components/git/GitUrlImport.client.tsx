@@ -9,7 +9,7 @@ import { useGit } from '~/lib/hooks/useGit';
 import { useChatHistoryConvex } from '~/lib/persistence';
 import { createCommandsMessage, detectProjectCommands, escapeBoltTags } from '~/utils/projectCommands';
 import { LoadingOverlay } from '~/components/ui/LoadingOverlay';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 const IGNORE_PATTERNS = [
   'node_modules/**',

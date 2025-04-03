@@ -2,7 +2,7 @@ import { useStore } from '@nanostores/react';
 import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
 import { memo, useCallback, useEffect, useMemo } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { ActionRunner } from '~/lib/runtime/action-runner';
 import {
   type OnChangeCallback as OnEditorChange,

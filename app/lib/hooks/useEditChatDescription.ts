@@ -2,7 +2,7 @@ import { api } from '@convex/_generated/api';
 import { useStore } from '@nanostores/react';
 import { useConvex } from 'convex/react';
 import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { chatIdStore as chatIdStore, description as descriptionStore } from '~/lib/persistence';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 interface EditChatDescriptionOptions {
