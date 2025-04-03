@@ -61,7 +61,8 @@ export default defineSchema({
     ),
   })
     .index('byCreatorAndId', ['creatorId', 'initialId'])
-    .index('byCreatorAndUrlId', ['creatorId', 'urlId']),
+    .index('byCreatorAndUrlId', ['creatorId', 'urlId'])
+    .index('bySnapshotId', ['snapshotId']),
 
   convexProjectCredentials: defineTable({
     projectSlug: v.string(),
