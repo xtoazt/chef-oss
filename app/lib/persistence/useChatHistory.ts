@@ -10,6 +10,7 @@ import type { SerializedMessage } from '@convex/messages';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 import { webcontainer } from '~/lib/webcontainer';
 import { loadSnapshot } from '~/lib/snapshot';
+import { makePartId, type PartId } from '../stores/Artifacts';
 
 export interface IChatMetadata {
   gitUrl: string;
@@ -109,7 +110,14 @@ export const useChatHistoryConvex = () => {
           try {
             const container = await webcontainer;
             const { workbenchStore } = await import('~/lib/stores/workbench');
-            workbenchStore.setReloadedMessages(rawMessages.messages.map((m) => m.id));
+
+            const partIds: PartId[] = [];
+            for (const message of rawMessages.messages) {
+              for (let i = 0; i < Math.min(1, message.parts?.length ?? 0); i++) {
+                partIds.push(makePartId(message.id, i));
+              }
+            }
+            workbenchStore.setReloadedParts(partIds);
             await loadSnapshot(container, workbenchStore, rawMessages.id);
           } catch (error) {
             console.error('Error loading snapshot:', error);

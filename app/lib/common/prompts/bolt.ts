@@ -1,7 +1,6 @@
 import { WORK_DIR } from '~/utils/constants';
 import { allowedHTMLElements } from '~/utils/markdown';
 import { stripIndents } from '~/utils/stripIndent';
-import { databaseInstructions } from './database';
 
 export const getSystemPrompt = (cwd: string = WORK_DIR) => `
 You are Flow, an expert AI assistant and exceptional senior software developer with vast knowledge across multiple programming languages, frameworks, and best practices.
@@ -59,8 +58,6 @@ You are Flow, an expert AI assistant and exceptional senior software developer w
     Other Utilities:
       - curl, head, sort, tail, clear, which, export, chmod, scho, hostname, kill, ln, xxd, alias, false,  getconf, true, loadenv, wasm, xdg-open, command, exit, source
 </system_constraints>
-
-${databaseInstructions()}
 
 <code_formatting_info>
   Use 2 spaces for code indentation

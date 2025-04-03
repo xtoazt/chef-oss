@@ -15,6 +15,14 @@ export interface ShellAction extends BaseAction {
   type: 'shell';
 }
 
+export interface NpmInstallAction extends BaseAction {
+  type: 'npmInstall';
+}
+
+export interface NpmExecAction extends BaseAction {
+  type: 'npmExec';
+}
+
 export interface StartAction extends BaseAction {
   type: 'start';
 }
@@ -33,7 +41,15 @@ export interface ToolUseAction extends BaseAction {
   toolName: string;
 }
 
-export type BoltAction = FileAction | ShellAction | StartAction | BuildAction | ConvexAction | ToolUseAction;
+export type BoltAction =
+  | FileAction
+  | ShellAction
+  | StartAction
+  | BuildAction
+  | ConvexAction
+  | ToolUseAction
+  | NpmInstallAction
+  | NpmExecAction;
 
 export type BoltActionData = BoltAction | BaseAction;
 

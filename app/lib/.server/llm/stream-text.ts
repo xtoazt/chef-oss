@@ -1,9 +1,8 @@
 import { convertToCoreMessages, streamText as _streamText, type Message } from 'ai';
 import { MAX_TOKENS, type FileMap } from './constants';
-import { getSystemPrompt } from '~/lib/common/prompts/prompts';
+import { getSystemPrompt } from '~/lib/common/prompts/bolt';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, MODIFICATIONS_TAG_NAME, PROVIDER_LIST, WORK_DIR } from '~/utils/constants';
 import type { IProviderSetting } from '~/types/model';
-import { PromptLibrary } from '~/lib/common/prompt-library';
 import { allowedHTMLElements } from '~/utils/markdown';
 import { LLMManager } from '~/lib/modules/llm/manager';
 import { createScopedLogger } from '~/utils/logger';
@@ -93,16 +92,7 @@ export async function boltStreamText(props: {
 
   const dynamicMaxTokens = modelDetails && modelDetails.maxTokenAllowed ? modelDetails.maxTokenAllowed : MAX_TOKENS;
 
-  let systemPrompt =
-    PromptLibrary.getPromptFromLibrary(promptId || 'default', {
-      cwd: WORK_DIR,
-      allowedHtmlElements: allowedHTMLElements,
-      modificationTagName: MODIFICATIONS_TAG_NAME,
-      convex: {
-        isConnected: !!options?.convexProjectConnected,
-        projectToken: options?.convexProjectToken || null,
-      },
-    }) ?? getSystemPrompt();
+  let systemPrompt = getSystemPrompt();
 
   if (files && contextFiles) {
     const codeContext = createFilesContext(contextFiles, true);

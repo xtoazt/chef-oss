@@ -5,12 +5,11 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { createHighlighter, type BundledLanguage, type BundledTheme, type HighlighterGeneric } from 'shiki';
 import type { ActionState } from '~/lib/runtime/action-runner';
 import { workbenchStore } from '~/lib/stores/workbench';
+import { type PartId } from '~/lib/stores/Artifacts';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
 import { useConvexSessionId } from '~/lib/stores/convex';
-import { ConvexConnectAlert } from '~/components/convex/ConvexConnectAlert';
-import { ConvexDeployTerminal } from '~/components/convex/ConvexDeployTerminal';
 import { api } from '@convex/_generated/api';
 import { useQuery } from 'convex/react';
 import { useChatId } from '~/lib/stores/chat';
@@ -28,16 +27,16 @@ if (import.meta.hot) {
 }
 
 interface ArtifactProps {
-  messageId: string;
+  partId: PartId;
 }
 
-export const Artifact = memo(({ messageId }: ArtifactProps) => {
+export const Artifact = memo(({ partId }: ArtifactProps) => {
   const userToggledActions = useRef(false);
   const [showActions, setShowActions] = useState(false);
   const [allActionFinished, setAllActionFinished] = useState(false);
 
   const artifacts = useStore(workbenchStore.artifacts);
-  const artifact = artifacts[messageId];
+  const artifact = artifacts[partId];
 
   const actions = useStore(
     computed(artifact.runner.actions, (actions) => {
@@ -169,18 +168,17 @@ function openArtifactInWorkbench(filePath: any) {
 const ActionList = memo(({ actions }: ActionListProps) => {
   const chatId = useChatId();
   const sessionId = useConvexSessionId();
-  const isConvexConnected = useQuery(api.convexProjects.hasConnectedConvexProject, {
-    sessionId,
-    chatId,
-  });
+
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
       <ul className="list-none space-y-2.5">
         {actions.map((action, index) => {
-          const { status, type, content } = action;
-          const isLast = index === actions.length - 1;
-
+          const { status, type } = action;
+          if (type !== "file") {
+            console.log('action', action);
+            throw new Error('Action is not a file');
+          }
           return (
             <motion.li
               key={index}
@@ -195,13 +193,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
               <div className="flex items-center gap-1.5 text-sm">
                 <div className={classNames('text-lg', getIconColor(action.status))}>
                   {status === 'running' ? (
-                    <>
-                      {type !== 'start' ? (
-                        <div className="i-svg-spinners:90-ring-with-bg"></div>
-                      ) : (
-                        <div className="i-ph:terminal-window-duotone"></div>
-                      )}
-                    </>
+                    <div className="i-svg-spinners:90-ring-with-bg"></div>
                   ) : status === 'pending' ? (
                     <div className="i-ph:circle-duotone"></div>
                   ) : status === 'complete' ? (
@@ -210,8 +202,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                     <div className="i-ph:x"></div>
                   ) : null}
                 </div>
-                {type === 'file' ? (
-                  <div>
+                <div>
                     Create{' '}
                     <code
                       className="bg-bolt-elements-artifacts-inlineCode-background text-bolt-elements-artifacts-inlineCode-text px-1.5 py-1 rounded-md text-bolt-elements-item-contentAccent hover:underline cursor-pointer"
@@ -220,40 +211,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                       {action.filePath}
                     </code>
                   </div>
-                ) : type === 'shell' ? (
-                  <div className="flex items-center w-full min-h-[28px]">
-                    <span className="flex-1">Run command</span>
-                  </div>
-                ) : type === 'convex' ? (
-                  <div className="flex items-center w-full min-h-[28px]">
-                    <span className="flex-1">Deploy Convex functions</span>
-                  </div>
-                ) : type === 'start' ? (
-                  <a
-                    onClick={(e) => {
-                      e.preventDefault();
-                      workbenchStore.currentView.set('preview');
-                    }}
-                    className="flex items-center w-full min-h-[28px]"
-                  >
-                    <span className="flex-1">Start Application</span>
-                  </a>
-                ) : null}
               </div>
-              {(type === 'shell' || type === 'start') && (
-                <ShellCodeBlock
-                  className={classNames('mt-1', {
-                    'mb-3.5': !isLast,
-                  })}
-                  code={content}
-                />
-              )}
-
-              {type === 'convex' && action.status === 'running' && !isConvexConnected && <ConvexConnectAlert />}
-
-              {type === 'convex' && action.status !== 'complete' && action.output && (
-                <ConvexDeployTerminal input={action.output ?? ''} />
-              )}
             </motion.li>
           );
         })}

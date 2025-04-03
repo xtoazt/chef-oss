@@ -99,6 +99,19 @@ export class BoltShell {
     return this.#process;
   }
 
+  async startCommand(sessionId: string, command: string, abort?: () => void) {
+    if (!this.process || !this.terminal) {
+      return undefined;
+    }
+    const state = this.executionState.get();
+    if (state?.active && state.abort) {
+      state.abort();
+    }
+    this.terminal.input('\x03');
+    await this.waitTillOscCode('prompt');
+    this.terminal.input(command.trim() + '\n');
+  }
+
   async executeCommand(sessionId: string, command: string, abort?: () => void): Promise<ExecutionResult> {
     if (!this.process || !this.terminal) {
       return undefined;
