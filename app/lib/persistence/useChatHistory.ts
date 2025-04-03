@@ -86,7 +86,6 @@ export const useChatHistoryConvex = () => {
           description.set(rawMessages.description);
           chatIdStore.set(rawMessages.id);
           chatMetadata.set(rawMessages.metadata);
-          setReady(true);
 
           workbenchStore.setReloadedMessages(filteredMessages.map((m) => m.id));
 
@@ -96,6 +95,7 @@ export const useChatHistoryConvex = () => {
           } catch (error) {
             console.error('Error loading snapshot:', error);
           }
+          setReady(true);
         } else {
           console.log('navigating to /');
           navigate('/', { replace: true });

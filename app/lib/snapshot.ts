@@ -5,6 +5,7 @@ import { EXECUTABLES } from '~/utils/constants';
 import type { WorkbenchStore } from './stores/workbench';
 
 export async function loadSnapshot(webcontainer: WebContainer, workbenchStore: WorkbenchStore, chatId: string) {
+  console.log('Loading snapshot');
   console.time('loadSnapshot');
   const compressed = await workbenchStore.downloadSnapshot(chatId);
 
@@ -42,6 +43,9 @@ export async function loadSnapshot(webcontainer: WebContainer, workbenchStore: W
   // we won't receive file events for snapshot files.
   await workbenchStore.prewarmWorkdir(webcontainer);
   console.timeLog('loadSnapshot', 'Pre-warmed workdir');
+
+  // Mark initial snapshot as loaded after everything is done
+  workbenchStore.markInitialSnapshotLoaded();
 
   console.timeEnd('loadSnapshot');
 }
