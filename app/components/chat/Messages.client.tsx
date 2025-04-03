@@ -3,17 +3,10 @@ import { Fragment } from 'react';
 import { classNames } from '~/utils/classNames';
 import { AssistantMessage } from './AssistantMessage';
 import { UserMessage } from './UserMessage';
-import { useLocation } from '@remix-run/react';
-import { chatIdStore } from '~/lib/persistence/useChatHistory';
-import { toast } from 'react-toastify';
-import WithTooltip from '~/components/ui/Tooltip';
 import { useStore } from '@nanostores/react';
 import { profileStore } from '~/lib/stores/profile';
 import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
-import { useConvex } from 'convex/react';
-import { api } from '@convex/_generated/api';
-import { sessionIdStore } from '~/lib/stores/convex';
 
 interface MessagesProps {
   id?: string;
@@ -25,36 +18,7 @@ interface MessagesProps {
 export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
   (props: MessagesProps, ref: ForwardedRef<HTMLDivElement> | undefined) => {
     const { id, isStreaming = false, messages = [] } = props;
-    const location = useLocation();
     const profile = useStore(profileStore);
-    const convex = useConvex();
-
-    const handleRewind = (messageId: string) => {
-      const searchParams = new URLSearchParams(location.search);
-      searchParams.set('rewindTo', messageId);
-      window.location.search = searchParams.toString();
-    };
-
-    const handleFork = async (messageId: string) => {
-      try {
-        const currentChatId = chatIdStore.get();
-        const currentSessionId = sessionIdStore.get();
-
-        if (!currentChatId || !currentSessionId) {
-          toast.error('Chat persistence is not available');
-          return;
-        }
-
-        const urlId = await convex.mutation(api.messages.fork, {
-          id: currentChatId,
-          sessionId: currentSessionId,
-          messageId,
-        });
-        window.location.href = `/chat/${urlId}`;
-      } catch (error) {
-        toast.error('Failed to fork chat: ' + (error as Error).message);
-      }
-    };
 
     return (
       <div id={id} className={props.className} ref={ref}>
@@ -105,33 +69,6 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                       <AssistantMessage messageId={messageId} content={content} parts={message.parts} />
                     )}
                   </div>
-                  {!isUserMessage && (
-                    <div className="flex gap-2 flex-col lg:flex-row">
-                      {messageId && (
-                        <WithTooltip tooltip="Revert to this message">
-                          <button
-                            onClick={() => handleRewind(messageId)}
-                            key="i-ph:arrow-u-up-left"
-                            className={classNames(
-                              'i-ph:arrow-u-up-left',
-                              'text-xl text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors',
-                            )}
-                          />
-                        </WithTooltip>
-                      )}
-
-                      <WithTooltip tooltip="Fork chat from this message">
-                        <button
-                          onClick={() => handleFork(messageId)}
-                          key="i-ph:git-fork"
-                          className={classNames(
-                            'i-ph:git-fork',
-                            'text-xl text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors',
-                          )}
-                        />
-                      </WithTooltip>
-                    </div>
-                  )}
                 </div>
               );
             })
