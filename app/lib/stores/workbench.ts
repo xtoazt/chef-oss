@@ -66,6 +66,7 @@ export class WorkbenchStore {
   modifiedFiles = new Set<string>();
   artifactIdList: string[] = [];
   #globalExecutionQueue = Promise.resolve();
+  #initialSnapshotLoaded = false;
   constructor() {
     if (import.meta.hot) {
       import.meta.hot.data.artifacts = this.artifacts;
@@ -79,6 +80,44 @@ export class WorkbenchStore {
     this.startBackup();
   }
 
+  async downloadSnapshot(id?: string) {
+    let snapshotUrl;
+    if (!id) {
+      console.log('No chat id yet , downloading from R2');
+      snapshotUrl = 'https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin';
+    } else {
+      const sessionId = sessionIdStore.get();
+
+      if (!sessionId) {
+        throw new Error('No session ID found');
+      }
+      const maybeSnapshotUrl = await this.#convexClient.query(api.snapshot.getSnapshotUrl, { chatId: id, sessionId });
+      if (!maybeSnapshotUrl) {
+        console.log('No snapshot URL found, downloading from R2');
+        snapshotUrl = 'https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin';
+      } else {
+        snapshotUrl = maybeSnapshotUrl;
+      }
+    }
+
+    if (!snapshotUrl) {
+      const resp = await fetch('https://pub-2a55ba970a5b4cd6a9b18adbf8df6fe8.r2.dev/snapshot.bin');
+      if (!resp.ok) {
+        const body = await resp.text();
+        throw new Error(`Failed to download snapshot (${resp.statusText}): ${body}`);
+      }
+      return await resp.arrayBuffer();
+    } else {
+      console.log('snapshot URL found, downloading from convex');
+      // Download the snapshot from Convex
+      const resp = await fetch(snapshotUrl);
+      if (!resp.ok) {
+        throw new Error(`Failed to download snapshot (${resp.statusText}): ${resp.statusText}`);
+      }
+      return await resp.arrayBuffer();
+    }
+  }
+
   async startBackup() {
     let isUploading = false;
     let pendingUpload = false;
@@ -89,7 +128,13 @@ export class WorkbenchStore {
         return;
       }
 
-      console.log('handleUploadSnapshot');
+      // Don't upload if initial snapshot hasn't been loaded yet
+      if (!this.#initialSnapshotLoaded) {
+        console.log('[WorkbenchStore] Skipping upload - initial snapshot not loaded yet');
+        return;
+      }
+
+      console.log('[WorkbenchStore] Starting upload - initial snapshot loaded');
 
       try {
         isUploading = true;
@@ -185,6 +230,19 @@ export class WorkbenchStore {
         clearTimeout(debounceTimeout);
       }
     };
+  }
+
+  // Add a method to mark initial snapshot as loaded
+  markInitialSnapshotLoaded() {
+    console.log('[WorkbenchStore] Marking initial snapshot as loaded');
+    this.#initialSnapshotLoaded = true;
+    console.log('[WorkbenchStore] Initial snapshot loaded state:', this.#initialSnapshotLoaded);
+  }
+
+  markInitialSnapshotNotLoaded() {
+    console.log('[WorkbenchStore] Marking initial snapshot as not loaded');
+    this.#initialSnapshotLoaded = false;
+    console.log('[WorkbenchStore] Initial snapshot loaded state:', this.#initialSnapshotLoaded);
   }
 
   addToExecutionQueue(callback: () => Promise<void>) {
@@ -392,7 +450,12 @@ export class WorkbenchStore {
   }
 
   setReloadedMessages(messages: string[]) {
+    console.log('setReloadedMessages', messages);
     this.#reloadedMessages = new Set(messages);
+  }
+
+  isReloadedMessage(messageId: string) {
+    return this.#reloadedMessages.has(messageId);
   }
 
   addArtifact({ messageId, title, id, type }: ArtifactCallbackData) {
@@ -470,6 +533,12 @@ export class WorkbenchStore {
     }
 
     const action = artifact.runner.actions.get()[data.actionId];
+
+    // Skip running actions if they are part of a reloaded message
+    if (this.isReloadedMessage(messageId)) {
+      artifact.runner.updateAction(data.actionId, { executed: true, status: 'complete' });
+      return;
+    }
 
     if (!action || action.executed) {
       return;

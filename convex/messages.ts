@@ -2,9 +2,10 @@ import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/s
 import type { Message as AIMessage } from 'ai';
 import { ConvexError, v } from 'convex/values';
 import type { VAny, Infer } from 'convex/values';
-import type { Doc, Id } from './_generated/dataModel';
 import { isValidSession } from './sessions';
 import { api } from './_generated/api';
+import type { DataModel, Doc, Id } from './_generated/dataModel';
+import type { GenericQueryCtx } from 'convex/server';
 export type SerializedMessage = Omit<AIMessage, 'createdAt'> & {
   createdAt: number | undefined;
 };
@@ -226,6 +227,24 @@ export const importChat = mutation({
   },
 });
 
+export async function getChat(ctx: QueryCtx, id: string, sessionId: Id<'sessions'>) {
+  const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
+
+  if (!chat) {
+    return null;
+  }
+
+  // Don't send extra fields like `messages` or `creatorId`
+  return {
+    initialId: chat.initialId,
+    urlId: chat.urlId,
+    description: chat.description,
+    timestamp: chat.timestamp,
+    metadata: chat.metadata,
+    snapshotId: chat.snapshotId,
+  };
+}
+
 export const get = query({
   args: {
     id: v.string(),
@@ -239,24 +258,12 @@ export const get = query({
       description: v.optional(v.string()),
       timestamp: v.string(),
       metadata: v.optional(IChatMetadataValidator),
+      snapshotId: v.optional(v.id('_storage')),
     }),
   ),
   handler: async (ctx, args) => {
     const { id, sessionId } = args;
-    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
-
-    if (!chat) {
-      return null;
-    }
-
-    // Don't send extra fields like `messages` or `creatorId`
-    return {
-      initialId: chat.initialId,
-      urlId: chat.urlId,
-      description: chat.description,
-      timestamp: chat.timestamp,
-      metadata: chat.metadata,
-    };
+    return await getChat(ctx, id, sessionId);
   },
 });
 

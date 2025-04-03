@@ -1,6 +1,6 @@
-import { mutation } from './_generated/server';
+import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
-import { getChatByIdOrUrlIdEnsuringAccess } from './messages';
+import { getChat, getChatByIdOrUrlIdEnsuringAccess } from './messages';
 
 // Generate a URL for uploading a snapshot file
 export const generateUploadUrl = mutation({
@@ -33,5 +33,25 @@ export const saveSnapshot = mutation({
     await ctx.db.patch(chat._id, {
       snapshotId: storageId,
     });
+  },
+});
+
+export const getSnapshotUrl = query({
+  args: {
+    sessionId: v.id('sessions'),
+    chatId: v.string(),
+  },
+  handler: async (ctx, { sessionId, chatId }) => {
+    const chat = await getChat(ctx, chatId, sessionId);
+
+    const snapshotId = chat?.snapshotId;
+    if (!snapshotId) {
+      return null;
+    }
+    const snapshot = await ctx.storage.getUrl(snapshotId);
+    if (!snapshot) {
+      throw new Error(`Expected to find a storageUrl for snapshot with id ${snapshotId}`);
+    }
+    return snapshot;
   },
 });
