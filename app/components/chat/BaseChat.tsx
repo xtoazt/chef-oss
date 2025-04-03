@@ -27,6 +27,7 @@ import type { ActionRunner } from '~/lib/runtime/action-runner';
 import { ConvexConnection } from '~/components/convex/ConvexConnection';
 import { FlexAuthWrapper } from './FlexAuthWrapper';
 import { useFlexAuthMode } from '~/lib/stores/convex';
+import { KeyboardShortcut } from '~/components/ui/KeyboardShortcut';
 const TEXTAREA_MIN_HEIGHT = 76;
 
 interface BaseChatProps {
@@ -341,9 +342,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       </div>
                       {input.length > 3 ? (
                         <div className="text-xs text-bolt-elements-textTertiary">
-                          Use <kbd className="kdb px-1.5 py-0.5 rounded bg-bolt-elements-background-depth-2">Shift</kbd>{' '}
-                          + <kbd className="kdb px-1.5 py-0.5 rounded bg-bolt-elements-background-depth-2">Return</kbd>{' '}
-                          a new line
+                          <KeyboardShortcut
+                            value={['Shift', 'Return']}
+                            className="font-bold text-bolt-elements-textSecondary mr-0.5"
+                          />{' '}
+                          for new line
                         </div>
                       ) : null}
                       <ConvexConnection size={flexAuthMode === 'InviteCode' ? 'hidden' : 'small'} />
