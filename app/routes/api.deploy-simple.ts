@@ -1,5 +1,5 @@
-import { json } from '@remix-run/node';
-import type { ActionFunctionArgs } from '@remix-run/node';
+import { json } from '@remix-run/cloudflare';
+import type { ActionFunctionArgs } from '@remix-run/cloudflare';
 
 const PROVISION_HOST = 'https://provision.convex.dev';
 //const PROVISION_HOST = "http://127.0.0.1:8000";
