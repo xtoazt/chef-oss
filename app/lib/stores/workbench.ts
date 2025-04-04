@@ -55,6 +55,8 @@ export class WorkbenchStore {
 
   artifacts: Artifacts = import.meta.hot?.data.artifacts ?? map({});
 
+  _lastChangedFile: number = 0;
+
   showWorkbench: WritableAtom<boolean> = import.meta.hot?.data.showWorkbench ?? atom(false);
   currentView: WritableAtom<WorkbenchViewType> = import.meta.hot?.data.currentView ?? atom('code');
   unsavedFiles: WritableAtom<Set<string>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<string>());
@@ -75,6 +77,19 @@ export class WorkbenchStore {
 
     this.#convexClient = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL!);
     this.startBackup();
+  }
+
+  get followingStreamedCode() {
+    return this.#editorStore.followingStreamedCode;
+  }
+
+  get justChangedFiles(): boolean {
+    const now = Date.now();
+    const close = 300;
+    return now - this._lastChangedFile < close;
+  }
+  setLastChangedFile(): void {
+    this._lastChangedFile = Date.now();
   }
 
   async snapshotUrl(id?: string) {
@@ -368,6 +383,7 @@ export class WorkbenchStore {
   }
 
   setSelectedFile(filePath: string | undefined) {
+    this.setLastChangedFile();
     this.#editorStore.setSelectedFile(filePath);
   }
 
@@ -533,11 +549,12 @@ export class WorkbenchStore {
       const fullPath = path.join(wc.workdir, data.action.filePath);
 
       if (this.selectedFile.value !== fullPath) {
-        this.setSelectedFile(fullPath);
-      }
-
-      if (this.currentView.value !== 'code') {
-        this.currentView.set('code');
+        // Consider focusing the streaming tab so user can see code flowing in.
+        const selectedView = workbenchStore.currentView.value;
+        const followingStreamedCode = workbenchStore.followingStreamedCode.get();
+        if (selectedView === 'code' && followingStreamedCode) {
+          this.setSelectedFile(fullPath);
+        }
       }
 
       const doc = this.#editorStore.documents.get()[fullPath];
@@ -546,11 +563,16 @@ export class WorkbenchStore {
         await artifact.runner.runAction(data, isStreaming);
       }
 
-      this.#editorStore.updateFile(fullPath, data.action.content);
+      // Where does this initial newline come from? The tool parsing incorrectly?
+      const newContent = data.action.content.trimStart();
+
+      this.#editorStore.updateFile(fullPath, newContent);
 
       if (!isStreaming) {
         await artifact.runner.runAction(data);
         this.resetAllFileModifications();
+        // hack, sometimes this isn't cleared
+        //setTimeout(() => this.resetAllFileModifications(), 10);
       }
     } else {
       await artifact.runner.runAction(data);

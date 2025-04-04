@@ -76,6 +76,14 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
   }, [files]);
 
   const onEditorChange = useCallback<OnEditorChange>((update) => {
+    // This is called debounced, so it's not fair to use it to update
+    // the current doc: we don't actually know which files it's for!
+
+    if (currentDocument?.filePath !== update.filePath) {
+      console.log('onEditorChange fired for what is no longer the current document');
+      return;
+    }
+
     workbenchStore.setCurrentDocumentContent(update.content);
   }, []);
 
@@ -84,6 +92,7 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
   }, []);
 
   const onFileSelect = useCallback((filePath: string | undefined) => {
+    workbenchStore.followingStreamedCode.set(false);
     workbenchStore.setSelectedFile(filePath);
   }, []);
 
