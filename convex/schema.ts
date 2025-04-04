@@ -4,14 +4,6 @@ import { IChatMetadataValidator } from './messages';
 import type { SerializedMessage } from './messages';
 
 export default defineSchema({
-  projects: defineTable({
-    text: v.string(),
-    subject: v.string(),
-    convexToken: v.optional(v.string()),
-  })
-    .index('by_subject', ['subject'])
-    .index('by_subject_and_convex_token', ['subject', 'convexToken']),
-
   /*
    * We create a session (if it does not exist) and store the ID in local storage.
    * We only show chats for the current session, so we rely on the session ID being

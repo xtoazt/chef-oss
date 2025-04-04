@@ -4,32 +4,42 @@ import { ConvexError } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { getChatByIdOrUrlIdEnsuringAccess } from './messages';
 
-export const getSession = query({
+export const getSession = mutation({
   args: {
     code: v.string(),
   },
   returns: v.id('sessions'),
   handler: async (ctx, args) => {
-    const inviteCode = await ctx.db
+    const inviteCodes = await ctx.db
       .query('inviteCodes')
       .withIndex('byCode', (q) => q.eq('code', args.code))
-      .unique();
+      .collect();
 
-    if (!inviteCode) {
+    const activeInviteCode = inviteCodes.find((inviteCode) => inviteCode.isActive);
+
+    if (!activeInviteCode) {
       throw new ConvexError({ code: 'NotAuthorized', message: 'Invalid invite code' });
     }
+    await ctx.db.patch(activeInviteCode._id, {
+      lastUsedTime: Date.now(),
+    });
 
-    return inviteCode.sessionId;
+    return activeInviteCode.sessionId;
   },
 });
 
 export const verifySession = query({
   args: {
     sessionId: v.id('sessions'),
+    flexAuthMode: v.optional(v.union(v.literal('InviteCode'), v.literal('ConvexOAuth'))),
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    return isValidSession(ctx, args);
+    if (args.flexAuthMode === 'InviteCode') {
+      return isValidSessionForInviteCode(ctx, args);
+    } else {
+      return isValidSession(ctx, args);
+    }
   },
 });
 
@@ -57,7 +67,7 @@ async function _issueInviteCode(ctx: MutationCtx, args: { code?: string; issuedR
   if (code.length < 3) {
     // so they can be used as the default project name for
     // convexProjects:connectConvexProject
-    throw new Error("Invite codes must be at least three letters")
+    throw new Error('Invite codes must be at least three letters');
   }
 
   const existing = await ctx.db
@@ -248,3 +258,63 @@ export async function getInviteCode(ctx: QueryCtx, args: { sessionId: Id<'sessio
   }
   return inviteCode;
 }
+
+export const cleanupInactiveSession = internalMutation({
+  args: {
+    sessionId: v.id('sessions'),
+    forReal: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      console.log('Session not found');
+      return;
+    }
+    const chats = await ctx.db
+      .query('chats')
+      .withIndex('byCreatorAndId', (q) => q.eq('creatorId', session._id))
+      .collect();
+    console.log(`Found ${chats.length} chats for session ${session._id}`);
+    for (const chat of chats) {
+      console.log(`Deleting data for chat ${chat._id}`);
+      const chatMessages = await ctx.db
+        .query('chatMessages')
+        .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
+        .collect();
+      console.log(`Deleting ${chatMessages.length} messages for chat ${chat._id}`);
+      for (const chatMessage of chatMessages) {
+        await ctx.db.delete(chatMessage._id);
+      }
+      const connectedProject = chat.convexProject;
+      if (connectedProject?.kind === 'connected') {
+        console.log(`Chat connected to project with deployment ${connectedProject.deploymentName}`);
+        const allCredentials = await ctx.db
+          .query('convexProjectCredentials')
+          .withIndex('bySlugs', (q) =>
+            q.eq('teamSlug', connectedProject.teamSlug).eq('projectSlug', connectedProject.projectSlug),
+          )
+          .collect();
+        const credentials = allCredentials.filter((cred) => cred.memberId === session.memberId);
+        if (credentials.length === 0) {
+          console.log(`No credentials found for chat ${chat._id}`);
+        } else if (credentials.length > 1) {
+          console.warn(
+            `Found ${credentials.length} credentials for chat ${chat._id}, leaving them since this is an unexpected state`,
+          );
+        } else {
+          const credential = credentials[0];
+          console.log(`Deleting credential ${credential._id} for chat ${chat._id}`);
+          await ctx.db.delete(credential._id);
+        }
+      }
+      await ctx.db.delete(chat._id);
+      console.log(`Deleted data for chat ${chat._id}`);
+    }
+    console.log(`Deleting session ${session._id}`);
+    await ctx.db.delete(session._id);
+    if (!args.forReal) {
+      console.error('Failing transaction since this is a dry run. Set --for-real to true to delete the session.');
+      throw new Error('Dry run');
+    }
+  },
+});

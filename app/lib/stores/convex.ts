@@ -69,7 +69,7 @@ export function setInitialConvexSessionId(
   }
 
   if (args.codeFromLoader && args.flexAuthMode === 'InviteCode') {
-    convex.query(api.sessions.getSession, { code: args.codeFromLoader }).then((sessionId) => {
+    convex.mutation(api.sessions.getSession, { code: args.codeFromLoader }).then((sessionId) => {
       if (sessionId) {
         setSessionId(sessionId as Id<'sessions'>);
         removeCodeFromUrl();
@@ -83,6 +83,7 @@ export function setInitialConvexSessionId(
     convex
       .query(api.sessions.verifySession, {
         sessionId: sessionIdFromLocalStorage as Id<'sessions'>,
+        flexAuthMode: args.flexAuthMode,
       })
       .then((validatedSessionId) => {
         if (validatedSessionId) {
@@ -117,7 +118,7 @@ export async function setConvexSessionIdFromCode(
   onError: (error: Error) => void,
 ) {
   convex
-    .query(api.sessions.getSession, { code })
+    .mutation(api.sessions.getSession, { code })
     .then((sessionId) => {
       sessionIdStore.set(sessionId);
       setLocalStorage(SESSION_ID_KEY, sessionId);
