@@ -3,7 +3,8 @@ name: CI/CD
 on:
   push:
     branches:
-      - master
+      - staging
+      - release
   pull_request:
 
 jobs:
