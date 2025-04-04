@@ -8,11 +8,11 @@ import { forwardRef, type ForwardedRef } from 'react';
 
 interface HistoryItemProps {
   item: ChatHistoryItem;
-  onDelete?: (event: React.UIEvent) => void;
-  onDuplicate?: (id: string) => void;
+  handleDeleteClick: (event: React.UIEvent, item: ChatHistoryItem) => void;
+  handleDuplicate: (id: string) => void;
 }
 
-export function HistoryItem({ item, onDelete, onDuplicate }: HistoryItemProps) {
+export function HistoryItem({ item, handleDeleteClick, handleDuplicate }: HistoryItemProps) {
   const { id: urlId } = useParams();
   const isActiveChat = urlId === item.id;
 
@@ -62,13 +62,11 @@ export function HistoryItem({ item, onDelete, onDuplicate }: HistoryItemProps) {
             )}
           >
             <div className="flex items-center gap-2.5 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-              {onDuplicate && (
-                <ChatActionButton
-                  toolTipContent="Duplicate"
-                  icon="i-ph:copy h-4 w-4"
-                  onClick={() => onDuplicate?.(item.id)}
-                />
-              )}
+              <ChatActionButton
+                toolTipContent="Duplicate"
+                icon="i-ph:copy h-4 w-4"
+                onClick={() => handleDuplicate(item.id)}
+              />
               <ChatActionButton
                 toolTipContent="Rename"
                 icon="i-ph:pencil-fill h-4 w-4"
@@ -84,7 +82,7 @@ export function HistoryItem({ item, onDelete, onDuplicate }: HistoryItemProps) {
                   className="hover:text-red-500"
                   onClick={(event) => {
                     event.preventDefault();
-                    onDelete?.(event);
+                    handleDeleteClick(event, item);
                   }}
                 />
               </Dialog.Trigger>

@@ -439,3 +439,4 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     />
   );
 });
+ChatImpl.displayName = 'ChatImpl';

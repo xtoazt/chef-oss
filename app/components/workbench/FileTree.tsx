@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { FileMap } from '~/lib/stores/files';
 import { classNames } from '~/utils/classNames';
 import { createScopedLogger, renderLogger } from '~/utils/logger';
@@ -115,76 +115,101 @@ export const FileTree = memo(
       });
     };
 
-    const onCopyPath = (fileOrFolder: FileNode | FolderNode) => {
-      try {
-        navigator.clipboard.writeText(fileOrFolder.fullPath);
-      } catch (error) {
-        logger.error(error);
-      }
-    };
 
-    const onCopyRelativePath = (fileOrFolder: FileNode | FolderNode) => {
-      try {
-        navigator.clipboard.writeText(fileOrFolder.fullPath.substring((rootFolder || '').length));
-      } catch (error) {
-        logger.error(error);
-      }
-    };
 
     return (
       <div className={classNames('text-sm', className, 'overflow-y-auto')}>
         {filteredFileList.map((fileOrFolder) => {
-          switch (fileOrFolder.kind) {
-            case 'file': {
-              return (
-                <File
-                  key={fileOrFolder.id}
-                  selected={selectedFile === fileOrFolder.fullPath}
-                  file={fileOrFolder}
-                  unsavedChanges={unsavedFiles?.has(fileOrFolder.fullPath)}
-                  fileHistory={fileHistory}
-                  onCopyPath={() => {
-                    onCopyPath(fileOrFolder);
-                  }}
-                  onCopyRelativePath={() => {
-                    onCopyRelativePath(fileOrFolder);
-                  }}
-                  onClick={() => {
-                    onFileSelect?.(fileOrFolder.fullPath);
-                  }}
-                />
-              );
-            }
-            case 'folder': {
-              return (
-                <Folder
-                  key={fileOrFolder.id}
-                  folder={fileOrFolder}
-                  selected={allowFolderSelection && selectedFile === fileOrFolder.fullPath}
-                  collapsed={collapsedFolders.has(fileOrFolder.fullPath)}
-                  onCopyPath={() => {
-                    onCopyPath(fileOrFolder);
-                  }}
-                  onCopyRelativePath={() => {
-                    onCopyRelativePath(fileOrFolder);
-                  }}
-                  onClick={() => {
-                    toggleCollapseState(fileOrFolder.fullPath);
-                  }}
-                />
-              );
-            }
-            default: {
-              return undefined;
-            }
-          }
+          return <FileOrFolder
+            key={fileOrFolder.id}
+            fileOrFolder={fileOrFolder}
+            rootFolder={rootFolder}
+            selectedFile={selectedFile}
+            unsavedFiles={unsavedFiles}
+            fileHistory={fileHistory}
+            onFileSelect={onFileSelect}
+            allowFolderSelection={allowFolderSelection}
+            collapsedFolders={collapsedFolders}
+            toggleCollapseState={toggleCollapseState} />
         })}
       </div>
     );
   },
 );
+FileTree.displayName = 'FileTree';
 
 export default FileTree;
+
+interface FileOrFolderProps {
+  fileOrFolder: FileNode | FolderNode;
+  rootFolder?: string;
+  selectedFile?: string;
+  unsavedFiles?: Set<string>;
+  fileHistory?: Record<string, FileHistory>;
+  onFileSelect?: (filePath: string) => void;
+  allowFolderSelection?: boolean;
+  collapsedFolders: Set<string>;
+  toggleCollapseState: (fullPath: string) => void;
+}
+
+function FileOrFolder({ fileOrFolder, rootFolder, selectedFile, unsavedFiles, fileHistory, onFileSelect, allowFolderSelection, collapsedFolders, toggleCollapseState }: FileOrFolderProps) {
+  const onCopyPath = useCallback(() => {
+    try {
+      navigator.clipboard.writeText(fileOrFolder.fullPath);
+    } catch (error) {
+      logger.error(error);
+    }
+  }, [fileOrFolder.fullPath]);
+  const onCopyRelativePath = useCallback(() => {
+    try {
+      navigator.clipboard.writeText(fileOrFolder.fullPath.substring((rootFolder || '').length));
+    } catch (error) {
+      logger.error(error);
+    }
+  }, [fileOrFolder.fullPath, rootFolder]);
+
+
+  const onFileClick = useCallback(() => {
+    onFileSelect?.(fileOrFolder.fullPath);
+  }, [fileOrFolder.fullPath, onFileSelect]);
+
+  const onFolderClick = useCallback(() => {
+    toggleCollapseState(fileOrFolder.fullPath);
+  }, [fileOrFolder.fullPath, toggleCollapseState]);
+
+  switch (fileOrFolder.kind) {
+    case 'file': {
+      return (
+        <File
+          key={fileOrFolder.id}
+          selected={selectedFile === fileOrFolder.fullPath}
+          file={fileOrFolder}
+          unsavedChanges={unsavedFiles?.has(fileOrFolder.fullPath)}
+          fileHistory={fileHistory}
+          onCopyPath={onCopyPath}
+          onCopyRelativePath={onCopyRelativePath}
+          onClick={onFileClick}
+        />
+      );
+    }
+    case 'folder': {
+      return (
+        <Folder
+          key={fileOrFolder.id}
+          folder={fileOrFolder}
+          selected={allowFolderSelection && selectedFile === fileOrFolder.fullPath}
+          collapsed={collapsedFolders.has(fileOrFolder.fullPath)}
+          onCopyPath={onCopyPath}
+          onCopyRelativePath={onCopyRelativePath}
+          onClick={onFolderClick}
+        />
+      );
+    }
+    default: {
+      return undefined;
+    }
+  }
+}
 
 interface FolderProps {
   folder: FolderNode;

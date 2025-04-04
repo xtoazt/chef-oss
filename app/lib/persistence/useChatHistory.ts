@@ -1,5 +1,5 @@
 import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { atom } from 'nanostores';
 import type { Message } from '@ai-sdk/react';
 import { toast } from 'sonner';
@@ -139,7 +139,7 @@ export const useChatHistoryConvex = () => {
   return {
     ready: mixedId === undefined || (ready && !isLoading),
     initialMessages: initialDeserializedMessages,
-    updateChatMetadata: async (metadata: IChatMetadata) => {
+    updateChatMetadata: useCallback(async (metadata: IChatMetadata) => {
       const id = chatIdStore.get();
 
       if (!id || !sessionId) {
@@ -157,8 +157,8 @@ export const useChatHistoryConvex = () => {
         toast.error('Failed to update chat metadata');
         console.error(error);
       }
-    },
-    initializeChat: async () => {
+    }, [convex, sessionId]),
+    initializeChat: useCallback(async () => {
       if (!sessionId) {
         console.error('Cannot start chat with no session ID');
         return;
@@ -189,9 +189,9 @@ export const useChatHistoryConvex = () => {
         setUrlId(result.id);
         navigateChat(result.id);
       }
-    },
+    }, [convex, sessionId]),
 
-    storeMessageHistory: async (messages: Message[]) => {
+    storeMessageHistory: useCallback(async (messages: Message[]) => {
       if (messages.length === 0) {
         return;
       }
@@ -242,8 +242,8 @@ export const useChatHistoryConvex = () => {
         setUrlId(result.id);
         navigateChat(result.id);
       }
-    },
-    duplicateCurrentChat: async (listItemId: string) => {
+    }, [convex, sessionId]),
+    duplicateCurrentChat: useCallback(async (listItemId: string) => {
       if (!sessionId) {
         return;
       }
@@ -263,8 +263,8 @@ export const useChatHistoryConvex = () => {
         toast.error('Failed to duplicate chat');
         console.log(error);
       }
-    },
-    importChat: async (description: string, messages: Message[], metadata?: IChatMetadata) => {
+    }, [convex, sessionId]),
+    importChat: useCallback(async (description: string, messages: Message[], metadata?: IChatMetadata) => {
       if (!sessionId) {
         return;
       }
@@ -285,8 +285,8 @@ export const useChatHistoryConvex = () => {
           toast.error('Failed to import chat');
         }
       }
-    },
-    exportChat: async (id = urlId) => {
+    }, [convex, sessionId]),
+    exportChat: useCallback(async (id = urlId) => {
       if (!id || !sessionId) {
         return;
       }
@@ -312,7 +312,7 @@ export const useChatHistoryConvex = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    },
+    }, [convex, sessionId]),
   };
 };
 

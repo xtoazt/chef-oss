@@ -1,5 +1,5 @@
 import { motion, type Variants } from 'framer-motion';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
@@ -37,7 +37,7 @@ const menuVariants = {
 
 type DialogContent = { type: 'delete'; item: ChatHistoryItem } | null;
 
-export const Menu = () => {
+export const Menu = memo(() => {
   const { duplicateCurrentChat } = useChatHistoryConvex();
   const menuRef = useRef<HTMLDivElement>(null);
   const sessionId = useConvexSessionIdOrNullOrLoading();
@@ -95,14 +95,14 @@ export const Menu = () => {
     };
   }, []);
 
-  const handleDeleteClick = (event: React.UIEvent, item: ChatHistoryItem) => {
+  const handleDeleteClick = useCallback((event: React.UIEvent, item: ChatHistoryItem) => {
     event.preventDefault();
     setDialogContent({ type: 'delete', item });
-  };
+  }, []);
 
-  const handleDuplicate = async (id: string) => {
+  const handleDuplicate = useCallback(async (id: string) => {
     await duplicateCurrentChat(id);
-  };
+  }, [duplicateCurrentChat]);
 
   return (
     <>
@@ -157,8 +157,8 @@ export const Menu = () => {
                       <HistoryItem
                         key={item.initialId}
                         item={item}
-                        onDelete={(event) => handleDeleteClick(event, item)}
-                        onDuplicate={() => handleDuplicate(item.id)}
+                        handleDeleteClick={handleDeleteClick}
+                        handleDuplicate={handleDuplicate}
                       />
                     ))}
                   </div>
@@ -205,4 +205,6 @@ export const Menu = () => {
       </motion.div>
     </>
   );
-};
+});
+
+Menu.displayName = 'Menu';
