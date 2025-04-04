@@ -2,6 +2,9 @@ name: CI/CD
 
 on:
   push:
+    branches:
+      - staging
+      - release
   pull_request:
 
 jobs:
