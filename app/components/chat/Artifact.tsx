@@ -9,6 +9,7 @@ import { type PartId } from '~/lib/stores/Artifacts';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
+import { path } from '~/utils/path';
 
 const highlighterOptions = {
   langs: ['shell'],
@@ -162,6 +163,23 @@ function openArtifactInWorkbench(filePath: any) {
 }
 
 const ActionList = memo(({ actions }: ActionListProps) => {
+  // Map of file paths keyed by file path relative to WORK_DIR
+  const isEdit = useRef<Map<string, boolean>>(new Map());
+  useEffect(() => {
+    // Files keyed by absolute path
+    const files = workbenchStore.files.get();
+    for (const action of actions) {
+      if (action.type !== 'file') {
+        continue;
+      }
+      const absPath = path.join(WORK_DIR, action.filePath);
+      if (isEdit.current.has(action.filePath)) {
+        continue;
+      }
+      isEdit.current.set(action.filePath, !!files[absPath]);
+    }
+  }, [actions]);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
       <ul className="list-none space-y-2.5">
@@ -171,6 +189,8 @@ const ActionList = memo(({ actions }: ActionListProps) => {
             console.log('action', action);
             throw new Error('Action is not a file');
           }
+          const fileIsEdit = isEdit.current.get(action.filePath) ?? false;
+          const message = fileIsEdit ? 'Edit' : 'Create';
           return (
             <motion.li
               key={index}
@@ -195,7 +215,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   ) : null}
                 </div>
                 <div>
-                  Create{' '}
+                  {message}{' '}
                   <code
                     className="bg-bolt-elements-artifacts-inlineCode-background text-bolt-elements-artifacts-inlineCode-text px-1.5 py-1 rounded-md text-bolt-elements-item-contentAccent hover:underline cursor-pointer"
                     onClick={() => openArtifactInWorkbench(action.filePath)}

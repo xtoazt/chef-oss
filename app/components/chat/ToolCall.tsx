@@ -323,18 +323,35 @@ function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
       }
     }
     case 'deploy': {
-      let msg: string;
       if (invocation.state === 'partial-call' || invocation.state === 'call') {
-        msg = 'Deploying to Convex...';
+        return (
+          <div className="flex items-center gap-2">
+            <img className="w-4 h-4 mr-1" height="16" width="16" src="/icons/TypeScript.svg" alt="TypeScript" />
+            <span>Running TypeScript checks...</span>
+          </div>
+        );
       } else if (invocation.result?.startsWith('Error:')) {
-        msg = 'Failed to deploy to Convex';
-      } else {
-        msg = 'Deployed to Convex';
+        // This is a hack, but `npx convex dev` prints this out when the typecheck fails
+        if (invocation.result.includes('To ignore failing typecheck')) {
+          return (
+            <div className="flex items-center gap-2">
+              <img className="w-4 h-4 mr-1" height="16" width="16" src="/icons/TypeScript.svg" alt="TypeScript" />
+              <span>Typecheck failed</span>
+            </div>
+          );
+        } else {
+          return (
+            <div className="flex items-center gap-2">
+              <span>Failed to push to Convex</span>
+            </div>
+          );
+        }
       }
+
       return (
         <div className="flex items-center gap-2">
           <img className="w-4 h-4 mr-1" height="16" width="16" src="/icons/Convex.svg" alt="Convex" />
-          <span>{msg}</span>
+          <span>Pushed functions to Convex</span>
         </div>
       );
     }
