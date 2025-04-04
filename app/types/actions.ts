@@ -9,6 +9,7 @@ export interface BaseAction {
 export interface FileAction extends BaseAction {
   type: 'file';
   filePath: string;
+  isEdit?: boolean;
 }
 
 export interface ShellAction extends BaseAction {

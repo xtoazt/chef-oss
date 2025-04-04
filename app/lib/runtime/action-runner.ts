@@ -1,5 +1,5 @@
 import type { WebContainer } from '@webcontainer/api';
-import { path as nodePath } from '~/utils/path';
+import { path as nodePath, path } from '~/utils/path';
 import { atom, map, type MapStore, type WritableAtom } from 'nanostores';
 import type { ActionAlert, BoltAction, FileHistory } from '~/types/actions';
 import { createScopedLogger } from '~/utils/logger';
@@ -12,6 +12,8 @@ import { viewParameters } from './viewTool';
 import { readPath, renderDirectory, renderFile, workDirRelative } from '~/utils/fileUtils';
 import { ContainerBootState, waitForContainerBootState } from '~/lib/webcontainer';
 import { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
+import { workbenchStore } from '../stores/workbench';
+import { WORK_DIR } from '~/utils/constants';
 const logger = createScopedLogger('ActionRunner');
 
 export type ActionStatus = 'pending' | 'running' | 'complete' | 'aborted' | 'failed';
@@ -29,7 +31,7 @@ export type FailedActionState = BoltAction &
     error: string;
   };
 
-export type ActionState = BaseActionState | FailedActionState;
+export type ActionState = (BaseActionState | FailedActionState) & { isEdit?: boolean };
 
 type BaseActionUpdate = Partial<Pick<BaseActionState, 'status' | 'abort' | 'executed' | 'content'>>;
 
@@ -104,6 +106,13 @@ export class ActionRunner {
     }
 
     const abortController = new AbortController();
+
+    if (data.action.type === 'file') {
+      const files = workbenchStore.files.get();
+      const absPath = path.join(WORK_DIR, data.action.filePath);
+      const existing = !!files[absPath];
+      data.action.isEdit = existing;
+    }
 
     this.actions.setKey(actionId, {
       ...data.action,
