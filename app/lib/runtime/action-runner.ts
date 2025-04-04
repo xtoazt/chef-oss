@@ -12,7 +12,7 @@ import { viewParameters } from './viewTool';
 import { readPath, renderDirectory, renderFile, workDirRelative } from '~/utils/fileUtils';
 import { ContainerBootState, waitForContainerBootState } from '~/lib/webcontainer';
 import { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
-import { workbenchStore } from '../stores/workbench';
+import { workbenchStore } from '~/lib/stores/workbench';
 import { WORK_DIR } from '~/utils/constants';
 const logger = createScopedLogger('ActionRunner');
 
