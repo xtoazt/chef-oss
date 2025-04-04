@@ -6,7 +6,6 @@ import {
   type LanguageModelV1,
   type StepResult,
   type TextStreamPart,
-  type ToolSet,
 } from 'ai';
 import type { Messages } from './stream-text';
 import type { ProgressAnnotation } from '~/types/context';
@@ -16,20 +15,26 @@ import { deployTool } from '~/lib/runtime/deployTool';
 import { viewTool } from '~/lib/runtime/viewTool';
 import type { ConvexToolSet } from '~/lib/common/types';
 import { npmInstallTool } from '~/lib/runtime/npmInstallTool';
+import { openai } from '@ai-sdk/openai';
 
 export type AITextDataStream = ReturnType<typeof createDataStream>;
 
 export type Provider = {
   maxTokens: number;
   model: LanguageModelV1;
-  includeSystemPrompt: boolean;
-  tools: ToolSet;
+  systemPrompt?: string;
 };
 
 export type RequestProgress = {
   counter: number;
   cumulativeUsage: { completionTokens: number; promptTokens: number; totalTokens: number };
 };
+
+const tools: ConvexToolSet = {
+  deploy: deployTool,
+  view: viewTool,
+  npmInstall: npmInstallTool,
+}
 
 export async function convexAgent(env: Env, firstUserMessage: boolean, messages: Messages): Promise<AITextDataStream> {
   const progress: RequestProgress = {
@@ -49,20 +54,27 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
         order: progress.counter++,
         message: 'Analyzing Messages',
       } satisfies ProgressAnnotation);
-      const systemPrompt = constantPrompt;
-      const tools: ConvexToolSet = {
-        deploy: deployTool,
-        view: viewTool,
-        npmInstall: npmInstallTool,
-      };
-      const anthropic = createAnthropic({
-        apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
-        fetch: async (url, options) => {
-          return fetch(url, anthropicInjectCacheControl(systemPrompt, options));
-        },
-      });
-      const model = anthropic('claude-3-5-sonnet-20241022');
-
+      let provider: Provider;
+      if (getEnv(env, 'USE_OPENAI')) {
+        const model = getEnv(env, 'OPENAI_MODEL') || "gpt-4o-2024-11-20";
+        provider = {
+          model: openai(model),
+          maxTokens: 8192,
+          systemPrompt: [roleSystemPrompt, constantPrompt].join('\n'),
+        }
+      } else {
+        const anthropic = createAnthropic({
+          apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
+          fetch: async (url, options) => {
+            return fetch(url, anthropicInjectCacheControl(constantPrompt, options));
+          },
+        });
+        const model = getEnv(env, 'ANTHROPIC_MODEL') || "claude-3-5-sonnet-20241022";
+        provider = {
+          model: anthropic(model),
+          maxTokens: 8192,
+        };
+      }
       dataStream.writeData({
         type: 'progress',
         label: 'response',
@@ -71,8 +83,10 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
         message: 'Generating Response',
       } satisfies ProgressAnnotation);
       const result = streamText({
-        model,
-        maxTokens: 8192,
+        model: provider.model,
+        maxTokens: provider.maxTokens,
+        system: provider.systemPrompt,
+
         // NB: We will prepend system messages (with the appropriate cache control headers)
         // in our custom fetch implementation hooked in above.
         messages: cleanupAssistantMessages(messages),

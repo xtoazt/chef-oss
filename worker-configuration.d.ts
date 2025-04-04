@@ -19,6 +19,11 @@ interface Env {
   PERPLEXITY_API_KEY: string;
   AWS_BEDROCK_CONFIG: string;
 
+  USE_OPENAI: string;
+  OPENAI_MODEL: string;
+
+  ANTHROPIC_MODEL: string;
+
   AXIOM_API_TOKEN: string;
   AXIOM_API_URL: string;
   AXIOM_DATASET_NAME: string;
