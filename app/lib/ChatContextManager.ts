@@ -6,8 +6,7 @@ import { workbenchStore } from './stores/workbench';
 import { makePartId, type PartId } from './stores/Artifacts';
 import { StreamingMessageParser } from './runtime/message-parser';
 import { path } from '~/utils/path';
-import { editorToolParameters } from './runtime/editorTool';
-import { bashToolParameters } from './runtime/bashTool';
+import { viewParameters } from './runtime/viewTool';
 // import { bashToolParameters, editorToolParameters } from "./tools";
 
 // It's wasteful to actually tokenize the content, so we'll just use character
@@ -102,7 +101,7 @@ export class ChatContextManager {
     }
     const debugInfo: string[] = [];
     if (sortedByLastUsed.length > 0) {
-      relevantFiles.push(makeSystemMessage('Here are some relevant files in the project.'));
+      relevantFiles.push(makeSystemMessage('Here are some relevant files in the project (with line numbers).'));
       for (const [path] of sortedByLastUsed) {
         if (sizeEstimate > MAX_RELEVANT_FILES_SIZE) {
           break;
@@ -125,7 +124,7 @@ export class ChatContextManager {
     }
 
     if (currentDocument) {
-      let message = `The user currently has an editor open at ${currentDocument.filePath}. Here are the contents:\n`;
+      let message = `The user currently has an editor open at ${currentDocument.filePath}. Here are its contents (with line numbers):\n`;
       message += renderFile(currentDocument.value);
       relevantFiles.push(makeSystemMessage(message));
     }
@@ -236,10 +235,10 @@ export class ChatContextManager {
       }
       if (
         part.type == 'tool-invocation' &&
-        part.toolInvocation.toolName == 'str_replace_editor' &&
+        part.toolInvocation.toolName == 'view' &&
         part.toolInvocation.state !== 'partial-call'
       ) {
-        const args = editorToolParameters.parse(part.toolInvocation.args);
+        const args = viewParameters.parse(part.toolInvocation.args);
         filesTouched.set(args.path, j);
       }
     }
@@ -326,37 +325,19 @@ function abbreviateToolInvocation(toolInvocation: ToolInvocation): string {
   const wasError = toolInvocation.result.startsWith('Error:');
   let toolCall: string;
   switch (toolInvocation.toolName) {
-    case 'str_replace_editor': {
-      const args = editorToolParameters.parse(toolInvocation.args);
-      switch (args.command) {
-        case 'create':
-          toolCall = `created ${args.path}`;
-          break;
-        case 'view':
-          toolCall = `viewed ${args.path}`;
-          break;
-        case 'str_replace':
-        case 'insert':
-          toolCall = `edited ${args.path}`;
-          break;
-        case 'undo_edit':
-          toolCall = `undid an edit to ${args.path}`;
-          break;
-        default:
-          throw new Error(`Unknown command: ${args.command}`);
+    case 'view': {
+      const args = viewParameters.parse(toolInvocation.args);
+      let verb = 'viewed';
+      if (toolInvocation.result.startsWith('Directory:')) {
+        verb = 'listed';
       }
-      break;
-    }
-    case 'bash': {
-      const args = bashToolParameters.parse(toolInvocation.args);
-      toolCall = `ran the command ${args.command}`;
+      toolCall = `${verb} ${args.path}`;
       break;
     }
     case 'deploy': {
       toolCall = `deployed the app`;
       break;
     }
-
     default:
       throw new Error(`Unknown tool name: ${toolInvocation.toolName}`);
   }

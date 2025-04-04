@@ -194,8 +194,8 @@ export function renderFile(content: string, viewRange?: [number, number]) {
     // read to the end of the file. This parameter only applies when
     // viewing files, not directories.
     const [start, end] = viewRange;
-    if (start < 1 || end < 1) {
-      throw new Error('Invalid range: start and end must be greater than 0');
+    if (start < 1) {
+      throw new Error('Invalid range: start must be greater than 0');
     }
     if (end === -1) {
       lines = lines.slice(start - 1);

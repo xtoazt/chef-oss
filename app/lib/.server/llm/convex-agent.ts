@@ -13,6 +13,8 @@ import type { ProgressAnnotation } from '~/types/context';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { constantPrompt, roleSystemPrompt } from '~/lib/common/prompts/system';
 import { deployTool } from '~/lib/runtime/deployTool';
+import { viewTool } from '~/lib/runtime/viewTool';
+import type { ConvexToolSet } from '~/lib/common/types';
 
 export type AITextDataStream = ReturnType<typeof createDataStream>;
 
@@ -49,8 +51,9 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
         message: 'Analyzing Messages',
       } satisfies ProgressAnnotation);
       const systemPrompt = constantPrompt;
-      const tools = {
+      const tools: ConvexToolSet = {
         deploy: deployTool,
+        view: viewTool,
       }
       const anthropic = createAnthropic({
         apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),

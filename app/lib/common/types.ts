@@ -1,11 +1,12 @@
 import type { Tool, ToolCallUnion } from 'ai';
 import { z } from 'zod';
+import type { viewParameters } from '../runtime/viewTool';
 
 type EmptyArgs = z.ZodObject<Record<string, never>>;
 
 export type ConvexToolSet = {
   deploy: Tool<EmptyArgs, string>;
-  str_replace_editor: Tool<any, any>;
+  view: Tool<typeof viewParameters, string>;
 };
 
 export type ConvexToolCall = ToolCallUnion<ConvexToolSet>;
@@ -17,10 +18,11 @@ export type ConvexToolResult =
       result?: string;
     }
   | {
-      toolName: 'str_replace_editor';
-      args?: any;
+      toolName: 'view';
+      args: typeof viewParameters;
       result: string;
     };
+
 export type ConvexToolInvocation =
   | ({
       state: 'partial-call';

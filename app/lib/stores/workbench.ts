@@ -25,7 +25,6 @@ import type { Id } from '@convex/_generated/dataModel';
 import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
 import { sessionIdStore } from './convex';
 import { withResolvers } from '~/utils/promises';
-import { BackupStack } from '../runtime/editorTool';
 import type { Artifacts, PartId } from './Artifacts';
 
 const BACKUP_DEBOUNCE_MS = 1000 * 5;
@@ -52,7 +51,6 @@ export class WorkbenchStore {
   #terminalStore = new TerminalStore(webcontainer);
   #convexClient: ConvexHttpClient;
   #toolCalls: Map<string, PromiseWithResolvers<string>> = new Map();
-  #backupStack = new BackupStack();
 
   #reloadedParts = new Set<string>();
 
@@ -464,7 +462,6 @@ export class WorkbenchStore {
       type,
       runner: new ActionRunner(
         this.#toolCalls,
-        this.#backupStack,
         webcontainer,
         () => this.boltTerminal,
         (alert) => {

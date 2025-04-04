@@ -331,6 +331,11 @@ using the deploy tool. This tool call will execute a few steps:
 This tool call is the ONLY way to deploy changes and start a development server. The environment automatically
 provisions a Convex deployment for the app and sets up Convex Auth, so you can assume these are all ready to go.
 </deploy_tool>
+
+<view_tool>
+The environment automatically provides relevant files, but you can ask to see particular files by using the view
+tool. Use this tool especially when you're modifying existing files or when debugging an issue.
+</view_tool>
 </tools>
 
 </output_instructions>
