@@ -161,7 +161,7 @@ export const CodeMirrorEditor = memo(
 
     useEffect(() => {
       const onUpdate = debounce((update: EditorUpdate) => {
-        onChangeRef.current?.(update, );
+        onChangeRef.current?.(update);
       }, debounceChange);
 
       const view = new EditorView({
@@ -178,11 +178,10 @@ export const CodeMirrorEditor = memo(
             (newSelection === undefined || previousSelection === undefined || !newSelection.eq(previousSelection));
 
           if (docRef.current && (transactions.some((transaction) => transaction.docChanged) || selectionChanged)) {
-
             onUpdate({
               selection: view.state.selection,
               content: view.state.doc.toString(),
-              filePath: docRef.current.filePath
+              filePath: docRef.current.filePath,
             });
 
             editorStatesRef.current!.set(docRef.current.filePath, view.state);
