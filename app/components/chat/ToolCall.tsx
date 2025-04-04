@@ -10,13 +10,14 @@ import { type PartId } from '~/lib/stores/Artifacts';
 import { cubicEasingFn } from '~/utils/easings';
 import { classNames } from '~/utils/classNames';
 import type { ConvexToolInvocation } from '~/lib/common/types';
-import { getTerminalTheme } from '../workbench/terminal/theme';
+import { getTerminalTheme } from '~/components/workbench/terminal/theme';
 import { FitAddon } from '@xterm/addon-fit';
 import { viewParameters } from '~/lib/runtime/viewTool';
 import { type BundledLanguage, type BundledTheme, getHighlighter } from 'shiki';
 import { themeStore } from '~/lib/stores/theme';
 import { getLanguageFromExtension } from '~/utils/getLanguageFromExtension';
 import { path } from '~/utils/path';
+import { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
 
 export const ToolCall = memo((props: { partId: PartId; toolCallId: string }) => {
   const { partId, toolCallId } = props;
@@ -116,6 +117,9 @@ export const ToolUseContents = memo(
       case 'view': {
         return <ViewTool invocation={invocation} />;
       }
+      case 'npmInstall': {
+        return <NpmInstallTool artifact={artifact} invocation={invocation} />;
+      }
       default: {
         // Fallback for other tool types
         return <pre className="whitespace-pre-wrap overflow-x-auto">{JSON.stringify(invocation, null, 2)}</pre>;
@@ -133,7 +137,7 @@ function DeployTool({ artifact, invocation }: { artifact: ArtifactState; invocat
     return (
       <div className="space-y-2">
         <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
-          <DeployTerminal artifact={artifact} invocation={invocation} />
+          <Terminal artifact={artifact} invocation={invocation} />
         </div>
       </div>
     );
@@ -142,14 +146,14 @@ function DeployTool({ artifact, invocation }: { artifact: ArtifactState; invocat
     return (
       <div className="space-y-2 ">
         <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
-          <DeployTerminal artifact={artifact} invocation={invocation} />
+          <Terminal artifact={artifact} invocation={invocation} />
         </div>
       </div>
     );
   }
 }
 
-const DeployTerminal = memo(
+const Terminal = memo(
   forwardRef(({ artifact, invocation }: { artifact: ArtifactState; invocation: ConvexToolInvocation }, ref) => {
     const theme = useStore(themeStore);
     let terminalOutput = useStore(artifact.runner.terminalOutput);
@@ -218,6 +222,32 @@ const DeployTerminal = memo(
   }),
 );
 
+function NpmInstallTool({ artifact, invocation }: { artifact: ArtifactState; invocation: ConvexToolInvocation }) {
+  if (invocation.toolName !== 'npmInstall') {
+    throw new Error('Terminal can only be used for the npmInstall tool');
+  }
+  if (invocation.state === 'call') {
+    return (
+      <div className="space-y-2">
+        <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
+          <Terminal artifact={artifact} invocation={invocation} />
+        </div>
+      </div>
+    );
+  }
+  if (invocation.state === 'result') {
+    if (invocation.result.startsWith('Error:')) {
+      return (
+        <div className="space-y-2">
+          <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
+            <Terminal artifact={artifact} invocation={invocation} />
+          </div>
+        </div>
+      );
+    }
+  }
+}
+
 function statusIcon(status: ActionState['status'], invocation: ConvexToolInvocation) {
   let inner: React.ReactNode;
   let color: string;
@@ -266,22 +296,32 @@ function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
       if (invocation.state === 'result' && invocation.result.startsWith('Directory:')) {
         verb = 'List';
         icon = 'i-ph:folder';
+        let extra = '';
+        if (args.view_range) {
+          const [start, end] = args.view_range;
+          const endName = end === -1 ? 'end' : end.toString();
+          extra = ` (lines ${start} - ${endName})`;
+        }
+        return (
+          <div className="flex items-center gap-2">
+            <div className={`${icon} text-bolt-elements-textSecondary`} />
+            <span>
+              {verb} {args.path || '/home/project'}
+              {extra}
+            </span>
+          </div>
+        );
       }
-      let extra = '';
-      if (args.view_range) {
-        const [start, end] = args.view_range;
-        const endName = end === -1 ? 'end' : end.toString();
-        extra = ` (lines ${start} - ${endName})`;
+    }
+    case 'npmInstall': {
+      if (invocation.state === 'partial-call' || invocation.state === 'call') {
+        return `Installing dependencies...`;
+      } else if (invocation.result?.startsWith('Error:')) {
+        return `Failed to install dependencies`;
+      } else {
+        const args = npmInstallToolParameters.parse(invocation.args);
+        return <span className="font-mono text-sm">{`npm i ${args.packages.join(' ')}`}</span>;
       }
-      return (
-        <div className="flex items-center gap-2">
-          <div className={`${icon} text-bolt-elements-textSecondary`} />
-          <span>
-            {verb} {args.path || '/home/project'}
-            {extra}
-          </span>
-        </div>
-      );
     }
     case 'deploy': {
       let msg: string;
@@ -370,7 +410,26 @@ const LineNumberViewer = memo(({ lines, startLineNumber = 1, language = 'typescr
   useEffect(() => {
     getHighlighter({
       themes: ['github-dark', 'github-light'],
-      langs: ['typescript', 'javascript', 'json', 'html', 'css', 'jsx', 'tsx', 'python', 'java', 'ruby', 'cpp', 'c', 'csharp', 'go', 'rust', 'php', 'swift', 'bash'],
+      langs: [
+        'typescript',
+        'javascript',
+        'json',
+        'html',
+        'css',
+        'jsx',
+        'tsx',
+        'python',
+        'java',
+        'ruby',
+        'cpp',
+        'c',
+        'csharp',
+        'go',
+        'rust',
+        'php',
+        'swift',
+        'bash',
+      ],
     }).then(setHighlighter);
   }, []);
 
@@ -395,7 +454,7 @@ const LineNumberViewer = memo(({ lines, startLineNumber = 1, language = 'typescr
                             })
                             .replace(/<\/?pre[^>]*>/g, '')
                             .replace(/<\/?code[^>]*>/g, '')
-                        : line || ' '
+                        : line || ' ',
                     }}
                   />
                 </td>

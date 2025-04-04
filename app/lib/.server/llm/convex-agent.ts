@@ -15,6 +15,7 @@ import { constantPrompt, roleSystemPrompt } from '~/lib/common/prompts/system';
 import { deployTool } from '~/lib/runtime/deployTool';
 import { viewTool } from '~/lib/runtime/viewTool';
 import type { ConvexToolSet } from '~/lib/common/types';
+import { npmInstallTool } from '~/lib/runtime/npmInstallTool';
 
 export type AITextDataStream = ReturnType<typeof createDataStream>;
 
@@ -29,8 +30,6 @@ export type RequestProgress = {
   counter: number;
   cumulativeUsage: { completionTokens: number; promptTokens: number; totalTokens: number };
 };
-
-const genericAnthropic = createAnthropic({});
 
 export async function convexAgent(env: Env, firstUserMessage: boolean, messages: Messages): Promise<AITextDataStream> {
   const progress: RequestProgress = {
@@ -54,7 +53,8 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
       const tools: ConvexToolSet = {
         deploy: deployTool,
         view: viewTool,
-      }
+        npmInstall: npmInstallTool,
+      };
       const anthropic = createAnthropic({
         apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
         fetch: async (url, options) => {

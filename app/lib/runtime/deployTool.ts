@@ -1,5 +1,5 @@
-import type { Tool } from "ai";
-import { z } from "zod";
+import type { Tool } from 'ai';
+import { z } from 'zod';
 
 export const deployToolDescription = `
 Deploy the app to Convex and start the Vite development server (if not already running).
@@ -12,6 +12,6 @@ to the filesystem.
 `;
 
 export const deployTool: Tool = {
-    description: deployToolDescription,
-    parameters: z.object({}),
+  description: deployToolDescription,
+  parameters: z.object({}),
 };

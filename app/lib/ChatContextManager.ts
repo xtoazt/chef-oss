@@ -7,7 +7,7 @@ import { makePartId, type PartId } from './stores/Artifacts';
 import { StreamingMessageParser } from './runtime/message-parser';
 import { path } from '~/utils/path';
 import { viewParameters } from './runtime/viewTool';
-// import { bashToolParameters, editorToolParameters } from "./tools";
+import { npmInstallToolParameters } from './runtime/npmInstallTool';
 
 // It's wasteful to actually tokenize the content, so we'll just use character
 // counts as a heuristic.
@@ -336,6 +336,11 @@ function abbreviateToolInvocation(toolInvocation: ToolInvocation): string {
     }
     case 'deploy': {
       toolCall = `deployed the app`;
+      break;
+    }
+    case 'npmInstall': {
+      const args = npmInstallToolParameters.parse(toolInvocation.args);
+      toolCall = `installed the dependencies ${args.packages.join(', ')}`;
       break;
     }
     default:

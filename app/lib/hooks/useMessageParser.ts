@@ -34,22 +34,22 @@ const messageParser = new StreamingMessageParser({
   },
 });
 
-type PartCache = Map<PartId, { original: Part, parsed: Part }>;
+type PartCache = Map<PartId, { original: Part; parsed: Part }>;
 
 function isPartMaybeEqual(a: Part, b: Part): boolean {
   if (a.type === 'text' && b.type === 'text') {
     return a.text === b.text;
   }
   if (a.type === 'tool-invocation' && b.type === 'tool-invocation') {
-    if (a.toolInvocation.state === "result" && b.toolInvocation.state === "result") {
+    if (a.toolInvocation.state === 'result' && b.toolInvocation.state === 'result') {
       return a.toolInvocation.toolCallId === b.toolInvocation.toolCallId;
     }
   }
   return false;
 }
 
-function processMessage(message: Message, previousParts: PartCache): { message: Message, hitRate: [number, number] } {
-  if (message.role === "user") {
+function processMessage(message: Message, previousParts: PartCache): { message: Message; hitRate: [number, number] } {
+  if (message.role === 'user') {
     return { message, hitRate: [0, 0] };
   }
   if (!message.parts) {
@@ -70,7 +70,7 @@ function processMessage(message: Message, previousParts: PartCache): { message: 
     switch (part.type) {
       case 'text': {
         let prevContent = '';
-        if (cacheEntry && cacheEntry.parsed.type === "text") {
+        if (cacheEntry && cacheEntry.parsed.type === 'text') {
           prevContent = cacheEntry.parsed.text;
         }
         newPart = {
@@ -118,15 +118,15 @@ function processMessage(message: Message, previousParts: PartCache): { message: 
       parts: parsedParts,
     },
     hitRate: [hits, message.parts.length],
-  }
+  };
 }
 
-type Part = UIMessage["parts"][number];
+type Part = UIMessage['parts'][number];
 
 export function useMessageParser() {
   const [parsedMessages, setParsedMessages] = useState<Message[]>([]);
 
-  const previousMessages = useRef<{ original: Message, parsed: Message }[]>([]);
+  const previousMessages = useRef<{ original: Message; parsed: Message }[]>([]);
   const previousParts = useRef<PartCache>(new Map());
 
   const parseMessages = useCallback((messages: Message[], isLoading: boolean) => {
@@ -138,7 +138,7 @@ export function useMessageParser() {
       previousMessages.current = [];
     }
 
-    const nextPrevMessages: { original: Message, parsed: Message }[] = [];
+    const nextPrevMessages: { original: Message; parsed: Message }[] = [];
 
     let hit = 0;
     let partHits = 0;
@@ -166,7 +166,7 @@ export function useMessageParser() {
     }
     // console.log(`Reused ${hit} of ${messages.length} messages, ${partHits} of ${partTotal} parts`);
     previousMessages.current = nextPrevMessages;
-    setParsedMessages(nextPrevMessages.map(p => p.parsed));
+    setParsedMessages(nextPrevMessages.map((p) => p.parsed));
   }, []);
 
   return { parsedMessages, parseMessages };

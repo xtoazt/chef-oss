@@ -8,10 +8,10 @@ import type { ActionCallbackData } from './message-parser';
 import { cleanTerminalOutput, type BoltShell } from '~/utils/shell';
 import type { ToolInvocation } from 'ai';
 import { withResolvers } from '~/utils/promises';
-import { ContainerBootState, waitForContainerBootState } from '../webcontainer';
 import { viewParameters } from './viewTool';
 import { readPath, renderDirectory, renderFile, workDirRelative } from '~/utils/fileUtils';
-
+import { ContainerBootState, waitForContainerBootState } from '~/lib/webcontainer';
+import { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
 const logger = createScopedLogger('ActionRunner');
 
 export type ActionStatus = 'pending' | 'running' | 'complete' | 'aborted' | 'failed';
@@ -340,7 +340,7 @@ export class ActionRunner {
     let result: string;
     try {
       switch (parsed.toolName) {
-        case "view": {
+        case 'view': {
           const args = viewParameters.parse(parsed.args);
           const container = await this.#webcontainer;
           const relPath = workDirRelative(args.path);
@@ -353,6 +353,43 @@ export class ActionRunner {
             }
             result = renderFile(file.content, args.view_range as [number, number]);
           }
+          break;
+        }
+        case 'npmInstall': {
+          const args = npmInstallToolParameters.parse(parsed.args);
+          const container = await this.#webcontainer;
+          await waitForContainerBootState(ContainerBootState.READY);
+          const npmInstallProc = await container.spawn('npm', ['install', ...args.packages]);
+          action.abortSignal.addEventListener('abort', () => {
+            npmInstallProc.kill();
+          });
+
+          let lastSaved = 0;
+          let output = '';
+          const { resolve, promise } = withResolvers<number>();
+          const terminalOutput = this.terminalOutput;
+          npmInstallProc.output.pipeTo(
+            new WritableStream({
+              write(data) {
+                output += data.toString();
+                const now = Date.now();
+                if (now - lastSaved > 50) {
+                  terminalOutput.set(output);
+                  lastSaved = now;
+                }
+                if (data.startsWith('Error: ')) {
+                  resolve(-1);
+                  return;
+                }
+              },
+            }),
+          );
+          this.terminalOutput.set(output);
+          const npmInstallExitCode = await Promise.race([promise, npmInstallProc.exit]);
+          if (npmInstallExitCode !== 0) {
+            throw new Error(`Npm install failed with exit code ${npmInstallExitCode}: ${output}`);
+          }
+          result = output;
           break;
         }
         case 'deploy': {
@@ -377,12 +414,12 @@ export class ActionRunner {
                   terminalOutput.set(output);
                   lastSaved = now;
                 }
-                if (data.startsWith("Error: ")) {
+                if (data.startsWith('Error: ')) {
                   resolve(-1);
                   return;
                 }
               },
-            })
+            }),
           );
           this.terminalOutput.set(output);
           const convexExitCode = await Promise.race([promise, convexProc.exit]);
@@ -396,7 +433,7 @@ export class ActionRunner {
             logger.debug(`[${action.type}]:Aborting Action\n\n`, action);
             action.abort();
           });
-          result += "\n\nDev server started successfully!";
+          result += '\n\nDev server started successfully!';
           break;
         }
         default: {
