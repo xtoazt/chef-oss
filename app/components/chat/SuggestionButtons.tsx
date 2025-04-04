@@ -12,19 +12,18 @@ export const SuggestionButtons = ({ chatStarted, onSuggestionClick }: Suggestion
 
   const suggestions = [
     {
-      title: 'Build a Slack clone',
+      title: 'Build a chat app',
       prompt:
-        'Build a Slack clone with real-time messaging, channels, direct messages, emoji reactions, and file sharing capabilities',
+        'Build a simple chat app with threads and reactions. There should be a nice UI to send messages, add/view threads, and react to messages. Reactions should include a heart, a thumbs up, and a thumbs down and should be shown with a number',
     },
     {
-      title: 'Build a Todo app',
+      title: 'Build a todo app',
       prompt:
-        'Build a Todo app with task categories, due dates, priority levels, recurring tasks, and progress tracking',
+        'Build a Todo app with two different tabs, "To Do" and "Done". Add the ability to add tags to a task when creating it and filter tasks by tag',
     },
     {
       title: 'Build a Bluesky clone',
-      prompt:
-        'Build a Bluesky clone with a feed of posts, user profiles, following system, post likes and reposts, and hashtag support',
+      prompt: 'Build a Bluesky clone with a feed of posts, post likes, and the ability to upload images',
     },
   ];
 
