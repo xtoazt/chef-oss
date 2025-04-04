@@ -4,8 +4,7 @@ import { ConvexError, v } from 'convex/values';
 import type { VAny, Infer } from 'convex/values';
 import { isValidSession } from './sessions';
 import { api } from './_generated/api';
-import type { DataModel, Doc, Id } from './_generated/dataModel';
-import type { GenericQueryCtx } from 'convex/server';
+import type { Doc, Id } from './_generated/dataModel';
 export type SerializedMessage = Omit<AIMessage, 'createdAt'> & {
   createdAt: number | undefined;
 };
@@ -24,6 +23,7 @@ export const addMessages = mutation({
     sessionId: v.id('sessions'),
     id: v.string(),
     messages: v.array(v.any() as VAny<SerializedMessage>),
+    startIndex: v.optional(v.number()),
     expectedLength: v.number(),
   },
   returns: v.object({
@@ -31,7 +31,7 @@ export const addMessages = mutation({
     description: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    const { id, sessionId, messages, expectedLength } = args;
+    const { id, sessionId, messages, expectedLength, startIndex } = args;
     let existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
     if (!existing) {
@@ -51,6 +51,7 @@ export const addMessages = mutation({
       sessionId,
       chat: existing,
       messages,
+      startIndex,
       expectedLength,
     });
   },
@@ -404,6 +405,7 @@ async function _appendMessages(
     chat: Doc<'chats'>;
     messages: SerializedMessage[];
     expectedLength?: number;
+    startIndex?: number;
   },
 ) {
   if (args.messages.length === 0) {
@@ -413,13 +415,7 @@ async function _appendMessages(
     };
   }
 
-  const { chat, messages, expectedLength } = args;
-
-  const lastMessage = await ctx.db
-    .query('chatMessages')
-    .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
-    .order('desc')
-    .first();
+  const { chat, messages, expectedLength, startIndex } = args;
 
   if (chat.urlId === undefined) {
     for (const message of messages) {
@@ -436,23 +432,31 @@ async function _appendMessages(
     }
   }
 
-  let rank = lastMessage ? lastMessage.rank + 1 : 0;
+  const lastMessage = await ctx.db
+    .query('chatMessages')
+    .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
+    .order('desc')
+    .first();
 
-  // If the first message is actually an update to the last message, patch it
-  if (lastMessage && lastMessage.content.id === messages[0].id) {
-    await ctx.db.patch(lastMessage._id, {
-      content: messages[0],
-    });
-    messages.shift();
-  }
+  let rank = startIndex !== undefined ? startIndex : lastMessage ? lastMessage.rank + 1 : 0;
 
-  // Add the remaining messages
-  for (const message of messages) {
-    await ctx.db.insert('chatMessages', {
-      chatId: chat._id,
-      content: message,
-      rank,
-    });
+  const persistedMessages = await ctx.db
+    .query('chatMessages')
+    .withIndex('byChatId', (q) => q.eq('chatId', chat._id).gte('rank', rank))
+    .collect();
+  for (let i = 0; i < messages.length; i++) {
+    const existingMessage = persistedMessages.find((m) => m.rank === rank);
+    if (existingMessage) {
+      await ctx.db.patch(existingMessage._id, {
+        content: messages[i],
+      });
+    } else {
+      await ctx.db.insert('chatMessages', {
+        chatId: chat._id,
+        content: messages[i],
+        rank,
+      });
+    }
     rank++;
   }
 

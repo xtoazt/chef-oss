@@ -183,6 +183,7 @@ export const useChatHistoryConvex = () => {
         sessionId,
         messages: [],
         expectedLength: 0,
+        startIndex: 0,
       });
 
       setPersistedMessages([]);
@@ -218,9 +219,13 @@ export const useChatHistoryConvex = () => {
           return;
         }
 
-        const messagesToAdd = findMessagesToUpdate(initialMessages.length, persistedMessages, messages);
+        const { messagesToUpdate, startIndex } = findMessagesToUpdate(
+          initialMessages.length,
+          persistedMessages,
+          messages,
+        );
 
-        if (messagesToAdd.length === 0) {
+        if (messagesToUpdate.length === 0) {
           return;
         }
 
@@ -229,8 +234,9 @@ export const useChatHistoryConvex = () => {
         const result = await convex.mutation(api.messages.addMessages, {
           id,
           sessionId,
-          messages: messagesToAdd.map(serializeMessageForConvex),
+          messages: messagesToUpdate.map(serializeMessageForConvex),
           expectedLength: messages.length,
+          startIndex,
         });
 
         setPersistedMessages(messages);
@@ -356,15 +362,28 @@ function deserializeMessageForConvex(message: SerializedMessage): Message {
   };
 }
 
-function findMessagesToUpdate(initialMessagesLength: number, persistedMessages: Message[], currentMessages: Message[]) {
+function findMessagesToUpdate(
+  initialMessagesLength: number,
+  persistedMessages: Message[],
+  currentMessages: Message[],
+): {
+  messagesToUpdate: Message[];
+  startIndex?: number;
+} {
   if (persistedMessages.length > currentMessages.length) {
     console.error('Unexpected state -- more persisted messages than current messages');
-    return [];
+    return {
+      messagesToUpdate: [],
+      startIndex: undefined,
+    };
   }
 
   if (initialMessagesLength > persistedMessages.length) {
     // Initial messages should never change. Update with everything after the initial messages.
-    return currentMessages.slice(initialMessagesLength);
+    return {
+      messagesToUpdate: currentMessages.slice(initialMessagesLength),
+      startIndex: initialMessagesLength,
+    };
   }
 
   /*
@@ -380,9 +399,15 @@ function findMessagesToUpdate(initialMessagesLength: number, persistedMessages: 
    */
   for (let i = persistedMessages.length - 1; i < currentMessages.length; i++) {
     if (currentMessages[i] !== persistedMessages[i]) {
-      return currentMessages.slice(i);
+      return {
+        messagesToUpdate: currentMessages.slice(i),
+        startIndex: i,
+      };
     }
   }
 
-  return [];
+  return {
+    messagesToUpdate: [],
+    startIndex: undefined,
+  };
 }
