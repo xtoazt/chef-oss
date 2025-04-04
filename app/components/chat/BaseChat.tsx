@@ -6,7 +6,6 @@ import type { JSONValue, Message } from 'ai';
 import React, { type RefCallback, useEffect, useState } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
 import { Menu } from '~/components/sidebar/Menu.client';
-import { IconButton } from '~/components/ui/IconButton';
 import { Workbench } from '~/components/workbench/Workbench.client';
 import { classNames } from '~/utils/classNames';
 import { Messages } from './Messages.client';
@@ -18,7 +17,6 @@ import styles from './BaseChat.module.scss';
 import FilePreview from './FilePreview';
 import type { ProviderInfo } from '~/types/model';
 import { ScreenshotStateManager } from './ScreenshotStateManager';
-import { toast } from 'sonner';
 import type { ActionAlert } from '~/types/actions';
 import ChatAlert from './ChatAlert';
 import ProgressCompilation from './ProgressCompilation';
@@ -41,8 +39,6 @@ interface BaseChatProps {
   onStreamingChange?: (streaming: boolean) => void;
   messages?: Message[];
   description?: string;
-  enhancingPrompt?: boolean;
-  promptEnhanced?: boolean;
   input?: string;
   model?: string;
   setModel?: (model: string) => void;
@@ -52,7 +48,6 @@ interface BaseChatProps {
   handleStop?: () => void;
   sendMessage?: (event: React.UIEvent, messageInput?: string) => void;
   handleInputChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  enhancePrompt?: () => void;
   uploadedFiles?: File[];
   setUploadedFiles?: (files: File[]) => void;
   imageDataList?: string[];
@@ -79,11 +74,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       onStreamingChange,
       providerList,
       input = '',
-      enhancingPrompt,
       handleInputChange,
-
-      // promptEnhanced,
-      enhancePrompt,
       sendMessage,
       handleStop,
       uploadedFiles = [],
@@ -324,23 +315,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       )}
                     </ClientOnly>
                     <div className="flex justify-between items-center text-sm p-4 pt-2">
-                      <div className="flex gap-1 items-center">
-                        <IconButton
-                          title="Enhance prompt"
-                          disabled={input.length === 0 || enhancingPrompt}
-                          className={classNames('transition-all', enhancingPrompt ? 'opacity-100' : '')}
-                          onClick={() => {
-                            enhancePrompt?.();
-                            toast.success('Prompt enhanced!');
-                          }}
-                        >
-                          {enhancingPrompt ? (
-                            <div className="i-svg-spinners:90-ring-with-bg text-bolt-elements-loader-progress text-xl animate-spin"></div>
-                          ) : (
-                            <div className="i-bolt:stars text-xl"></div>
-                          )}
-                        </IconButton>
-                      </div>
+                      <div></div>
                       {input.length > 3 ? (
                         <div className="text-xs text-bolt-elements-textTertiary">
                           <KeyboardShortcut

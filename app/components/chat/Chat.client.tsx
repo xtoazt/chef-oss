@@ -3,7 +3,7 @@ import type { Message } from 'ai';
 import { useChat } from '@ai-sdk/react';
 import { useAnimate } from 'framer-motion';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { useMessageParser, usePromptEnhancer, useShortcuts, useSnapScroll } from '~/lib/hooks';
+import { useMessageParser, useShortcuts, useSnapScroll } from '~/lib/hooks';
 import { description, useChatHistoryConvex } from '~/lib/persistence';
 import { chatStore, useChatIdOrNull } from '~/lib/stores/chat';
 import { workbenchStore } from '~/lib/stores/workbench';
@@ -126,8 +126,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
   const [animationScope, animate] = useAnimate();
 
-  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
-
   const chatContextManager = useRef(new ChatContextManager());
 
   const {
@@ -209,7 +207,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     });
   }, [model, provider, searchParams]);
 
-  const { enhancingPrompt, promptEnhanced, enhancePrompt, resetEnhancer } = usePromptEnhancer();
   const { parsedMessages, parseMessages } = useMessageParser();
 
   const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
@@ -227,14 +224,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
       storeMessageHistory,
     });
   }, [messages, isLoading, parseMessages]);
-
-  const scrollTextArea = () => {
-    const textarea = textareaRef.current;
-
-    if (textarea) {
-      textarea.scrollTop = textarea.scrollHeight;
-    }
-  };
 
   const abort = () => {
     stop();
@@ -370,8 +359,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
     setUploadedFiles([]);
     setImageDataList([]);
 
-    resetEnhancer();
-
     textareaRef.current?.blur();
   };
 
@@ -397,14 +384,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
 
   const [messageRef, scrollRef] = useSnapScroll();
 
-  useEffect(() => {
-    const storedApiKeys = Cookies.get('apiKeys');
-
-    if (storedApiKeys) {
-      setApiKeys(JSON.parse(storedApiKeys));
-    }
-  }, []);
-
   const handleModelChange = (newModel: string) => {
     setModel(newModel);
     Cookies.set('selectedModel', newModel, { expires: 30 });
@@ -426,8 +405,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
       onStreamingChange={(streaming) => {
         streamingState.set(streaming);
       }}
-      enhancingPrompt={enhancingPrompt}
-      promptEnhanced={promptEnhanced}
       sendMessage={sendMessage}
       model={model}
       setModel={handleModelChange}
@@ -452,18 +429,6 @@ export const ChatImpl = memo(({ description, initialMessages, storeMessageHistor
           parts: parsedMessages[i]?.parts || [],
         };
       })}
-      enhancePrompt={() => {
-        enhancePrompt(
-          input,
-          (input) => {
-            setInput(input);
-            scrollTextArea();
-          },
-          model,
-          provider,
-          apiKeys,
-        );
-      }}
       uploadedFiles={uploadedFiles}
       setUploadedFiles={setUploadedFiles}
       imageDataList={imageDataList}

@@ -54,6 +54,11 @@ export const issueInviteCodeForPreviewDeployment = internalMutation({
 
 async function _issueInviteCode(ctx: MutationCtx, args: { code?: string; issuedReason: string }) {
   const code = args.code ?? crypto.randomUUID();
+  if (code.length < 3) {
+    // so they can be used as the default project name for
+    // convexProjects:connectConvexProject
+    throw new Error("Invite codes must be at least three letters")
+  }
 
   const existing = await ctx.db
     .query('inviteCodes')
