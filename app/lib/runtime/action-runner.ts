@@ -14,6 +14,7 @@ import { ContainerBootState, waitForContainerBootState } from '~/lib/webcontaine
 import { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { WORK_DIR } from '~/utils/constants';
+import { z } from 'zod';
 const logger = createScopedLogger('ActionRunner');
 
 export type ActionStatus = 'pending' | 'running' | 'complete' | 'aborted' | 'failed';
@@ -365,40 +366,50 @@ export class ActionRunner {
           break;
         }
         case 'npmInstall': {
-          const args = npmInstallToolParameters.parse(parsed.args);
-          const container = await this.#webcontainer;
-          await waitForContainerBootState(ContainerBootState.READY);
-          const npmInstallProc = await container.spawn('npm', ['install', ...args.packages]);
-          action.abortSignal.addEventListener('abort', () => {
-            npmInstallProc.kill();
-          });
+          try {
+            const args = npmInstallToolParameters.parse(parsed.args);
+            const container = await this.#webcontainer;
+            await waitForContainerBootState(ContainerBootState.READY);
+            const npmInstallProc = await container.spawn('npm', ['install', ...args.packages]);
+            action.abortSignal.addEventListener('abort', () => {
+              npmInstallProc.kill();
+            });
 
-          let lastSaved = 0;
-          let output = '';
-          const { resolve, promise } = withResolvers<number>();
-          const terminalOutput = this.terminalOutput;
-          npmInstallProc.output.pipeTo(
-            new WritableStream({
-              write(data) {
-                output += data.toString();
-                const now = Date.now();
-                if (now - lastSaved > 50) {
-                  terminalOutput.set(output);
-                  lastSaved = now;
-                }
-                if (data.startsWith('Error: ')) {
-                  resolve(-1);
-                  return;
-                }
-              },
-            }),
-          );
-          this.terminalOutput.set(output);
-          const npmInstallExitCode = await Promise.race([promise, npmInstallProc.exit]);
-          if (npmInstallExitCode !== 0) {
-            throw new Error(`Npm install failed with exit code ${npmInstallExitCode}: ${output}`);
+            let lastSaved = 0;
+            let output = '';
+            const { resolve, promise } = withResolvers<number>();
+            const terminalOutput = this.terminalOutput;
+            npmInstallProc.output.pipeTo(
+              new WritableStream({
+                write(data) {
+                  output += data.toString();
+                  const now = Date.now();
+                  if (now - lastSaved > 50) {
+                    terminalOutput.set(output);
+                    lastSaved = now;
+                  }
+                  if (data.startsWith('Error: ')) {
+                    resolve(-1);
+                    return;
+                  }
+                },
+              }),
+            );
+            this.terminalOutput.set(output);
+            const npmInstallExitCode = await Promise.race([promise, npmInstallProc.exit]);
+            if (npmInstallExitCode !== 0) {
+              throw new Error(`Npm install failed with exit code ${npmInstallExitCode}: ${output}`);
+            }
+            result = output;
+          } catch (error: unknown) {
+            if (error instanceof z.ZodError) {
+              result = `Error: Invalid npm install arguments.  ${error}`;
+            } else if (error instanceof Error) {
+              result = `Error: ${error.message}`;
+            } else {
+              result = `Error: An unknown error occurred during npm install`;
+            }
           }
-          result = output;
           break;
         }
         case 'deploy': {

@@ -339,8 +339,12 @@ function abbreviateToolInvocation(toolInvocation: ToolInvocation): string {
       break;
     }
     case 'npmInstall': {
-      const args = npmInstallToolParameters.parse(toolInvocation.args);
-      toolCall = `installed the dependencies ${args.packages.join(', ')}`;
+      try {
+        const args = npmInstallToolParameters.parse(toolInvocation.args);
+        toolCall = `installed the dependencies ${args.packages.join(', ')}`;
+      } catch (_error) {
+        toolCall = `attempted to install dependencies`;
+      }
       break;
     }
     default:

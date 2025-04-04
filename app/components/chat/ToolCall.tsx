@@ -35,7 +35,40 @@ export const ToolCall = memo((props: { partId: PartId; toolCallId: string }) => 
     setShowAction(!showAction);
   };
 
-  const parsed: ConvexToolInvocation = useMemo(() => JSON.parse(action?.content ?? '{}'), [action?.content]);
+  const parsed: ConvexToolInvocation = useMemo(() => {
+    try {
+      const parsedContent = JSON.parse(action?.content ?? '{}');
+
+      // Check if this is a completed npm install without errors but with invalid args
+      if (
+        action &&
+        action.status === 'complete' &&
+        parsedContent.toolName === 'npmInstall' &&
+        parsedContent.state === 'result' &&
+        !parsedContent.result?.startsWith('Error:')
+      ) {
+        try {
+          npmInstallToolParameters.parse(parsedContent.args);
+        } catch (error) {
+          // Update the action status to failed if the args don't parse.
+          if (artifact && artifact.runner) {
+            const errorMessage = `Error: Could not parse arguments: ${error}`;
+            artifact.runner.updateAction(toolCallId, {
+              status: 'failed',
+              error: errorMessage,
+            });
+            // Modify the result to indicate an error
+            parsedContent.result = errorMessage;
+          }
+        }
+      }
+
+      return parsedContent;
+    } catch (_error) {
+      return {} as ConvexToolInvocation;
+    }
+  }, [action?.content, action?.status, artifact, toolCallId]);
+
   const title = action && toolTitle(parsed);
   const icon = action && statusIcon(action.status, parsed);
 
@@ -318,8 +351,15 @@ function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
       } else if (invocation.result?.startsWith('Error:')) {
         return `Failed to install dependencies`;
       } else {
-        const args = npmInstallToolParameters.parse(invocation.args);
-        return <span className="font-mono text-sm">{`npm i ${args.packages.join(' ')}`}</span>;
+        try {
+          const args = npmInstallToolParameters.parse(invocation.args);
+          return <span className="font-mono text-sm">{`npm i ${args.packages.join(' ')}`}</span>;
+        } catch (error: unknown) {
+          if (invocation.state === 'result') {
+            invocation.result = `Error: Could not parse arguments ${error}`;
+          }
+          return `Failed to install dependencies`;
+        }
       }
     }
     case 'deploy': {
