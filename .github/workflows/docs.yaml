@@ -2,8 +2,6 @@ name: Docs CI/CD
 
 on:
   push:
-    branches:
-      - main
     paths:
       - 'docs/**' # This will only trigger the workflow when files in docs directory change
 permissions:
