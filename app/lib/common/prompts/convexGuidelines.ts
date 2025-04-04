@@ -183,8 +183,7 @@ Note: \`paginationOpts\` is an object with the following properties:
 - System fields are automatically added to all documents and are prefixed with an underscore. The two system fields that are automatically added to all documents are \`_creationTime\` which has the validator \`v.number()\` and \`_id\` which has the validator \`v.id(tableName)\`.
 - Always include all index fields in the index name. For example, if an index is defined as \`["field1", "field2"]\`, the index name should be "by_field1_and_field2".
 - Index fields must be queried in the same order they are defined. If you want to be able to query by "field1" then "field2" and by "field2" then "field1", you must create separate indexes.
-- Convex tables have two built-in indexes: "by_id" and "by_creation_time."
-Never add these to the schema definition of a table! They're automatic and adding them to will be an error.
+- Convex tables have two built-in indexes: "by_id" and "by_creation_time." Never add these to the schema definition of a table! They're automatic and adding them to will be an error.
 
 This code:
 
@@ -195,18 +194,19 @@ This code:
 is ALWAYS wrong. If you need to create in index by different field,
 call it something else.
 
-Convex tables have two built-in indexes: "by_id" and "by_creation_time."
-
-Never add these to the schema definition of a table! They're automatic and adding them to will be an error.
+- Convex automatically includes \`_creationTime\` as the final column in all indexes. Do NOT include \`_creationTime\` as the last column in any index you define.
 
 This code:
 
 \`\`\`
-.index("by_creation_time", ["createdAt"]),
+.index("by_author_and_creation_time", ["author", "_creationTime"]),
 \`\`\`
 
-is ALWAYS wrong. If you need to create in index by different field,
-call it something else.
+is ALWAYS wrong. Just define the index with "author" instead:
+\`\`\`
+.index("by_author", ["author"]),
+\`\`\`
+You can then query by "author" and then "_creationTime" with using the index.
 
 ## Typescript guidelines
 

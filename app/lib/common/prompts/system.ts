@@ -101,16 +101,6 @@ and search functionality. Here are some guidelines for using Convex effectively:
 
 ${convexGuidelines}
 
-<more_schema_guidelines>
-
-All tables in Convex already include a \`by_creation_time\` index. Do NOT add an index with this name.
-
-All indexes in Convex automatically include \`_creationTime\` as their final column. Do NOT include
-\`_creationTime\` as the last column in any index you define. Indexes are always finally sorted by
-\`_creationTime\` so adding it as the last column is redundant.
-
-</more_schema_guidelines>
-
 <auth_server_guidelines>
 Here are some guidelines for using the template's auth within the app:
 
