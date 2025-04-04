@@ -9,7 +9,6 @@ import { type PartId } from '~/lib/stores/Artifacts';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
-import { path } from '~/utils/path';
 
 const highlighterOptions = {
   langs: ['shell'],

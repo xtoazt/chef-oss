@@ -34,7 +34,7 @@ const tools: ConvexToolSet = {
   deploy: deployTool,
   view: viewTool,
   npmInstall: npmInstallTool,
-}
+};
 
 export async function convexAgent(env: Env, firstUserMessage: boolean, messages: Messages): Promise<AITextDataStream> {
   const progress: RequestProgress = {
@@ -56,12 +56,12 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
       } satisfies ProgressAnnotation);
       let provider: Provider;
       if (getEnv(env, 'USE_OPENAI')) {
-        const model = getEnv(env, 'OPENAI_MODEL') || "gpt-4o-2024-11-20";
+        const model = getEnv(env, 'OPENAI_MODEL') || 'gpt-4o-2024-11-20';
         provider = {
           model: openai(model),
           maxTokens: 8192,
           systemPrompt: [roleSystemPrompt, constantPrompt].join('\n'),
-        }
+        };
       } else {
         const anthropic = createAnthropic({
           apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
@@ -69,7 +69,7 @@ export async function convexAgent(env: Env, firstUserMessage: boolean, messages:
             return fetch(url, anthropicInjectCacheControl(constantPrompt, options));
           },
         });
-        const model = getEnv(env, 'ANTHROPIC_MODEL') || "claude-3-5-sonnet-20241022";
+        const model = getEnv(env, 'ANTHROPIC_MODEL') || 'claude-3-5-sonnet-20241022';
         provider = {
           model: anthropic(model),
           maxTokens: 8192,
