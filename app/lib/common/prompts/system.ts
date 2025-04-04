@@ -73,7 +73,8 @@ file.
 <file path="convex/schema.ts">
 This file contains the schema for the Convex backend. It starts with just 'authTables' for setting
 up authentication. ONLY modify the 'applicationTables' object in this file: Do NOT modify the
-'authTables' object.
+'authTables' object. Always include \`...authTables\` in the \`defineSchema\` call when modifying
+this file.
 </file>
 
 <file path="src/App.tsx">
