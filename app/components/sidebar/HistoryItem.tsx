@@ -12,7 +12,7 @@ interface HistoryItemProps {
   handleDuplicate: (id: string) => void;
 }
 
-export function HistoryItem({ item, handleDeleteClick, handleDuplicate }: HistoryItemProps) {
+export function HistoryItem({ item, handleDeleteClick }: HistoryItemProps) {
   const { id: urlId } = useParams();
   const isActiveChat = urlId === item.id;
 
@@ -62,11 +62,11 @@ export function HistoryItem({ item, handleDeleteClick, handleDuplicate }: Histor
             )}
           >
             <div className="flex items-center gap-2.5 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-              <ChatActionButton
+              {/* <ChatActionButton
                 toolTipContent="Duplicate"
                 icon="i-ph:copy h-4 w-4"
                 onClick={() => handleDuplicate(item.id)}
-              />
+              /> */}
               <ChatActionButton
                 toolTipContent="Rename"
                 icon="i-ph:pencil-fill h-4 w-4"
