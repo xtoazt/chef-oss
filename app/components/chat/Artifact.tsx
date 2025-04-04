@@ -9,10 +9,6 @@ import { type PartId } from '~/lib/stores/Artifacts';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
-import { useConvexSessionId } from '~/lib/stores/convex';
-import { api } from '@convex/_generated/api';
-import { useQuery } from 'convex/react';
-import { useChatId } from '~/lib/stores/chat';
 
 const highlighterOptions = {
   langs: ['shell'],
@@ -166,16 +162,12 @@ function openArtifactInWorkbench(filePath: any) {
 }
 
 const ActionList = memo(({ actions }: ActionListProps) => {
-  const chatId = useChatId();
-  const sessionId = useConvexSessionId();
-
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
       <ul className="list-none space-y-2.5">
         {actions.map((action, index) => {
           const { status, type } = action;
-          if (type !== "file") {
+          if (type !== 'file') {
             console.log('action', action);
             throw new Error('Action is not a file');
           }
@@ -203,14 +195,14 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   ) : null}
                 </div>
                 <div>
-                    Create{' '}
-                    <code
-                      className="bg-bolt-elements-artifacts-inlineCode-background text-bolt-elements-artifacts-inlineCode-text px-1.5 py-1 rounded-md text-bolt-elements-item-contentAccent hover:underline cursor-pointer"
-                      onClick={() => openArtifactInWorkbench(action.filePath)}
-                    >
-                      {action.filePath}
-                    </code>
-                  </div>
+                  Create{' '}
+                  <code
+                    className="bg-bolt-elements-artifacts-inlineCode-background text-bolt-elements-artifacts-inlineCode-text px-1.5 py-1 rounded-md text-bolt-elements-item-contentAccent hover:underline cursor-pointer"
+                    onClick={() => openArtifactInWorkbench(action.filePath)}
+                  >
+                    {action.filePath}
+                  </code>
+                </div>
               </div>
             </motion.li>
           );

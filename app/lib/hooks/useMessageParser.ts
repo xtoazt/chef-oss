@@ -2,10 +2,7 @@ import type { Message, UIMessage } from 'ai';
 import { useCallback, useRef, useState } from 'react';
 import { StreamingMessageParser } from '~/lib/runtime/message-parser';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { makePartId, type PartId } from '../stores/Artifacts';
-import { createScopedLogger } from '~/utils/logger';
-
-const logger = createScopedLogger('useMessageParser');
+import { makePartId, type PartId } from '~/lib/stores/Artifacts';
 
 const messageParser = new StreamingMessageParser({
   callbacks: {
@@ -130,41 +127,28 @@ export function useMessageParser() {
   const previousParts = useRef<PartCache>(new Map());
 
   const parseMessages = useCallback((messages: Message[], isLoading: boolean) => {
-    let reset = false;
-
     if (import.meta.env.DEV && !isLoading) {
-      reset = true;
       messageParser.reset();
       previousMessages.current = [];
     }
 
     const nextPrevMessages: { original: Message; parsed: Message }[] = [];
 
-    let hit = 0;
-    let partHits = 0;
-    let partTotal = 0;
-
     for (let i = 0; i < messages.length; i++) {
       const prev = previousMessages.current[i];
       const message = messages[i];
       if (!prev) {
-        const { message: parsed, hitRate } = processMessage(message, previousParts.current);
+        const { message: parsed } = processMessage(message, previousParts.current);
         nextPrevMessages.push({ original: message, parsed });
-        partHits += hitRate[0];
-        partTotal += hitRate[1];
         continue;
       }
       if (prev.original === message) {
         nextPrevMessages.push(prev);
-        hit++;
         continue;
       }
-      const { message: parsed, hitRate } = processMessage(message, previousParts.current);
+      const { message: parsed } = processMessage(message, previousParts.current);
       nextPrevMessages.push({ original: message, parsed });
-      partHits += hitRate[0];
-      partTotal += hitRate[1];
     }
-    // console.log(`Reused ${hit} of ${messages.length} messages, ${partHits} of ${partTotal} parts`);
     previousMessages.current = nextPrevMessages;
     setParsedMessages(nextPrevMessages.map((p) => p.parsed));
   }, []);

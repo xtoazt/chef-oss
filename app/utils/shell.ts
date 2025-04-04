@@ -99,9 +99,9 @@ export class BoltShell {
     return this.#process;
   }
 
-  async startCommand(sessionId: string, command: string, abort?: () => void) {
+  async startCommand(sessionId: string, command: string) {
     if (!this.process || !this.terminal) {
-      return undefined;
+      return;
     }
     const state = this.executionState.get();
     if (state?.active && state.abort) {

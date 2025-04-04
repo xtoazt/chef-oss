@@ -10,7 +10,7 @@ import type { SerializedMessage } from '@convex/messages';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 import { webcontainer } from '~/lib/webcontainer';
 import { loadSnapshot } from '~/lib/snapshot';
-import { makePartId, type PartId } from '../stores/Artifacts';
+import { makePartId, type PartId } from '~/lib/stores/Artifacts';
 
 export interface IChatMetadata {
   gitUrl: string;
@@ -139,25 +139,28 @@ export const useChatHistoryConvex = () => {
   return {
     ready: mixedId === undefined || (ready && !isLoading),
     initialMessages: initialDeserializedMessages,
-    updateChatMetadata: useCallback(async (metadata: IChatMetadata) => {
-      const id = chatIdStore.get();
+    updateChatMetadata: useCallback(
+      async (metadata: IChatMetadata) => {
+        const id = chatIdStore.get();
 
-      if (!id || !sessionId) {
-        return;
-      }
+        if (!id || !sessionId) {
+          return;
+        }
 
-      try {
-        await convex.mutation(api.messages.setMetadata, {
-          id,
-          sessionId,
-          metadata,
-        });
-        chatMetadata.set(metadata);
-      } catch (error) {
-        toast.error('Failed to update chat metadata');
-        console.error(error);
-      }
-    }, [convex, sessionId]),
+        try {
+          await convex.mutation(api.messages.setMetadata, {
+            id,
+            sessionId,
+            metadata,
+          });
+          chatMetadata.set(metadata);
+        } catch (error) {
+          toast.error('Failed to update chat metadata');
+          console.error(error);
+        }
+      },
+      [convex, sessionId],
+    ),
     initializeChat: useCallback(async () => {
       if (!sessionId) {
         console.error('Cannot start chat with no session ID');
@@ -190,129 +193,140 @@ export const useChatHistoryConvex = () => {
         navigateChat(result.id);
       }
     }, [convex, sessionId]),
-
-    storeMessageHistory: useCallback(async (messages: Message[]) => {
-      if (messages.length === 0) {
-        return;
-      }
-
-      if (!sessionId) {
-        return;
-      }
-
-      /*
-       * Synchronously allocate a new ID -- this ID is temporary and will be replaced by a
-       * more human-friendly ID when the first message is added.
-       */
-      if (initialMessages.length === 0 && !chatIdStore.get()) {
-        const nextId = crypto.randomUUID();
-        chatIdStore.set(nextId);
-      }
-
-      const id = chatIdStore.get() as string;
-
-      if (persistInProgress.current) {
-        return;
-      }
-
-      const messagesToAdd = findMessagesToUpdate(initialMessages.length, persistedMessages, messages);
-
-      if (messagesToAdd.length === 0) {
-        return;
-      }
-
-      persistInProgress.current = true;
-
-      const result = await convex.mutation(api.messages.addMessages, {
-        id,
-        sessionId,
-        messages: messagesToAdd.map(serializeMessageForConvex),
-        expectedLength: messages.length,
-      });
-
-      setPersistedMessages(messages);
-      persistInProgress.current = false;
-
-      // Update the description + URL ID if they have changed
-      if (description.get() !== result.description) {
-        description.set(result.description);
-      }
-
-      if (urlId !== result.id) {
-        setUrlId(result.id);
-        navigateChat(result.id);
-      }
-    }, [convex, sessionId]),
-    duplicateCurrentChat: useCallback(async (listItemId: string) => {
-      if (!sessionId) {
-        return;
-      }
-
-      if (!mixedId && !listItemId) {
-        return;
-      }
-
-      try {
-        const newId = await convex.mutation(api.messages.duplicate, {
-          id: mixedId || listItemId,
-          sessionId,
-        });
-        navigate(`/chat/${newId.id}`);
-        toast.success('Chat duplicated successfully');
-      } catch (error) {
-        toast.error('Failed to duplicate chat');
-        console.log(error);
-      }
-    }, [convex, sessionId]),
-    importChat: useCallback(async (description: string, messages: Message[], metadata?: IChatMetadata) => {
-      if (!sessionId) {
-        return;
-      }
-
-      try {
-        const newId = await convex.mutation(api.messages.importChat, {
-          description,
-          messages: messages.map(serializeMessageForConvex),
-          metadata,
-          sessionId,
-        });
-        window.location.href = `/chat/${newId}`;
-        toast.success('Chat imported successfully');
-      } catch (error) {
-        if (error instanceof ConvexError) {
-          toast.error('Failed to import chat: ' + error.message);
-        } else {
-          toast.error('Failed to import chat');
+    storeMessageHistory: useCallback(
+      async (messages: Message[]) => {
+        if (messages.length === 0) {
+          return;
         }
-      }
-    }, [convex, sessionId]),
-    exportChat: useCallback(async (id = urlId) => {
-      if (!id || !sessionId) {
-        return;
-      }
 
-      const chat = await convex.query(api.messages.getWithMessages, { id, sessionId });
+        if (!sessionId) {
+          return;
+        }
 
-      if (!chat) {
-        return;
-      }
+        /*
+         * Synchronously allocate a new ID -- this ID is temporary and will be replaced by a
+         * more human-friendly ID when the first message is added.
+         */
+        if (initialMessages.length === 0 && !chatIdStore.get()) {
+          const nextId = crypto.randomUUID();
+          chatIdStore.set(nextId);
+        }
 
-      const chatData = {
-        messages: chat.messages,
-        description: chat.description,
-        exportDate: new Date().toISOString(),
-      };
+        const id = chatIdStore.get() as string;
 
-      const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chat-${new Date().toISOString()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, [convex, sessionId]),
+        if (persistInProgress.current) {
+          return;
+        }
+
+        const messagesToAdd = findMessagesToUpdate(initialMessages.length, persistedMessages, messages);
+
+        if (messagesToAdd.length === 0) {
+          return;
+        }
+
+        persistInProgress.current = true;
+
+        const result = await convex.mutation(api.messages.addMessages, {
+          id,
+          sessionId,
+          messages: messagesToAdd.map(serializeMessageForConvex),
+          expectedLength: messages.length,
+        });
+
+        setPersistedMessages(messages);
+        persistInProgress.current = false;
+
+        // Update the description + URL ID if they have changed
+        if (description.get() !== result.description) {
+          description.set(result.description);
+        }
+
+        if (urlId !== result.id) {
+          setUrlId(result.id);
+          navigateChat(result.id);
+        }
+      },
+      [convex, sessionId],
+    ),
+    duplicateCurrentChat: useCallback(
+      async (listItemId: string) => {
+        if (!sessionId) {
+          return;
+        }
+
+        if (!mixedId && !listItemId) {
+          return;
+        }
+
+        try {
+          const newId = await convex.mutation(api.messages.duplicate, {
+            id: mixedId || listItemId,
+            sessionId,
+          });
+          navigate(`/chat/${newId.id}`);
+          toast.success('Chat duplicated successfully');
+        } catch (error) {
+          toast.error('Failed to duplicate chat');
+          console.log(error);
+        }
+      },
+      [convex, sessionId],
+    ),
+    importChat: useCallback(
+      async (description: string, messages: Message[], metadata?: IChatMetadata) => {
+        if (!sessionId) {
+          return;
+        }
+
+        try {
+          const newId = await convex.mutation(api.messages.importChat, {
+            description,
+            messages: messages.map(serializeMessageForConvex),
+            metadata,
+            sessionId,
+          });
+          window.location.href = `/chat/${newId}`;
+          toast.success('Chat imported successfully');
+        } catch (error) {
+          if (error instanceof ConvexError) {
+            toast.error('Failed to import chat: ' + error.message);
+          } else {
+            toast.error('Failed to import chat');
+          }
+        }
+      },
+      [convex, sessionId],
+    ),
+    exportChat: useCallback(
+      async (id = urlId) => {
+        if (!id || !sessionId) {
+          return;
+        }
+
+        const chat = await convex.query(api.messages.getWithMessages, { id, sessionId });
+
+        if (!chat) {
+          return;
+        }
+
+        const chatData = {
+          messages: chat.messages,
+          description: chat.description,
+          exportDate: new Date().toISOString(),
+        };
+
+        const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat-${new Date().toISOString()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      [convex, sessionId],
+    ),
   };
 };
 

@@ -100,9 +100,12 @@ export const Menu = memo(() => {
     setDialogContent({ type: 'delete', item });
   }, []);
 
-  const handleDuplicate = useCallback(async (id: string) => {
-    await duplicateCurrentChat(id);
-  }, [duplicateCurrentChat]);
+  const handleDuplicate = useCallback(
+    async (id: string) => {
+      await duplicateCurrentChat(id);
+    },
+    [duplicateCurrentChat],
+  );
 
   return (
     <>

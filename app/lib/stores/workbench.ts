@@ -43,7 +43,6 @@ export type ArtifactUpdateState = Pick<ArtifactState, 'title' | 'closed'>;
 
 export type WorkbenchViewType = 'code' | 'diff' | 'preview' | 'dashboard';
 
-
 export class WorkbenchStore {
   #previewsStore = new PreviewsStore(webcontainer);
   #filesStore = new FilesStore(webcontainer);

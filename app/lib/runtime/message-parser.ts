@@ -2,7 +2,7 @@ import type { ActionType, BoltAction, BoltActionData, FileAction, ShellAction, C
 import type { BoltArtifactData } from '~/types/artifact';
 import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
-import type { PartId } from '../stores/Artifacts';
+import type { PartId } from '~/lib/stores/Artifacts';
 
 const ARTIFACT_TAG_OPEN = '<boltArtifact';
 const ARTIFACT_TAG_CLOSE = '</boltArtifact>';

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { useStore } from '@nanostores/react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { AnimatePresence } from 'framer-motion';
@@ -13,7 +12,7 @@ import type { ConvexToolInvocation } from '~/lib/common/types';
 import { getTerminalTheme } from '~/components/workbench/terminal/theme';
 import { FitAddon } from '@xterm/addon-fit';
 import { viewParameters } from '~/lib/runtime/viewTool';
-import { type BundledLanguage, type BundledTheme, getHighlighter } from 'shiki';
+import { getHighlighter } from 'shiki';
 import { themeStore } from '~/lib/stores/theme';
 import { getLanguageFromExtension } from '~/utils/getLanguageFromExtension';
 import { path } from '~/utils/path';

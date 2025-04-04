@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Markdown } from './Markdown';
 import type { Message } from 'ai';
 import { ToolCall } from './ToolCall';
-import { makePartId, type PartId } from '~/lib/stores/Artifacts';
+import { makePartId } from '~/lib/stores/Artifacts';
 
 interface AssistantMessageProps {
   message: Message;
@@ -20,9 +20,7 @@ export const AssistantMessage = memo(({ message }: AssistantMessageProps) => {
   for (const [index, part] of message.parts.entries()) {
     const partId = makePartId(message.id, index);
     if (part.type === 'tool-invocation') {
-      children.push(
-        <ToolCall key={children.length} partId={partId} toolCallId={part.toolInvocation.toolCallId} />,
-      );
+      children.push(<ToolCall key={children.length} partId={partId} toolCallId={part.toolInvocation.toolCallId} />);
     }
     if (part.type === 'text') {
       children.push(

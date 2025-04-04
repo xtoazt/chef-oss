@@ -115,22 +115,23 @@ export const FileTree = memo(
       });
     };
 
-
-
     return (
       <div className={classNames('text-sm', className, 'overflow-y-auto')}>
         {filteredFileList.map((fileOrFolder) => {
-          return <FileOrFolder
-            key={fileOrFolder.id}
-            fileOrFolder={fileOrFolder}
-            rootFolder={rootFolder}
-            selectedFile={selectedFile}
-            unsavedFiles={unsavedFiles}
-            fileHistory={fileHistory}
-            onFileSelect={onFileSelect}
-            allowFolderSelection={allowFolderSelection}
-            collapsedFolders={collapsedFolders}
-            toggleCollapseState={toggleCollapseState} />
+          return (
+            <FileOrFolder
+              key={fileOrFolder.id}
+              fileOrFolder={fileOrFolder}
+              rootFolder={rootFolder}
+              selectedFile={selectedFile}
+              unsavedFiles={unsavedFiles}
+              fileHistory={fileHistory}
+              onFileSelect={onFileSelect}
+              allowFolderSelection={allowFolderSelection}
+              collapsedFolders={collapsedFolders}
+              toggleCollapseState={toggleCollapseState}
+            />
+          );
         })}
       </div>
     );
@@ -152,7 +153,17 @@ interface FileOrFolderProps {
   toggleCollapseState: (fullPath: string) => void;
 }
 
-function FileOrFolder({ fileOrFolder, rootFolder, selectedFile, unsavedFiles, fileHistory, onFileSelect, allowFolderSelection, collapsedFolders, toggleCollapseState }: FileOrFolderProps) {
+function FileOrFolder({
+  fileOrFolder,
+  rootFolder,
+  selectedFile,
+  unsavedFiles,
+  fileHistory,
+  onFileSelect,
+  allowFolderSelection,
+  collapsedFolders,
+  toggleCollapseState,
+}: FileOrFolderProps) {
   const onCopyPath = useCallback(() => {
     try {
       navigator.clipboard.writeText(fileOrFolder.fullPath);
@@ -167,7 +178,6 @@ function FileOrFolder({ fileOrFolder, rootFolder, selectedFile, unsavedFiles, fi
       logger.error(error);
     }
   }, [fileOrFolder.fullPath, rootFolder]);
-
 
   const onFileClick = useCallback(() => {
     onFileSelect?.(fileOrFolder.fullPath);

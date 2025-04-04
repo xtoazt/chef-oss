@@ -429,10 +429,7 @@ export class ActionRunner {
           }
           result = cleanedOutput;
 
-          await shell.startCommand(this.runnerId.get(), 'npx vite --open', () => {
-            logger.debug(`[${action.type}]:Aborting Action\n\n`, action);
-            action.abort();
-          });
+          await shell.startCommand(this.runnerId.get(), 'npx vite --open');
           result += '\n\nDev server started successfully!';
           break;
         }

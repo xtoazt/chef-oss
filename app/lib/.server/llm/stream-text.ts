@@ -1,9 +1,8 @@
 import { convertToCoreMessages, streamText as _streamText, type Message } from 'ai';
 import { MAX_TOKENS, type FileMap } from './constants';
 import { getSystemPrompt } from '~/lib/common/prompts/bolt';
-import { DEFAULT_MODEL, DEFAULT_PROVIDER, MODIFICATIONS_TAG_NAME, PROVIDER_LIST, WORK_DIR } from '~/utils/constants';
+import { DEFAULT_MODEL, DEFAULT_PROVIDER, PROVIDER_LIST } from '~/utils/constants';
 import type { IProviderSetting } from '~/types/model';
-import { allowedHTMLElements } from '~/utils/markdown';
 import { LLMManager } from '~/lib/modules/llm/manager';
 import { createScopedLogger } from '~/utils/logger';
 import { createFilesContext, extractPropertiesFromMessage } from './utils';
@@ -25,22 +24,11 @@ export async function boltStreamText(props: {
   apiKeys?: Record<string, string>;
   files?: FileMap;
   providerSettings?: Record<string, IProviderSetting>;
-  promptId?: string;
   contextFiles?: FileMap;
   summary?: string;
   messageSliceId?: number;
 }) {
-  const {
-    messages,
-    env: serverEnv,
-    options,
-    apiKeys,
-    files,
-    providerSettings,
-    promptId,
-    contextFiles,
-    summary,
-  } = props;
+  const { messages, env: serverEnv, options, apiKeys, files, providerSettings, contextFiles, summary } = props;
   let currentModel = DEFAULT_MODEL;
   let currentProvider = DEFAULT_PROVIDER.name;
   let processedMessages = messages.map((message) => {

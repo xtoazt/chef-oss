@@ -5,7 +5,6 @@ import { Chat } from '~/components/chat/Chat.client';
 import { Header } from '~/components/header/Header';
 import { SafariWarning } from '~/components/SafariWarning';
 import { getFlexAuthModeInLoader } from '~/lib/persistence/convex';
-import { Toaster } from 'sonner';
 
 export const meta: MetaFunction = () => {
   return [
