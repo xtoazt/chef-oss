@@ -26,7 +26,8 @@
     "typegen": "wrangler types",
     "preview": "pnpm run build && pnpm run start",
     "prepare": "husky",
-    "clean": "node scripts/clean.js"
+    "clean": "node scripts/clean.js",
+    "knip": "knip"
   },
   "engines": {
     "node": ">=18.18.0"
@@ -151,19 +152,22 @@
     "@types/dom-speech-recognition": "^0.0.4",
     "@types/file-saver": "^2.0.7",
     "@types/js-cookie": "^3.0.6",
+    "@types/node": "^22.14.0",
     "@types/path-browserify": "^1.0.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "9.20.1",
     "fast-glob": "^3.3.2",
     "husky": "9.1.7",
     "is-ci": "^3.0.1",
     "jsdom": "^26.0.0",
+    "knip": "^5.46.5",
     "node-fetch": "^3.3.2",
     "pnpm": "^9.15.9",
     "prettier": "^3.4.1",
     "sass-embedded": "^1.81.0",
-    "typescript": "^5.7.2",
+    "typescript": "^5.7.3",
     "unified": "^11.0.5",
     "unocss": "^0.61.9",
     "vite": "^5.4.11",
