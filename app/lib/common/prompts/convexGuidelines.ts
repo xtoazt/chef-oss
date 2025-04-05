@@ -143,6 +143,33 @@ export const g = query({
 - Use \`query\`, \`mutation\`, and \`action\` to define public functions.
 - Use \`internalQuery\`, \`internalMutation\`, and \`internalAction\` to define private, internal functions.
 
+### Limits
+
+To keep performance fast, Convex puts limits on function calls and database records:
+
+- Queries, mutations, and actions can take in at most 8 MiB of data as arguments.
+- Queries, mutations, and actions can return at most 8 MiB of data as their return value.
+
+- Arrays in arguments, database records, and return values can have at most 8192 elements.
+- Objects and arrays can only be nested up to depth 16.
+- Database records must be smaller than 1MiB.
+
+- Queries and mutations can read up to 8MiB of data from the database.
+- Queries and mutations can read up to 16384 documents from the database.
+- Mutations can write up to 8MiB of data to the database.
+- Mutations can write up to 8192 documents to the database.
+
+- Queries and mutations can execute for at most 1 second.
+- Actions and HTTP actions can execute for at most 10 minutes.
+
+- HTTP actions have no limit on request body size but can stream out at most 20MiB of data.
+
+IMPORTANT: Hitting any of these limits will cause a function call to fail with an error. You
+MUST design your application to avoid hitting these limits. For example, if you are building
+a stock ticker app, you can't store a database record for each stock ticker's price at a
+point in time. Instead, download the data as JSON, save it to file storage, and have the app
+download the JSON file into the browser and render it client-side.
+
 ### Pagination
 
 - Paginated queries are queries that return a list of results in incremental pages.
@@ -158,7 +185,7 @@ export const listWithExtraArg = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("messages")
-      .filter((q) => q.eq(q.field("author"), args.author))
+      .withIndex("by_author", (q) => q.eq("author", args.author))
       .order("desc")
       .paginate(args.paginationOpts);
   },
