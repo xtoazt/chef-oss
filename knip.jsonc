@@ -3,6 +3,10 @@
     "{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}",
     "src/{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}",
     "convex/auth.config.ts",
+    "convex/crons.ts",
+    "convex/http.ts",
+    // generated code containing possibly-unused exports
+    "convex/_generated/**",
     "functions/**"
   ],
   "project": ["**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!"],
