@@ -17,15 +17,15 @@ import type { ConvexToolSet } from '~/lib/common/types';
 import { npmInstallTool } from '~/lib/runtime/npmInstallTool';
 import { openai } from '@ai-sdk/openai';
 
-export type AITextDataStream = ReturnType<typeof createDataStream>;
+type AITextDataStream = ReturnType<typeof createDataStream>;
 
-export type Provider = {
+type Provider = {
   maxTokens: number;
   model: LanguageModelV1;
   systemPrompt?: string;
 };
 
-export type RequestProgress = {
+type RequestProgress = {
   counter: number;
   cumulativeUsage: { completionTokens: number; promptTokens: number; totalTokens: number };
 };
