@@ -3,7 +3,7 @@
  * Preventing TS checks with files presented in the video for a better presentation.
  */
 import type { JSONValue, Message } from 'ai';
-import React, { type RefCallback, useEffect, useState } from 'react';
+import React, { type RefCallback, useEffect } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
 import { Menu } from '~/components/sidebar/Menu.client';
 import { Workbench } from '~/components/workbench/Workbench.client';
@@ -86,7 +86,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       messages,
       actionAlert,
       clearAlert,
-      data,
       actionRunner,
       toolStatus,
     },
@@ -189,7 +188,13 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                     />
                   )}
                 </div>
-                {<StreamingIndicator streamStatus={streamStatus} numMessages={messages?.length ?? 0} toolStatus={toolStatus} />}
+                {
+                  <StreamingIndicator
+                    streamStatus={streamStatus}
+                    numMessages={messages?.length ?? 0}
+                    toolStatus={toolStatus}
+                  />
+                }
                 <div
                   className={classNames(
                     'bg-bolt-elements-background-depth-2 rounded-lg border border-bolt-elements-borderColor relative w-full max-w-chat mx-auto z-prompt',

@@ -11,18 +11,18 @@ interface StreamingIndicatorProps {
 
 export default function StreamingIndicator(props: StreamingIndicatorProps) {
   let streamStatus = props.streamStatus;
-  const anyToolRunning = props.toolStatus
-    && Object.values(props.toolStatus).some((status) => status === 'running' || status === 'pending');
+  const anyToolRunning =
+    props.toolStatus && Object.values(props.toolStatus).some((status) => status === 'running' || status === 'pending');
   if (anyToolRunning) {
     streamStatus = 'streaming';
   }
-  if (streamStatus === "ready" && props.numMessages === 0) {
+  if (streamStatus === 'ready' && props.numMessages === 0) {
     return null;
   }
   let icon;
   let message;
   switch (streamStatus) {
-    case "submitted":
+    case 'submitted':
     case 'streaming':
       icon = <div className="i-svg-spinners:90-ring-with-bg"></div>;
       message = 'Cooking...';
@@ -31,7 +31,7 @@ export default function StreamingIndicator(props: StreamingIndicatorProps) {
       icon = <div className="i-ph:warning text-yellow-500"></div>;
       message = 'The model hit an error. Try sending your message again?';
       break;
-    case "ready":
+    case 'ready':
       icon = <div className="i-ph:check"></div>;
       message = 'Response Generated';
       break;
@@ -69,9 +69,7 @@ export default function StreamingIndicator(props: StreamingIndicatorProps) {
                   transition={{ duration: 0.15 }}
                 >
                   <div className="flex items-center gap-1.5 ">
-                    <div>
-                      {icon}
-                    </div>
+                    <div>{icon}</div>
                     {message}
                   </div>
                 </motion.div>

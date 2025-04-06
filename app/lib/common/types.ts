@@ -1,9 +1,9 @@
 import type { Tool, ToolCallUnion } from 'ai';
 import { z } from 'zod';
 import type { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
-import type { editToolParameters } from '../runtime/editTool';
-import type { viewParameters } from '../runtime/viewTool';
-import type { ActionStatus } from '../runtime/action-runner';
+import type { editToolParameters } from '~/lib/runtime/editTool';
+import type { viewParameters } from '~/lib/runtime/viewTool';
+import type { ActionStatus } from '~/lib/runtime/action-runner';
 
 type EmptyArgs = z.ZodObject<Record<string, never>>;
 

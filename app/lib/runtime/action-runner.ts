@@ -507,7 +507,7 @@ const BANNED_LINES = [
   'computing gzip size',
   'Collecting TypeScript errors',
   'idealTree buildDeps',
-  'timing reify:unpack'
+  'timing reify:unpack',
 ];
 
 // Cleaning terminal output helps the agent focus on the important parts and

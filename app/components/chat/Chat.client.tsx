@@ -149,7 +149,7 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     api: '/api/chat',
     sendExtraMessageFields: true,
     experimental_prepareRequestBody: ({ messages }) => {
-      const chatId = chatIdStore.get() ?? "";
+      const chatId = chatIdStore.get() ?? '';
       return {
         messages: chatContextManager.current.prepareContext(messages),
         firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
@@ -468,12 +468,12 @@ function useCurrentToolStatus() {
                   return { ...prev, [id]: action.status };
                 }
                 return prev;
-              })
+              });
             }
-          })
+          });
           partSubscriptions[partId as PartId] = sub;
         }
-      })
+      });
     };
     void subscribe();
     return () => {
@@ -483,6 +483,6 @@ function useCurrentToolStatus() {
         sub();
       }
     };
-  }, [])
+  }, []);
   return toolStatus;
 }

@@ -1,9 +1,4 @@
-import {
-  convertToCoreMessages,
-  streamText,
-  type LanguageModelV1,
-  type StepResult,
-} from 'ai';
+import { convertToCoreMessages, streamText, type LanguageModelV1, type StepResult } from 'ai';
 import type { Messages } from './stream-text';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { constantPrompt, roleSystemPrompt } from '~/lib/common/prompts/system';
@@ -27,7 +22,13 @@ const tools: ConvexToolSet = {
   edit: editTool,
 };
 
-export async function convexAgent(chatId: string, env: Env, firstUserMessage: boolean, messages: Messages, tracer: Tracer | null) {
+export async function convexAgent(
+  chatId: string,
+  env: Env,
+  firstUserMessage: boolean,
+  messages: Messages,
+  tracer: Tracer | null,
+) {
   let provider: Provider;
   if (getEnv(env, 'USE_OPENAI')) {
     const model = getEnv(env, 'OPENAI_MODEL') || 'gpt-4o-2024-11-20';

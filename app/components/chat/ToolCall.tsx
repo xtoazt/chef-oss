@@ -258,7 +258,12 @@ function NpmInstallTool({ artifact, invocation }: { artifact: ArtifactState; inv
   }
 }
 
-function parseToolInvocation(content: string | undefined, status: ActionState['status'] | undefined, artifact: ArtifactState, toolCallId: string): ConvexToolInvocation {
+function parseToolInvocation(
+  content: string | undefined,
+  status: ActionState['status'] | undefined,
+  artifact: ArtifactState,
+  toolCallId: string,
+): ConvexToolInvocation {
   if (!content) {
     return {} as ConvexToolInvocation;
   }
@@ -268,31 +273,31 @@ function parseToolInvocation(content: string | undefined, status: ActionState['s
   } catch {
     return {} as ConvexToolInvocation;
   }
-  if (status === "complete" && parsedContent.state === "result" && !parsedContent.result?.startsWith("Error:")) {
+  if (status === 'complete' && parsedContent.state === 'result' && !parsedContent.result?.startsWith('Error:')) {
     let zodError: ZodError | null = null;
     switch (parsedContent.toolName) {
-      case "deploy": {
+      case 'deploy': {
         const args = loggingSafeParse(deployToolParameters, parsedContent.args);
         if (!args.success) {
           zodError = args.error;
         }
         break;
       }
-      case "edit": {
+      case 'edit': {
         const args = loggingSafeParse(editToolParameters, parsedContent.args);
         if (!args.success) {
           zodError = args.error;
         }
         break;
       }
-      case "npmInstall": {
+      case 'npmInstall': {
         const args = loggingSafeParse(npmInstallToolParameters, parsedContent.args);
         if (!args.success) {
           zodError = args.error;
         }
         break;
       }
-      case "view": {
+      case 'view': {
         const args = loggingSafeParse(viewParameters, parsedContent.args);
         if (!args.success) {
           zodError = args.error;
