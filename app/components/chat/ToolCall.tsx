@@ -353,7 +353,7 @@ function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
       } else {
         try {
           const args = npmInstallToolParameters.parse(invocation.args);
-          return <span className="font-mono text-sm">{`npm i ${args.packages.join(' ')}`}</span>;
+          return <span className="font-mono text-sm">{`npm i ${args.packages}`}</span>;
         } catch (error: unknown) {
           if (invocation.state === 'result') {
             invocation.result = `Error: Could not parse arguments ${error}`;
