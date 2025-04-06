@@ -255,7 +255,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
   }, [input, textareaRef]);
 
   const toolStatus = useCurrentToolStatus();
-  console.log('toolStatus', toolStatus);
 
   const runAnimation = async () => {
     if (chatStarted) {
