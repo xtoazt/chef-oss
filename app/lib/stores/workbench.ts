@@ -93,7 +93,7 @@ export class WorkbenchStore {
   }
 
   async snapshotUrl(id?: string) {
-    const SNAPSHOT_URL = 'https://static.convex.dev/flow/snapshot.bin';
+    const SNAPSHOT_URL = 'https://static.convex.dev/chef/snapshot.bin';
     if (!id) {
       console.log('No chat id yet, downloading from Convex');
       return SNAPSHOT_URL;
