@@ -17,6 +17,7 @@ import { themeStore } from '~/lib/stores/theme';
 import { getLanguageFromExtension } from '~/utils/getLanguageFromExtension';
 import { path } from '~/utils/path';
 import { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
+import { editToolParameters } from '~/lib/runtime/editTool';
 
 export const ToolCall = memo((props: { partId: PartId; toolCallId: string }) => {
   const { partId, toolCallId } = props;
@@ -151,6 +152,9 @@ const ToolUseContents = memo(
       }
       case 'npmInstall': {
         return <NpmInstallTool artifact={artifact} invocation={invocation} />;
+      }
+      case 'edit': {
+        return <EditTool invocation={invocation} />;
       }
       default: {
         // Fallback for other tool types
@@ -395,6 +399,15 @@ function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
         </div>
       );
     }
+    case 'edit': {
+      const args = editToolParameters.parse(invocation.args);
+      return (
+        <div className="flex items-center gap-2">
+          <div className={`i-ph:pencil-line text-bolt-elements-textSecondary`} />
+          <span>Edited {args.path}</span>
+        </div>
+      );
+    }
     default: {
       return (invocation as any).toolName;
     }
@@ -522,3 +535,28 @@ const LineNumberViewer = memo(({ lines, startLineNumber = 1, language = 'typescr
     </div>
   );
 });
+
+function EditTool({ invocation }: { invocation: ConvexToolInvocation }) {
+  if (invocation.toolName !== 'edit') {
+    throw new Error('Edit tool can only be used for the edit tool');
+  }
+  if (invocation.state === 'partial-call') {
+    return null;
+  }
+
+  const args = editToolParameters.parse(invocation.args);
+  return (
+    <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
+      <div className="p-4 space-y-4">
+        <div className="space-y-2 overflow-x-auto">
+        <div className="flex items-center gap-2">
+            <pre className="text-bolt-elements-icon-error">{args.old}</pre>
+          </div>
+          <div className="flex items-center gap-2">
+            <pre className="text-bolt-elements-icon-success">{args.new}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
