@@ -4,7 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { useAnimate } from 'framer-motion';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useMessageParser, useShortcuts, useSnapScroll } from '~/lib/hooks';
-import { description, useChatHistoryConvex } from '~/lib/persistence';
+import { chatIdStore, description, useChatHistoryConvex } from '~/lib/persistence';
 import { chatStore, useChatIdOrNull } from '~/lib/stores/chat';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, PROMPT_COOKIE_KEY, PROVIDER_LIST } from '~/utils/constants';
@@ -147,9 +147,11 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     api: '/api/chat',
     sendExtraMessageFields: true,
     experimental_prepareRequestBody: ({ messages }) => {
+      const chatId = chatIdStore.get() ?? "";
       return {
         messages: chatContextManager.current.prepareContext(messages),
         firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
+        chatId,
       };
     },
     maxSteps: 64,
