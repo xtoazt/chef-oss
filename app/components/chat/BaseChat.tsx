@@ -152,10 +152,10 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             {!chatStarted && (
               <div id="intro" className="mt-[16vh] max-w-chat mx-auto text-center px-4 lg:px-0">
                 <h1 className="text-4xl lg:text-6xl font-black text-bolt-elements-textPrimary mb-4 animate-fade-in font-display tracking-tight">
-                  Flow state meets full-stack
+                  Now you're cooking
                 </h1>
                 <p className="text-md lg:text-2xl text-balance mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200 font-medium font-display">
-                  Generate realtime full-stack apps you never thought possible
+                  Generate and launch realtime full‑stack apps you never thought possible
                 </p>
               </div>
             )}
@@ -292,7 +292,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         minHeight: TEXTAREA_MIN_HEIGHT,
                         maxHeight: TEXTAREA_MAX_HEIGHT,
                       }}
-                      placeholder="What would you like to ship today?"
+                      placeholder="What app do you want to serve?"
                       translate="no"
                     />
                     <ClientOnly>

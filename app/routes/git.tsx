@@ -7,8 +7,8 @@ import { Header } from '~/components/header/Header';
 
 export const meta: MetaFunction = () => {
   return [
-    { title: 'Flow' },
-    { name: 'description', content: 'Talk with Flow, an AI assistant from Convex (powered by Bolt)' },
+    { title: 'Chef' },
+    { name: 'description', content: 'Cook up something hot with Chef, the full-stack AI coding agent from Convex' },
   ];
 };
 
