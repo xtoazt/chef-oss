@@ -216,6 +216,33 @@ a stock ticker app, you can't store a database record for each stock ticker's pr
 point in time. Instead, download the data as JSON, save it to file storage, and have the app
 download the JSON file into the browser and render it client-side.
 
+### Environment variables
+
+Convex supports environment variables within function calls via \`process.env\`. Environment
+variables are useful for storing secrets like API keys and other per-deployment configuration.
+
+You can read environment variables from all functions, including queries, mutations, actions,
+and HTTP actions. For example:
+\`\`\`ts
+import { action } from "./_generated/server";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export const helloWorld = action({
+  args: {},
+  handler: async (ctx, args) => {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: "Hello, world!" }],
+    });
+    return completion.choices[0].message.content;
+  },
+});
+\`\`\`
+
 ### Pagination
 
 - Paginated queries are queries that return a list of results in incremental pages.

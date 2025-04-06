@@ -3,8 +3,12 @@ import { z } from 'zod';
 
 const editToolDescription = `
 Replace a string of text that appears exactly once in a file with a
-new string of text. This tool is great for fixing errors or tweaking
-code without having to fully rewrite it from scratch.
+new string of text. Use this tool when fixing a bug or making a
+small tweak to a file.
+
+IMPORTANT: It's much more efficient to use the \`edit\` tool to make
+a small change to a file than rewriting it from scratch with a
+\`<boltAction>\`.
 
 You MUST know a file's current contents before using this tool. This may
 either be from context or previous use of the \`view\` tool.
