@@ -83,7 +83,7 @@ export function Header() {
                 />
               </g>
             </svg>
-            <span className="-ml-2">chef</span>
+            <span className="-ml-1">chef</span>
           </div>
           {/* <span className="flex items-center gap-1 text-xs">
             powered by <span className="i-bolt:logo-text?mask w-[26px] inline-block">Bolt</span>
