@@ -25,11 +25,11 @@ export function Header() {
       <div className="flex items-center gap-2 z-logo text-bolt-elements-textPrimary cursor-pointer">
         <div className="i-ph:sidebar-simple-duotone text-xl" />
         <a href="/" className="text-2xl font-semibold flex flex-col leading-tight">
-          <div className="flex items-center gap-2 ml-2 font-display font-bold">
-            <svg id="b" xmlns="http://www.w3.org/2000/svg" width="59.36" height="30" viewBox="0 0 138.51 70.02">
+          <div className="flex items-center ml-2 font-display font-bold">
+            <svg id="b" xmlns="http://www.w3.org/2000/svg" width="43.53" height="22" viewBox="0 0 138.51 70.02">
               <defs>
                 <style>
-                  {`.d{fill:#231f20;}.e{fill:#f2b01c;}.f{fill:none;stroke-width:2px;}.f,.g{stroke:#231f20;stroke-miterlimit:10;}.g{fill:#fff;}.h{fill:#8e2876;}.i{fill:#ef3731;}`}
+                  {`.d{fill:var(--bolt-elements-textPrimary);}.e{fill:#f2b01c;}.f{fill:none;stroke-width:2px;}.f,.g{stroke:var(--bolt-elements-textPrimary);stroke-miterlimit:10;}.g{fill:#fff;}.h{fill:#8e2876;}.i{fill:#ef3731;}`}
                 </style>
               </defs>
               <g id="c">
@@ -83,7 +83,7 @@ export function Header() {
                 />
               </g>
             </svg>
-            chef
+            <span className="-ml-2">chef</span>
           </div>
           {/* <span className="flex items-center gap-1 text-xs">
             powered by <span className="i-bolt:logo-text?mask w-[26px] inline-block">Bolt</span>
