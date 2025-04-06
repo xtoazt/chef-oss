@@ -6,9 +6,10 @@ import { workbenchStore } from './stores/workbench';
 import { makePartId, type PartId } from './stores/Artifacts';
 import { StreamingMessageParser } from './runtime/message-parser';
 import { path } from '~/utils/path';
-import { viewParameters } from './runtime/viewTool';
+import { loggingSafeParse } from '~/lib/zodUtil';
 import { npmInstallToolParameters } from './runtime/npmInstallTool';
 import { editToolParameters } from './runtime/editTool';
+import { viewParameters } from './runtime/viewTool';
 
 // It's wasteful to actually tokenize the content, so we'll just use character
 // counts as a heuristic.
@@ -239,16 +240,20 @@ export class ChatContextManager {
         part.toolInvocation.toolName == 'view' &&
         part.toolInvocation.state !== 'partial-call'
       ) {
-        const args = viewParameters.parse(part.toolInvocation.args);
-        filesTouched.set(args.path, j);
+        const args = loggingSafeParse(viewParameters, part.toolInvocation.args);
+        if (args.success) {
+          filesTouched.set(args.data.path, j);
+        }
       }
       if (
         part.type == 'tool-invocation' &&
         part.toolInvocation.toolName == 'edit' &&
         part.toolInvocation.state !== 'partial-call'
       ) {
-        const args = editToolParameters.parse(part.toolInvocation.args);
-        filesTouched.set(args.path, j);
+        const args = loggingSafeParse(editToolParameters, part.toolInvocation.args);
+        if (args.success) {
+          filesTouched.set(args.data.path, j);
+        }
       }
     }
     const result = {
@@ -335,12 +340,12 @@ function abbreviateToolInvocation(toolInvocation: ToolInvocation): string {
   let toolCall: string;
   switch (toolInvocation.toolName) {
     case 'view': {
-      const args = viewParameters.parse(toolInvocation.args);
+      const args = loggingSafeParse(viewParameters, toolInvocation.args);
       let verb = 'viewed';
       if (toolInvocation.result.startsWith('Directory:')) {
         verb = 'listed';
       }
-      toolCall = `${verb} ${args.path}`;
+      toolCall = `${verb} ${args?.data.path || 'unknown file'}`;
       break;
     }
     case 'deploy': {
@@ -348,17 +353,21 @@ function abbreviateToolInvocation(toolInvocation: ToolInvocation): string {
       break;
     }
     case 'npmInstall': {
-      try {
-        const args = npmInstallToolParameters.parse(toolInvocation.args);
-        toolCall = `installed the dependencies ${args.packages.join(', ')}`;
-      } catch {
+      const args = loggingSafeParse(npmInstallToolParameters, toolInvocation.args);
+      if (args.success) {
+        toolCall = `installed the dependencies ${args.data.packages}`;
+      } else {
         toolCall = `attempted to install dependencies`;
       }
       break;
     }
     case 'edit': {
-      const args = editToolParameters.parse(toolInvocation.args);
-      toolCall = `edited the file ${args.path}`;
+      const args = loggingSafeParse(editToolParameters, toolInvocation.args);
+      if (args.success) {
+        toolCall = `edited the file ${args.data.path}`;
+      } else {
+        toolCall = `attempted to edit a file`;
+      }
       break;
     }
     default:

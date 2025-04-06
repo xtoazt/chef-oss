@@ -52,20 +52,8 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   try {
     const totalMessageContent = messages.reduce((acc, message) => acc + message.content, '');
     logger.debug(`Total message length: ${totalMessageContent.split(' ').length}, words`);
-
     const dataStream = await convexAgent(chatId, env, firstUserMessage, messages, tracer);
-    // Cloudflare expects binary data in its streams.
-    const encoder = new TextEncoder();
-    const binaryStream = dataStream.pipeThrough(
-      new TransformStream({
-        transform(chunk, controller) {
-          const toSerialize = typeof chunk === 'string' ? chunk : JSON.stringify(chunk);
-          const binary = encoder.encode(toSerialize);
-          controller.enqueue(binary);
-        },
-      }),
-    );
-    return new Response(binaryStream, {
+    return new Response(dataStream, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',

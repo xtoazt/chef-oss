@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { editToolParameters } from './editTool';
 const logger = createScopedLogger('ActionRunner');
 
-type ActionStatus = 'pending' | 'running' | 'complete' | 'aborted' | 'failed';
+export type ActionStatus = 'pending' | 'running' | 'complete' | 'aborted' | 'failed';
 
 type BaseActionState = BoltAction & {
   status: Exclude<ActionStatus, 'failed'>;

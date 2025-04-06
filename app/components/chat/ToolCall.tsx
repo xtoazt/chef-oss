@@ -16,8 +16,11 @@ import { getHighlighter } from 'shiki';
 import { themeStore } from '~/lib/stores/theme';
 import { getLanguageFromExtension } from '~/utils/getLanguageFromExtension';
 import { path } from '~/utils/path';
-import { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
 import { editToolParameters } from '~/lib/runtime/editTool';
+import { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
+import { loggingSafeParse } from '~/lib/zodUtil';
+import { deployToolParameters } from '~/lib/runtime/deployTool';
+import type { ZodError } from 'zod';
 
 export const ToolCall = memo((props: { partId: PartId; toolCallId: string }) => {
   const { partId, toolCallId } = props;
@@ -37,37 +40,7 @@ export const ToolCall = memo((props: { partId: PartId; toolCallId: string }) => 
   };
 
   const parsed: ConvexToolInvocation = useMemo(() => {
-    try {
-      const parsedContent = JSON.parse(action?.content ?? '{}');
-
-      // Check if this is a completed npm install without errors but with invalid args
-      if (
-        action &&
-        action.status === 'complete' &&
-        parsedContent.toolName === 'npmInstall' &&
-        parsedContent.state === 'result' &&
-        !parsedContent.result?.startsWith('Error:')
-      ) {
-        try {
-          npmInstallToolParameters.parse(parsedContent.args);
-        } catch (error) {
-          // Update the action status to failed if the args don't parse.
-          if (artifact && artifact.runner) {
-            const errorMessage = `Error: Could not parse arguments: ${error}`;
-            artifact.runner.updateAction(toolCallId, {
-              status: 'failed',
-              error: errorMessage,
-            });
-            // Modify the result to indicate an error
-            parsedContent.result = errorMessage;
-          }
-        }
-      }
-
-      return parsedContent;
-    } catch {
-      return {} as ConvexToolInvocation;
-    }
+    return parseToolInvocation(action?.content, action?.status, artifact, toolCallId);
   }, [action?.content, action?.status, artifact, toolCallId]);
 
   const title = action && toolTitle(parsed);
@@ -262,6 +235,7 @@ function NpmInstallTool({ artifact, invocation }: { artifact: ArtifactState; inv
   if (invocation.toolName !== 'npmInstall') {
     throw new Error('Terminal can only be used for the npmInstall tool');
   }
+
   if (invocation.state === 'call') {
     return (
       <div className="space-y-2">
@@ -282,6 +256,67 @@ function NpmInstallTool({ artifact, invocation }: { artifact: ArtifactState; inv
       );
     }
   }
+}
+
+function parseToolInvocation(content: string | undefined, status: ActionState['status'] | undefined, artifact: ArtifactState, toolCallId: string): ConvexToolInvocation {
+  if (!content) {
+    return {} as ConvexToolInvocation;
+  }
+  let parsedContent: ConvexToolInvocation;
+  try {
+    parsedContent = JSON.parse(content);
+  } catch {
+    return {} as ConvexToolInvocation;
+  }
+  if (status === "complete" && parsedContent.state === "result" && !parsedContent.result?.startsWith("Error:")) {
+    let zodError: ZodError | null = null;
+    switch (parsedContent.toolName) {
+      case "deploy": {
+        const args = loggingSafeParse(deployToolParameters, parsedContent.args);
+        if (!args.success) {
+          zodError = args.error;
+        }
+        break;
+      }
+      case "edit": {
+        const args = loggingSafeParse(editToolParameters, parsedContent.args);
+        if (!args.success) {
+          zodError = args.error;
+        }
+        break;
+      }
+      case "npmInstall": {
+        const args = loggingSafeParse(npmInstallToolParameters, parsedContent.args);
+        if (!args.success) {
+          zodError = args.error;
+        }
+        break;
+      }
+      case "view": {
+        const args = loggingSafeParse(viewParameters, parsedContent.args);
+        if (!args.success) {
+          zodError = args.error;
+        }
+        break;
+      }
+      default: {
+        break;
+      }
+    }
+    if (zodError) {
+      // Update the action status to failed if the args don't parse.
+      if (artifact && artifact.runner) {
+        const errorMessage = `Error: Could not parse arguments: ${zodError.message}`;
+        artifact.runner.updateAction(toolCallId, {
+          status: 'failed',
+          error: errorMessage,
+        });
+        // Modify the result to indicate an error
+        parsedContent.result = errorMessage;
+      }
+    }
+  }
+  return parsedContent;
 }
 
 function statusIcon(status: ActionState['status'], invocation: ConvexToolInvocation) {
@@ -326,24 +361,29 @@ function statusIcon(status: ActionState['status'], invocation: ConvexToolInvocat
 function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
   switch (invocation.toolName) {
     case 'view': {
-      const args = viewParameters.parse(invocation.args);
+      const args = loggingSafeParse(viewParameters, invocation.args);
       let verb = 'Read';
       let icon = 'i-ph:file-text';
+      let renderedPath = 'a file';
       if (invocation.state === 'result' && invocation.result.startsWith('Directory:')) {
         verb = 'List';
         icon = 'i-ph:folder';
+        renderedPath = 'a directory';
       }
       let extra = '';
-      if (args.view_range) {
-        const [start, end] = args.view_range;
+      if (args.success && args.data.view_range) {
+        const [start, end] = args.data.view_range;
         const endName = end === -1 ? 'end' : end.toString();
         extra = ` (lines ${start} - ${endName})`;
+      }
+      if (args.success) {
+        renderedPath = args.data.path || '/home/project';
       }
       return (
         <div className="flex items-center gap-2">
           <div className={`${icon} text-bolt-elements-textSecondary`} />
           <span>
-            {verb} {args.path || '/home/project'}
+            {verb} {renderedPath}
             {extra}
           </span>
         </div>
@@ -355,15 +395,11 @@ function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
       } else if (invocation.result?.startsWith('Error:')) {
         return `Failed to install dependencies`;
       } else {
-        try {
-          const args = npmInstallToolParameters.parse(invocation.args);
-          return <span className="font-mono text-sm">{`npm i ${args.packages}`}</span>;
-        } catch (error: unknown) {
-          if (invocation.state === 'result') {
-            invocation.result = `Error: Could not parse arguments ${error}`;
-          }
+        const args = loggingSafeParse(npmInstallToolParameters, invocation.args);
+        if (!args.success) {
           return `Failed to install dependencies`;
         }
+        return <span className="font-mono text-sm">{`npm i ${args.data.packages}`}</span>;
       }
     }
     case 'deploy': {
@@ -400,11 +436,15 @@ function toolTitle(invocation: ConvexToolInvocation): React.ReactNode {
       );
     }
     case 'edit': {
-      const args = editToolParameters.parse(invocation.args);
+      const args = loggingSafeParse(editToolParameters, invocation.args);
+      let renderedPath = 'a file';
+      if (args.success) {
+        renderedPath = args.data.path;
+      }
       return (
         <div className="flex items-center gap-2">
           <div className={`i-ph:pencil-line text-bolt-elements-textSecondary`} />
-          <span>Edited {args.path}</span>
+          <span>Edited {renderedPath}</span>
         </div>
       );
     }
@@ -459,10 +499,15 @@ function ViewTool({ invocation }: { invocation: ConvexToolInvocation }) {
     const [_, ...content] = line.split(':');
     return content.join(':');
   });
-  const args = viewParameters.parse(invocation.args);
-  const startLine = args.view_range?.[0] ?? 1;
-  const ext = path.extname(args.path);
-  const language = getLanguageFromExtension(ext);
+  const args = loggingSafeParse(viewParameters, invocation.args);
+  let startLine = 1;
+  let language = 'typescript';
+  if (args.success) {
+    language = getLanguageFromExtension(path.extname(args.data.path));
+    if (args.data.view_range) {
+      startLine = args.data.view_range[0];
+    }
+  }
   return <LineNumberViewer lines={lines} startLineNumber={startLine} language={language} />;
 }
 
@@ -543,17 +588,19 @@ function EditTool({ invocation }: { invocation: ConvexToolInvocation }) {
   if (invocation.state === 'partial-call') {
     return null;
   }
-
-  const args = editToolParameters.parse(invocation.args);
+  const args = loggingSafeParse(editToolParameters, invocation.args);
+  if (!args.success) {
+    return null;
+  }
   return (
     <div className="font-mono text-sm bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor overflow-hidden text-bolt-elements-textPrimary">
       <div className="p-4 space-y-4">
         <div className="space-y-2 overflow-x-auto">
-        <div className="flex items-center gap-2">
-            <pre className="text-bolt-elements-icon-error">{args.old}</pre>
+          <div className="flex items-center gap-2">
+            <pre className="text-bolt-elements-icon-error">{args.data.old}</pre>
           </div>
           <div className="flex items-center gap-2">
-            <pre className="text-bolt-elements-icon-success">{args.new}</pre>
+            <pre className="text-bolt-elements-icon-success">{args.data.new}</pre>
           </div>
         </div>
       </div>

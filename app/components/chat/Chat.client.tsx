@@ -27,6 +27,8 @@ import { convexStore, useConvexSessionIdOrNullOrLoading } from '~/lib/stores/con
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { toast, Toaster } from 'sonner';
+import type { ActionStatus } from '~/lib/runtime/action-runner';
+import type { PartId } from '~/lib/stores/Artifacts';
 
 const logger = createScopedLogger('Chat');
 
@@ -192,7 +194,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
       logger.debug('Finished streaming');
     },
   });
-  const isLoading = status === 'streaming' || status === 'submitted';
   useEffect(() => {
     const prompt = searchParams.get('prompt');
 
@@ -221,11 +222,11 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     processSampledMessages({
       messages,
       initialMessages,
-      isLoading,
+      isLoading: status === 'streaming' || status === 'submitted',
       parseMessages,
       storeMessageHistory,
     });
-  }, [messages, isLoading, parseMessages]);
+  }, [messages, status, parseMessages]);
 
   const abort = () => {
     stop();
@@ -253,6 +254,9 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     }
   }, [input, textareaRef]);
 
+  const toolStatus = useCurrentToolStatus();
+  console.log('toolStatus', toolStatus);
+
   const runAnimation = async () => {
     if (chatStarted) {
       return;
@@ -275,7 +279,7 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
       return;
     }
 
-    if (isLoading) {
+    if (status === 'streaming' || status === 'submitted') {
       abort();
       return;
     }
@@ -308,10 +312,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
       reload();
 
       return;
-    }
-
-    if (error != null) {
-      setMessages(messages.slice(0, -1));
     }
 
     const modifiedFiles = workbenchStore.getModifiedFiles();
@@ -403,7 +403,7 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
       input={input}
       showChat={showChat}
       chatStarted={chatStarted}
-      isStreaming={isLoading}
+      streamStatus={status}
       onStreamingChange={(streaming) => {
         streamingState.set(streaming);
       }}
@@ -421,6 +421,7 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
       }}
       handleStop={abort}
       description={description}
+      toolStatus={toolStatus}
       messages={messages.map((message, i) => {
         if (message.role === 'user') {
           return message;
@@ -438,7 +439,50 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
       actionAlert={actionAlert}
       clearAlert={() => workbenchStore.clearAlert()}
       data={chatData}
+      currentError={error}
     />
   );
 });
 ChatImpl.displayName = 'ChatImpl';
+
+function useCurrentToolStatus() {
+  const [toolStatus, setToolStatus] = useState<Record<string, ActionStatus>>({});
+  useEffect(() => {
+    let canceled = false;
+    let artifactSubscription: (() => void) | null = null;
+    const partSubscriptions: Record<PartId, () => void> = {};
+    const subscribe = async () => {
+      artifactSubscription = workbenchStore.artifacts.subscribe((artifacts) => {
+        if (canceled) {
+          return;
+        }
+        for (const [partId, artifactState] of Object.entries(artifacts)) {
+          if (partSubscriptions[partId as PartId]) {
+            continue;
+          }
+          const { actions } = artifactState.runner;
+          const sub = actions.subscribe((actionsMap) => {
+            for (const [id, action] of Object.entries(actionsMap)) {
+              setToolStatus((prev) => {
+                if (prev[id] !== action.status) {
+                  return { ...prev, [id]: action.status };
+                }
+                return prev;
+              })
+            }
+          })
+          partSubscriptions[partId as PartId] = sub;
+        }
+      })
+    };
+    void subscribe();
+    return () => {
+      canceled = true;
+      artifactSubscription?.();
+      for (const sub of Object.values(partSubscriptions)) {
+        sub();
+      }
+    };
+  }, [])
+  return toolStatus;
+}

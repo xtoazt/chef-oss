@@ -1,8 +1,9 @@
 import type { Tool, ToolCallUnion } from 'ai';
 import { z } from 'zod';
-import type { viewParameters } from '~/lib/runtime/viewTool';
 import type { npmInstallToolParameters } from '~/lib/runtime/npmInstallTool';
 import type { editToolParameters } from '../runtime/editTool';
+import type { viewParameters } from '../runtime/viewTool';
+import type { ActionStatus } from '../runtime/action-runner';
 
 type EmptyArgs = z.ZodObject<Record<string, never>>;
 
@@ -50,3 +51,5 @@ export type ConvexToolInvocation =
       state: 'result';
       step?: number;
     } & ConvexToolResult);
+
+export type ToolStatus = Record<string, ActionStatus>;

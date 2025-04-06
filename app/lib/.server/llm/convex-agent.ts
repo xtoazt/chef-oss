@@ -1,14 +1,10 @@
 import {
   convertToCoreMessages,
-  createDataStream,
   streamText,
-  type DataStreamWriter,
   type LanguageModelV1,
   type StepResult,
-  type TextStreamPart,
 } from 'ai';
 import type { Messages } from './stream-text';
-import type { ProgressAnnotation } from '~/types/context';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { constantPrompt, roleSystemPrompt } from '~/lib/common/prompts/system';
 import { deployTool } from '~/lib/runtime/deployTool';
@@ -19,16 +15,9 @@ import { openai } from '@ai-sdk/openai';
 import type { Tracer } from '~/routes/api.chat';
 import { editTool } from '~/lib/runtime/editTool';
 
-type AITextDataStream = ReturnType<typeof createDataStream>;
-
 type Provider = {
   maxTokens: number;
   model: LanguageModelV1;
-};
-
-type RequestProgress = {
-  counter: number;
-  cumulativeUsage: { completionTokens: number; promptTokens: number; totalTokens: number };
 };
 
 const tools: ConvexToolSet = {
@@ -38,88 +27,57 @@ const tools: ConvexToolSet = {
   edit: editTool,
 };
 
-export async function convexAgent(
-  chatId: string,
-  env: Env,
-  firstUserMessage: boolean,
-  messages: Messages,
-  tracer: Tracer | null,
-): Promise<AITextDataStream> {
-  const progress: RequestProgress = {
-    counter: 1,
-    cumulativeUsage: {
-      completionTokens: 0,
-      promptTokens: 0,
-      totalTokens: 0,
-    },
-  };
-  const dataStream = createDataStream({
-    async execute(dataStream) {
-      dataStream.writeData({
-        type: 'progress',
-        label: 'response',
-        status: 'in-progress',
-        order: progress.counter++,
-        message: 'Analyzing Messages',
-      } satisfies ProgressAnnotation);
-      let provider: Provider;
-      if (getEnv(env, 'USE_OPENAI')) {
-        const model = getEnv(env, 'OPENAI_MODEL') || 'gpt-4o-2024-11-20';
-        provider = {
-          model: openai(model),
-          maxTokens: 8192,
-        };
-      } else {
-        const anthropic = createAnthropic({
-          apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
-          fetch: async (url, options) => {
-            return fetch(url, anthropicInjectCacheControl(constantPrompt, options));
-          },
-        });
-        const model = getEnv(env, 'ANTHROPIC_MODEL') || 'claude-3-5-sonnet-20241022';
-        provider = {
-          model: anthropic(model),
-          maxTokens: 8192,
-        };
-      }
-      dataStream.writeData({
-        type: 'progress',
-        label: 'response',
-        status: 'in-progress',
-        order: progress.counter++,
-        message: 'Cooking...',
-      } satisfies ProgressAnnotation);
-      const result = streamText({
-        model: provider.model,
-        maxTokens: provider.maxTokens,
-        messages: [
-          {
-            role: 'system',
-            content: roleSystemPrompt,
-          },
-          {
-            role: 'system',
-            content: constantPrompt,
-          },
-          ...cleanupAssistantMessages(messages),
-        ],
-        tools,
-        onFinish: (result) => onFinishHandler(dataStream, progress, result, tracer, chatId),
+export async function convexAgent(chatId: string, env: Env, firstUserMessage: boolean, messages: Messages, tracer: Tracer | null) {
+  let provider: Provider;
+  if (getEnv(env, 'USE_OPENAI')) {
+    const model = getEnv(env, 'OPENAI_MODEL') || 'gpt-4o-2024-11-20';
+    provider = {
+      model: openai(model),
+      maxTokens: 8192,
+    };
+  } else {
+    const anthropic = createAnthropic({
+      apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
+      fetch: async (url, options) => {
+        return fetch(url, anthropicInjectCacheControl(constantPrompt, options));
+      },
+    });
+    const model = getEnv(env, 'ANTHROPIC_MODEL') || 'claude-3-5-sonnet-20241022';
+    provider = {
+      model: anthropic(model),
+      maxTokens: 8192,
+    };
+  }
+  const result = streamText({
+    model: provider.model,
+    maxTokens: provider.maxTokens,
+    messages: [
+      {
+        role: 'system',
+        content: roleSystemPrompt,
+      },
+      {
+        role: 'system',
+        content: constantPrompt,
+      },
+      ...cleanupAssistantMessages(messages),
+    ],
+    tools,
+    onFinish: (result) => onFinishHandler(result, tracer, chatId),
 
-        experimental_telemetry: {
-          isEnabled: true,
-          metadata: {
-            firstUserMessage,
-            chatId,
-          },
-        },
-      });
-      void logErrors(result.fullStream);
-      result.mergeIntoDataStream(dataStream);
+    experimental_telemetry: {
+      isEnabled: true,
+      metadata: {
+        firstUserMessage,
+        chatId,
+      },
     },
   });
-
-  return dataStream;
+  return result.toDataStream({
+    getErrorMessage: (error: any) => {
+      return `Failed to generate response: ${error.message}`;
+    },
+  });
 }
 
 // sujayakar, 2025-03-25: This is mega-hax, but I can't figure out
@@ -184,8 +142,6 @@ function cleanupAssistantMessages(messages: Messages) {
 }
 
 async function onFinishHandler(
-  dataStream: DataStreamWriter,
-  progress: RequestProgress,
   result: Omit<StepResult<any>, 'stepType' | 'isContinued'>,
   tracer: Tracer | null,
   chatId: string,
@@ -196,11 +152,6 @@ async function onFinishHandler(
     usage,
     providerMetadata: result.providerMetadata,
   });
-  if (usage) {
-    progress.cumulativeUsage.completionTokens += usage.completionTokens || 0;
-    progress.cumulativeUsage.promptTokens += usage.promptTokens || 0;
-    progress.cumulativeUsage.totalTokens += usage.totalTokens || 0;
-  }
   if (tracer) {
     const span = tracer.startSpan('on-finish-handler');
     span.setAttribute('chatId', chatId);
@@ -217,31 +168,7 @@ async function onFinishHandler(
     }
     span.end();
   }
-  dataStream.writeMessageAnnotation({
-    type: 'usage',
-    value: {
-      completionTokens: progress.cumulativeUsage.completionTokens,
-      promptTokens: progress.cumulativeUsage.promptTokens,
-      totalTokens: progress.cumulativeUsage.totalTokens,
-    },
-  });
-  dataStream.writeData({
-    type: 'progress',
-    label: 'response',
-    status: 'complete',
-    order: progress.counter++,
-    message: 'Response Generated',
-  } satisfies ProgressAnnotation);
   await new Promise((resolve) => setTimeout(resolve, 0));
-}
-
-async function logErrors(stream: AsyncIterable<TextStreamPart<any>>) {
-  for await (const part of stream) {
-    if (part.type === 'error') {
-      console.error(part.error);
-      return;
-    }
-  }
 }
 
 export function getEnv(env: Env, name: keyof Env): string | undefined {

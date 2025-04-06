@@ -49,7 +49,7 @@ export class WorkbenchStore {
   #editorStore = new EditorStore(this.#filesStore);
   #terminalStore = new TerminalStore(webcontainer);
   #convexClient: ConvexHttpClient;
-  #toolCalls: Map<string, PromiseWithResolvers<string>> = new Map();
+  #toolCalls: Map<string, PromiseWithResolvers<string> & { done: boolean }> = new Map();
 
   #reloadedParts = new Set<string>();
 
@@ -268,7 +268,7 @@ export class WorkbenchStore {
   async waitOnToolCall(toolCallId: string): Promise<string> {
     let resolvers = this.#toolCalls.get(toolCallId);
     if (!resolvers) {
-      resolvers = withResolvers<string>();
+      resolvers = { ...withResolvers<string>(), done: false };
       this.#toolCalls.set(toolCallId, resolvers);
     }
     return await resolvers.promise;

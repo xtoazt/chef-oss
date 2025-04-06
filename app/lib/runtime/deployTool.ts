@@ -15,3 +15,5 @@ export const deployTool: Tool = {
   description: deployToolDescription,
   parameters: z.object({}),
 };
+
+export const deployToolParameters = z.object({});
