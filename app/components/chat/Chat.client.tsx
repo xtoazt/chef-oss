@@ -7,14 +7,12 @@ import { useMessageParser, useShortcuts, useSnapScroll } from '~/lib/hooks';
 import { chatIdStore, description, useChatHistoryConvex } from '~/lib/persistence';
 import { chatStore, useChatIdOrNull } from '~/lib/stores/chat';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { DEFAULT_MODEL, DEFAULT_PROVIDER, PROMPT_COOKIE_KEY, PROVIDER_LIST } from '~/utils/constants';
+import { PROMPT_COOKIE_KEY } from '~/utils/constants';
 import { cubicEasingFn } from '~/utils/easings';
 import { createScopedLogger, renderLogger } from '~/utils/logger';
 import { BaseChat } from './BaseChat';
 import Cookies from 'js-cookie';
 import { debounce } from '~/utils/debounce';
-import { useSettings } from '~/lib/hooks/useSettings';
-import type { ProviderInfo } from '~/types/model';
 import { useSearchParams } from '@remix-run/react';
 import { createSampler } from '~/utils/sampler';
 import { logStore } from '~/lib/stores/logs';
@@ -113,16 +111,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
   const [imageDataList, setImageDataList] = useState<string[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const actionAlert = useStore(workbenchStore.alert);
-  const { activeProviders } = useSettings();
-
-  const [model, setModel] = useState(() => {
-    const savedModel = Cookies.get('selectedModel');
-    return savedModel || DEFAULT_MODEL;
-  });
-  const [provider, setProvider] = useState(() => {
-    const savedProvider = Cookies.get('selectedProvider');
-    return (PROVIDER_LIST.find((p) => p.name === savedProvider) || DEFAULT_PROVIDER) as ProviderInfo;
-  });
 
   const { showChat } = useStore(chatStore);
 
@@ -184,8 +172,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
         logStore.logProvider('Chat response completed', {
           component: 'Chat',
           action: 'response',
-          model,
-          provider: provider.name,
           usage,
           messageLength: message.content.length,
         });
@@ -208,7 +194,7 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     webcontainer.then(() => {
       append({ role: 'user', content: prompt });
     });
-  }, [model, provider, searchParams]);
+  }, [searchParams]);
 
   const { parsedMessages, parseMessages } = useMessageParser();
 
@@ -236,8 +222,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     logStore.logProvider('Chat response aborted', {
       component: 'Chat',
       action: 'abort',
-      model,
-      provider: provider.name,
     });
   };
 
@@ -385,16 +369,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
 
   const [messageRef, scrollRef] = useSnapScroll();
 
-  const handleModelChange = (newModel: string) => {
-    setModel(newModel);
-    Cookies.set('selectedModel', newModel, { expires: 30 });
-  };
-
-  const handleProviderChange = (newProvider: ProviderInfo) => {
-    setProvider(newProvider);
-    Cookies.set('selectedProvider', newProvider.name, { expires: 30 });
-  };
-
   return (
     <BaseChat
       ref={animationScope}
@@ -407,11 +381,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
         streamingState.set(streaming);
       }}
       sendMessage={sendMessage}
-      model={model}
-      setModel={handleModelChange}
-      provider={provider}
-      setProvider={handleProviderChange}
-      providerList={activeProviders}
       messageRef={messageRef}
       scrollRef={scrollRef}
       handleInputChange={(e) => {

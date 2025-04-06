@@ -1,9 +1,11 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
-import type { Messages } from '~/lib/.server/llm/stream-text';
 import { createScopedLogger } from '~/utils/logger';
 import { convexAgent, getEnv } from '~/lib/.server/llm/convex-agent';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { BatchSpanProcessor, WebTracerProvider } from '@opentelemetry/sdk-trace-web';
+import type { Message } from 'ai';
+
+type Messages = Message[];
 
 const logger = createScopedLogger('api.chat');
 

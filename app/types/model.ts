@@ -18,7 +18,3 @@ export interface IProviderSetting {
   enabled?: boolean;
   baseUrl?: string;
 }
-
-export type IProviderConfig = ProviderInfo & {
-  settings: IProviderSetting;
-};

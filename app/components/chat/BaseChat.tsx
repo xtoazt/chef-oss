@@ -1,7 +1,3 @@
-/*
- * @ts-nocheck
- * Preventing TS checks with files presented in the video for a better presentation.
- */
 import type { JSONValue, Message } from 'ai';
 import React, { type RefCallback, useEffect } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
@@ -15,7 +11,6 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import styles from './BaseChat.module.scss';
 
 import FilePreview from './FilePreview';
-import type { ProviderInfo } from '~/types/model';
 import { ScreenshotStateManager } from './ScreenshotStateManager';
 import type { ActionAlert } from '~/types/actions';
 import ChatAlert from './ChatAlert';
@@ -40,11 +35,6 @@ interface BaseChatProps {
   messages?: Message[];
   description?: string;
   input?: string;
-  model?: string;
-  setModel?: (model: string) => void;
-  provider?: ProviderInfo;
-  setProvider?: (provider: ProviderInfo) => void;
-  providerList?: ProviderInfo[];
   handleStop?: () => void;
   sendMessage?: (event: React.UIEvent, messageInput?: string) => void;
   handleInputChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -74,7 +64,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       chatStarted = false,
       streamStatus = 'ready',
       onStreamingChange,
-      providerList,
       input = '',
       handleInputChange,
       sendMessage,
@@ -300,7 +289,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         <SendButton
                           show={input.length > 0 || isStreaming || uploadedFiles.length > 0}
                           isStreaming={isStreaming}
-                          disabled={!providerList || providerList.length === 0}
+                          disabled={false}
                           onClick={(event) => {
                             if (isStreaming) {
                               handleStop?.();

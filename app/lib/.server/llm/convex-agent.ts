@@ -1,5 +1,4 @@
-import { convertToCoreMessages, streamText, type LanguageModelV1, type StepResult } from 'ai';
-import type { Messages } from './stream-text';
+import { convertToCoreMessages, streamText, type LanguageModelV1, type Message, type StepResult } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { constantPrompt, roleSystemPrompt } from '~/lib/common/prompts/system';
 import { deployTool } from '~/lib/runtime/deployTool';
@@ -9,6 +8,8 @@ import { npmInstallTool } from '~/lib/runtime/npmInstallTool';
 import { openai } from '@ai-sdk/openai';
 import type { Tracer } from '~/routes/api.chat';
 import { editTool } from '~/lib/runtime/editTool';
+
+type Messages = Message[];
 
 type Provider = {
   maxTokens: number;
