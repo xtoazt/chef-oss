@@ -11,10 +11,10 @@ import { npmInstallToolParameters } from './runtime/npmInstallTool';
 
 // It's wasteful to actually tokenize the content, so we'll just use character
 // counts as a heuristic.
-const MAX_RELEVANT_FILES_SIZE = 8192;
-const MAX_RELEVANT_FILES = 16;
+const MAX_RELEVANT_FILES_SIZE = 16384;
+const MAX_RELEVANT_FILES = 32;
 
-const MAX_COLLAPSED_MESSAGES_SIZE = 4096;
+const MAX_COLLAPSED_MESSAGES_SIZE = 16384;
 
 type UIMessagePart = UIMessage['parts'][number];
 

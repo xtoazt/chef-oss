@@ -475,6 +475,7 @@ const BANNED_LINES = [
   'Checking that documents match your schema...',
   'transforming (',
   'computing gzip size',
+  'Collecting TypeScript errors',
 ];
 
 // Cleaning terminal output helps the agent focus on the important parts and
