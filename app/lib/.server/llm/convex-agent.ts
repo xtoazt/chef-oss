@@ -38,7 +38,13 @@ const tools: ConvexToolSet = {
   edit: editTool,
 };
 
-export async function convexAgent(chatId: string, env: Env, firstUserMessage: boolean, messages: Messages, tracer: Tracer | null): Promise<AITextDataStream> {
+export async function convexAgent(
+  chatId: string,
+  env: Env,
+  firstUserMessage: boolean,
+  messages: Messages,
+  tracer: Tracer | null,
+): Promise<AITextDataStream> {
   const progress: RequestProgress = {
     counter: 1,
     cumulativeUsage: {
@@ -81,7 +87,7 @@ export async function convexAgent(chatId: string, env: Env, firstUserMessage: bo
         label: 'response',
         status: 'in-progress',
         order: progress.counter++,
-        message: 'Generating Response',
+        message: 'Cooking...',
       } satisfies ProgressAnnotation);
       const result = streamText({
         model: provider.model,
