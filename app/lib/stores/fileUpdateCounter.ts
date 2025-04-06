@@ -15,7 +15,10 @@ export function getFileUpdateCounter() {
     return fileUpdateCounter.get();
 }
 
-export function incrementFileUpdateCounter() {
+export function incrementFileUpdateCounter(path: string) {
+    if (path.startsWith('/home/project/dist/')) {
+        return;
+    }
     if (currentTimer) {
         return;
     }

@@ -1,6 +1,6 @@
 import type { WebContainer, PathWatcherEvent } from '@webcontainer/api';
 import { getEncoding } from 'istextorbinary';
-import { map, type MapStore } from 'nanostores';
+import { atom, map, type MapStore } from 'nanostores';
 import { Buffer } from 'node:buffer';
 import { path } from '~/utils/path';
 import { bufferWatchEvents } from '~/utils/buffer';
@@ -8,6 +8,7 @@ import { WORK_DIR } from '~/utils/constants';
 import { computeFileModifications } from '~/utils/diff';
 import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
+import { incrementFileUpdateCounter } from './fileUpdateCounter';
 
 const logger = createScopedLogger('FilesStore');
 
@@ -188,6 +189,7 @@ export class FilesStore {
     for (const { type, path, buffer } of watchEvents) {
       // remove any trailing slashes
       const sanitizedPath = path.replace(/\/+$/g, '');
+      incrementFileUpdateCounter(sanitizedPath);
 
       switch (type) {
         case 'add_dir': {

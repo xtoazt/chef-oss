@@ -5,6 +5,8 @@ import type { WebContainer } from '@webcontainer/api';
 import { classNames } from '~/utils/classNames';
 import { useStore } from '@nanostores/react';
 import { convexStore } from '~/lib/stores/convex';
+import { getFileUpdateCounter, useFileUpdateCounter } from '~/lib/stores/fileUpdateCounter';
+import { toast } from 'sonner';
 
 interface ErrorResponse {
   error: string;
@@ -42,11 +44,18 @@ function Button({ active = false, disabled = false, children, onClick, className
   );
 }
 
+type DeployStatus =  { type: 'idle' }
+  | { type: 'building' }
+  | { type: 'zipping' }
+  | { type: 'deploying' }
+  | { type: 'error'; message: string }
+  | { type: 'success'; updateCounter: number };
+
 export function DeployButton() {
-  const [status, setStatus] = useState<'idle' | 'building' | 'zipping' | 'deploying' | 'error' | 'success'>('idle');
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [status, setStatus] = useState<DeployStatus>({ type: 'idle' });
 
   const convex = useStore(convexStore);
+  const currentCounter = useFileUpdateCounter();
 
   const addFilesToZip = async (container: WebContainer, zip: JSZip, basePath: string, currentPath: string = '') => {
     const fullPath = currentPath ? `${basePath}/${currentPath}` : basePath;
@@ -66,8 +75,7 @@ export function DeployButton() {
 
   const handleDeploy = async () => {
     try {
-      setStatus('building');
-      setErrorMessage('');
+      setStatus({ type: 'building' });
       const container = await webcontainer;
 
       // Run the build command
@@ -85,12 +93,12 @@ export function DeployButton() {
         throw new Error(`Build failed: ${buildOutput}`);
       }
 
-      setStatus('zipping');
+      setStatus({ type: 'zipping' });
       const zip = new JSZip();
       await addFilesToZip(container, zip, 'dist');
       const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-      setStatus('deploying');
+      setStatus({ type: 'deploying' });
       const formData = new FormData();
       formData.append('file', zipBlob, 'dist.zip');
       formData.append('deploymentName', convex!.deploymentName);
@@ -106,47 +114,65 @@ export function DeployButton() {
         throw new Error(errorData?.error ?? 'Deployment failed');
       }
 
-      setStatus('success');
+      const updateCounter = getFileUpdateCounter();
+      setStatus({ type: 'success', updateCounter });
     } catch (error) {
+      toast.error("Failed to deploy. Please try again.")
       console.error('Deployment error:', error);
-      setStatus('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Deployment failed');
+      setStatus({ type: 'error', message: error instanceof Error ? error.message : 'Deployment failed' });
     }
   };
 
-  const isLoading = status === 'building' || status === 'zipping' || status === 'deploying';
+  const isLoading = ['building', 'zipping', 'deploying'].includes(status.type);
   const isDisabled = isLoading || !convex;
-  console.log(isLoading, convex);
 
-  const getButtonText = () => {
-    switch (status) {
-      case 'building':
-        return 'Building...';
-      case 'zipping':
-        return 'Creating package...';
-      case 'deploying':
-        return 'Deploying...';
-      case 'error':
-        return 'Deploy';
-      case 'success':
-        return 'Deployed';
-      default:
-        return 'Deploy';
+  let buttonText: string;
+  let icon: string;
+  switch (status.type) {
+    case 'idle':
+      buttonText = 'Deploy';
+      icon = 'i-ph:rocket-launch';
+      break;
+    case 'building':
+      buttonText = 'Building...';
+      icon = 'i-ph:spinner-gap animate-spin'
+      break;
+    case 'zipping':
+      buttonText = 'Creating package...';
+      icon = 'i-ph:spinner-gap animate-spin'
+      break;
+    case 'deploying':
+      buttonText = 'Deploying...';
+      icon = 'i-ph:spinner-gap animate-spin'
+      break;
+    case 'error':
+      buttonText = 'Deploy';
+      icon = 'i-ph:rocket-launch';
+      break;
+    case 'success': {
+      if (status.updateCounter === currentCounter) {
+        buttonText = 'Deployed';
+        icon = 'i-ph:check text-green-500'
+      } else {
+        buttonText = 'Redeploy';
+        icon = 'i-ph:arrows-clockwise'
+      }
+      break;
     }
-  };
+  }
 
   return (
     <div className="flex items-center gap-2">
       <Button
         disabled={isDisabled}
         onClick={handleDeploy}
-        title={status === 'error' ? errorMessage : undefined}
+        title={status.type === 'error' ? status.message : undefined}
         className="mr-4"
       >
-        <div className={classNames('w-4 h-4', isLoading ? 'i-ph:spinner-gap animate-spin' : 'i-ph:rocket-launch')} />
-        <span>{getButtonText()}</span>
+        <div className={classNames('w-4 h-4', icon)} />
+        <span>{buttonText}</span>
       </Button>
-      {status === 'success' && convex && (
+      {status.type === 'success' && convex && (
         <a
           href={`https://${convex.deploymentName}.convex.app`}
           target="_blank"
