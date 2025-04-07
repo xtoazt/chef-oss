@@ -41,6 +41,11 @@ There are two forms of auth, dictated by the `FLEX_AUTH_MODE` environment variab
 - You need a "code" to access Flex. There's an internal mutation you can run to issue yourself a code (e.g. `sshader-test`).
 - Each code corresponds to a user, so if you're doing this in production, issue a code with your name in it.
 
+### Developing against local big-brain
+
+- Start local big-brain/usher/dashboard the traditional way
+- Switch .env.local env vars to the dev variants (from 1Password)
+
 # Working on the template
 
 There are a few steps to iterating on the template.
