@@ -26,7 +26,7 @@ import { sessionIdStore } from './convex';
 import { withResolvers } from '~/utils/promises';
 import type { Artifacts, PartId } from './Artifacts';
 
-const BACKUP_DEBOUNCE_MS = 1000 * 5;
+const BACKUP_DEBOUNCE_MS = 100;
 
 const { saveAs } = fileSaver;
 
@@ -50,7 +50,7 @@ export class WorkbenchStore {
   #convexClient: ConvexHttpClient;
   #toolCalls: Map<string, PromiseWithResolvers<string> & { done: boolean }> = new Map();
 
-  #reloadedParts = new Set<string>();
+  #reloadedParts = import.meta.hot?.data.reloadedParts ?? new Set<string>();
 
   artifacts: Artifacts = import.meta.hot?.data.artifacts ?? map({});
 
@@ -61,6 +61,7 @@ export class WorkbenchStore {
   unsavedFiles: WritableAtom<Set<AbsolutePath>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<AbsolutePath>());
   actionAlert: WritableAtom<ActionAlert | undefined> =
     import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
+  saveState: WritableAtom<'saved' | 'saving' | 'error'> = import.meta.hot?.data.saveState ?? atom('saved');
   modifiedFiles = new Set<string>();
   partIdList: PartId[] = [];
   #globalExecutionQueue = Promise.resolve();
@@ -72,6 +73,8 @@ export class WorkbenchStore {
       import.meta.hot.data.showWorkbench = this.showWorkbench;
       import.meta.hot.data.currentView = this.currentView;
       import.meta.hot.data.actionAlert = this.actionAlert;
+      import.meta.hot.data.saveState = this.saveState;
+      import.meta.hot.data.reloadedParts = this.#reloadedParts;
     }
 
     this.#convexClient = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL!);
@@ -140,6 +143,7 @@ export class WorkbenchStore {
 
       try {
         isUploading = true;
+        this.saveState.set('saving');
 
         const id = chatIdStore.get();
 
@@ -184,8 +188,11 @@ export class WorkbenchStore {
           chatId: id,
           sessionId,
         });
+
+        this.saveState.set('saved');
       } catch (error) {
         console.error('Failed to upload snapshot:', error);
+        this.saveState.set('error');
       } finally {
         isUploading = false;
 
@@ -200,6 +207,7 @@ export class WorkbenchStore {
 
     let debounceTimeout: NodeJS.Timeout | undefined;
     const debouncedUploadSnapshot = () => {
+      this.saveState.set('saving');
       if (debounceTimeout) {
         clearTimeout(debounceTimeout);
       }
@@ -224,10 +232,23 @@ export class WorkbenchStore {
       );
     })();
 
+    // Add beforeunload event listener to prevent navigation while uploading
+    const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+      if (this.saveState.get() === 'saving') {
+        // Some browsers require both preventDefault and setting returnValue
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+      return undefined;
+    };
+    window.addEventListener('beforeunload', beforeUnloadHandler);
+
     return () => {
       if (debounceTimeout) {
         clearTimeout(debounceTimeout);
       }
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
     };
   }
 
