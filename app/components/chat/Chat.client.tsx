@@ -55,6 +55,8 @@ export function Chat() {
         token: projectInfo.adminKey,
         deploymentName: projectInfo.deploymentName,
         deploymentUrl: projectInfo.deploymentUrl,
+        projectSlug: projectInfo.projectSlug,
+        teamSlug: projectInfo.teamSlug,
       });
     }
   }, [projectInfo]);
@@ -105,6 +107,7 @@ interface ChatProps {
 
 const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, initializeChat }: ChatProps) => {
   useShortcuts();
+  const convex = useStore(convexStore);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [chatStarted, setChatStarted] = useState(initialMessages.length > 0);
@@ -143,6 +146,9 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
         messages: chatContextManager.current.prepareContext(messages),
         firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
         chatId,
+        deploymentName: convex?.deploymentName,
+        token: convex?.token,
+        teamSlug: convex?.teamSlug,
       };
     },
     maxSteps: 64,

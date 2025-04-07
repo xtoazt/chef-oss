@@ -18,6 +18,8 @@ export type ConvexProject = {
   token: string;
   deploymentName: string;
   deploymentUrl: string;
+  projectSlug: string;
+  teamSlug: string;
 };
 
 export const convexStore = atom<ConvexProject | null>(null);

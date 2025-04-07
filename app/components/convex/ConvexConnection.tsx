@@ -28,6 +28,8 @@ export function ConvexConnection({ size = 'small' }: { size?: 'small' | 'full' }
         token: projectInfo.adminKey,
         deploymentName: projectInfo.deploymentName,
         deploymentUrl: projectInfo.deploymentUrl,
+        projectSlug: projectInfo.projectSlug,
+        teamSlug: projectInfo.teamSlug,
       });
     }
   }, [projectInfo]);
