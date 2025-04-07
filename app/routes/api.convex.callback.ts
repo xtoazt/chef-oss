@@ -54,7 +54,11 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   }
 }
 
-async function fetchDeploymentCredentials(provisionHost: string, projectDeployKey: string, deploymentType: 'prod' | 'dev') {
+async function fetchDeploymentCredentials(
+  provisionHost: string,
+  projectDeployKey: string,
+  deploymentType: 'prod' | 'dev',
+) {
   const response = await fetch(`${provisionHost}/api/deployment/provision_and_authorize`, {
     method: 'POST',
     headers: {
