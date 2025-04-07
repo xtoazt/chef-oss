@@ -38,11 +38,40 @@ export async function convexAgent(
       maxTokens: 8192,
     };
   } else {
+    // Falls back to the low Quality-of-Service Anthropic API key if the primary key is rate limited
+    const rateLimitAwareFetch = () => {
+      return async (input: RequestInfo | URL, init?: RequestInit) => {
+        const enrichedOptions = anthropicInjectCacheControl(constantPrompt, init);
+        try {
+          const response = await fetch(input, enrichedOptions);
+
+          if (response.status == 429) {
+            const lowQosKey = getEnv(env, 'ANTHROPIC_LOW_QOS_API_KEY');
+
+            if (!lowQosKey) {
+              return response;
+            }
+
+            if (enrichedOptions && enrichedOptions.headers) {
+              const headers = new Headers(enrichedOptions.headers);
+              headers.set('x-api-key', lowQosKey);
+              enrichedOptions.headers = headers;
+            }
+
+            return fetch(input, enrichedOptions);
+          }
+
+          return response;
+        } catch (error) {
+          console.error('Error with Anthropic API call:', error);
+          throw error;
+        }
+      };
+    };
+
     const anthropic = createAnthropic({
       apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
-      fetch: async (url, options) => {
-        return fetch(url, anthropicInjectCacheControl(constantPrompt, options));
-      },
+      fetch: rateLimitAwareFetch(),
     });
     const model = getEnv(env, 'ANTHROPIC_MODEL') || 'claude-3-5-sonnet-20241022';
     provider = {
