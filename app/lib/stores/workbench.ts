@@ -6,14 +6,13 @@ import { webcontainer } from '~/lib/webcontainer';
 import type { ITerminal } from '~/types/terminal';
 import { unreachable } from '~/utils/unreachable';
 import { EditorStore } from './editor';
-import { FilesStore, type FileMap } from './files';
+import { FilesStore, getAbsolutePath, getRelativePath, type AbsolutePath, type FileMap } from './files';
 import { PreviewsStore } from './previews';
 import { TerminalStore } from './terminal';
 import JSZip from 'jszip';
 import fileSaver from 'file-saver';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { path } from '~/utils/path';
-import { extractRelativePath } from '~/utils/diff';
 import { chatIdStore, description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
@@ -26,6 +25,7 @@ import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
 import { sessionIdStore } from './convex';
 import { withResolvers } from '~/utils/promises';
 import type { Artifacts, PartId } from './Artifacts';
+import { WORK_DIR } from '~/utils/constants';
 
 const BACKUP_DEBOUNCE_MS = 1000 * 5;
 
@@ -59,7 +59,7 @@ export class WorkbenchStore {
 
   showWorkbench: WritableAtom<boolean> = import.meta.hot?.data.showWorkbench ?? atom(false);
   currentView: WritableAtom<WorkbenchViewType> = import.meta.hot?.data.currentView ?? atom('code');
-  unsavedFiles: WritableAtom<Set<string>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<string>());
+  unsavedFiles: WritableAtom<Set<AbsolutePath>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<AbsolutePath>());
   actionAlert: WritableAtom<ActionAlert | undefined> =
     import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
   modifiedFiles = new Set<string>();
@@ -384,21 +384,23 @@ export class WorkbenchStore {
 
   setSelectedFile(filePath: string | undefined) {
     this.setLastChangedFile();
-    this.#editorStore.setSelectedFile(filePath);
+    const absPath = filePath ? getAbsolutePath(filePath) : undefined;
+    this.#editorStore.setSelectedFile(absPath);
   }
 
   async saveFile(filePath: string) {
     const documents = this.#editorStore.documents.get();
-    const document = documents[filePath];
+    const absPath = getAbsolutePath(filePath);
+    const document = documents[absPath];
 
     if (document === undefined) {
       return;
     }
 
-    await this.#filesStore.saveFile(filePath, document.value);
+    await this.#filesStore.saveFile(absPath, document.value);
 
     const newUnsavedFiles = new Set(this.unsavedFiles.get());
-    newUnsavedFiles.delete(filePath);
+    newUnsavedFiles.delete(absPath);
 
     this.unsavedFiles.set(newUnsavedFiles);
   }
@@ -601,7 +603,7 @@ export class WorkbenchStore {
 
     for (const [filePath, dirent] of Object.entries(files)) {
       if (dirent?.type === 'file' && !dirent.isBinary) {
-        const relativePath = extractRelativePath(filePath);
+        const relativePath = getRelativePath(filePath);
 
         // split the path into segments
         const pathSegments = relativePath.split('/');
@@ -632,7 +634,7 @@ export class WorkbenchStore {
 
     for (const [filePath, dirent] of Object.entries(files)) {
       if (dirent?.type === 'file' && !dirent.isBinary) {
-        const relativePath = extractRelativePath(filePath);
+        const relativePath = getRelativePath(filePath);
         const pathSegments = relativePath.split('/');
         let currentHandle = targetHandle;
 
@@ -708,7 +710,7 @@ export class WorkbenchStore {
               content: Buffer.from(dirent.content).toString('base64'),
               encoding: 'base64',
             });
-            return { path: extractRelativePath(filePath), sha: blob.sha };
+            return { path: getRelativePath(filePath), sha: blob.sha };
           }
 
           return null;
