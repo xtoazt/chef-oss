@@ -1,6 +1,6 @@
 import type { WebContainer, PathWatcherEvent } from '@webcontainer/api';
 import { getEncoding } from 'istextorbinary';
-import { atom, map, type MapStore } from 'nanostores';
+import { map, type MapStore } from 'nanostores';
 import { Buffer } from 'node:buffer';
 import { path } from '~/utils/path';
 import { bufferWatchEvents } from '~/utils/buffer';

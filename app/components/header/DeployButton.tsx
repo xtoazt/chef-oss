@@ -44,7 +44,8 @@ function Button({ active = false, disabled = false, children, onClick, className
   );
 }
 
-type DeployStatus =  { type: 'idle' }
+type DeployStatus =
+  | { type: 'idle' }
   | { type: 'building' }
   | { type: 'zipping' }
   | { type: 'deploying' }
@@ -117,7 +118,7 @@ export function DeployButton() {
       const updateCounter = getFileUpdateCounter();
       setStatus({ type: 'success', updateCounter });
     } catch (error) {
-      toast.error("Failed to deploy. Please try again.")
+      toast.error('Failed to deploy. Please try again.');
       console.error('Deployment error:', error);
       setStatus({ type: 'error', message: error instanceof Error ? error.message : 'Deployment failed' });
     }
@@ -135,15 +136,15 @@ export function DeployButton() {
       break;
     case 'building':
       buttonText = 'Building...';
-      icon = 'i-ph:spinner-gap animate-spin'
+      icon = 'i-ph:spinner-gap animate-spin';
       break;
     case 'zipping':
       buttonText = 'Creating package...';
-      icon = 'i-ph:spinner-gap animate-spin'
+      icon = 'i-ph:spinner-gap animate-spin';
       break;
     case 'deploying':
       buttonText = 'Deploying...';
-      icon = 'i-ph:spinner-gap animate-spin'
+      icon = 'i-ph:spinner-gap animate-spin';
       break;
     case 'error':
       buttonText = 'Deploy';
@@ -152,10 +153,10 @@ export function DeployButton() {
     case 'success': {
       if (status.updateCounter === currentCounter) {
         buttonText = 'Deployed';
-        icon = 'i-ph:check text-green-500'
+        icon = 'i-ph:check text-green-500';
       } else {
         buttonText = 'Redeploy';
-        icon = 'i-ph:arrows-clockwise'
+        icon = 'i-ph:arrows-clockwise';
       }
       break;
     }
