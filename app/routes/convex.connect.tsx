@@ -6,7 +6,7 @@ export default function ConvexConnect() {
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
-    const authUrl = `https://dashboard.convex.dev/oauth/authorize/project?${params.toString()}`;
+    const authUrl = `${import.meta.env.VITE_DASHBOARD_HOST}/oauth/authorize/project?${params.toString()}`;
     window.location.href = authUrl;
   }, [searchParams]);
 
