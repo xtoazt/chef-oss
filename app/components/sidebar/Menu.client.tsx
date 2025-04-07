@@ -130,23 +130,23 @@ export const Menu = memo(() => {
               href="/"
               className="inline-flex gap-2 items-center bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text hover:text-bolt-elements-button-primary-textHover rounded-lg px-4 py-2 transition-colors"
             >
-              <span className="text-sm font-medium">Start new chat</span>
+              <span className="text-sm font-medium">Start new project</span>
             </a>
             <div className="relative w-full">
               <input
                 className="w-full bg-gray-50 dark:bg-gray-900 relative px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-bolt-elements-borderColorActive text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-800"
                 type="search"
-                placeholder="Search chats..."
+                placeholder="Search projects..."
                 onChange={handleSearchChange}
-                aria-label="Search chats"
+                aria-label="Search projects"
               />
             </div>
           </div>
-          <div className="text-gray-600 dark:text-gray-400 text-sm font-medium px-4 py-2">Your Chats</div>
+          <div className="text-gray-600 dark:text-gray-400 text-sm font-medium px-4 py-2">Your Projects</div>
           <div className="flex-1 overflow-auto px-3 pb-3">
             {filteredList.length === 0 && (
               <div className="px-4 text-gray-500 dark:text-gray-400 text-sm">
-                {list.length === 0 ? 'No previous conversations' : 'No matches found'}
+                {list.length === 0 ? 'No previous projects' : 'No matches found'}
               </div>
             )}
             <DialogRoot open={dialogContent !== null}>
