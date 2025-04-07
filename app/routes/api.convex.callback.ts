@@ -8,15 +8,15 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const CLIENT_SECRET =
     (context.cloudflare.env as Record<string, any>).CONVEX_OAUTH_CLIENT_SECRET ||
     process.env.CONVEX_OAUTH_CLIENT_SECRET;
-  const PROVISION_HOST = (context.cloudflare.env as Record<string, any>).PROVISION_HOST || process.env.PROVISION_HOST;
+  const PROVISION_HOST = (context.cloudflare.env as Record<string, any>).PROVISION_HOST || process.env.PROVISION_HOST || "https://api.convex.dev";
 
   if (!code) {
     return Response.json({ error: 'No authorization code provided' }, { status: 400 });
   }
 
-  if (!CLIENT_ID || !CLIENT_SECRET || !PROVISION_HOST) {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
     throw new Error(
-      'Missing required environment variables (CONVEX_OAUTH_CLIENT_ID, CONVEX_OAUTH_CLIENT_SECRET, PROVISION_HOST)',
+      'Missing required environment variables (CONVEX_OAUTH_CLIENT_ID, CONVEX_OAUTH_CLIENT_SECRET)',
     );
   }
 
