@@ -14,6 +14,10 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     return Response.json({ error: 'No authorization code provided' }, { status: 400 });
   }
 
+  if (!CLIENT_ID || !CLIENT_SECRET || !PROVISION_HOST) {
+    throw new Error('Missing required environment variables (CONVEX_OAUTH_CLIENT_ID, CONVEX_OAUTH_CLIENT_SECRET, PROVISION_HOST)');
+  }
+
   try {
     // Get the current origin for the redirect_uri
     const origin = url.origin;

@@ -4,9 +4,15 @@ import { useSearchParams } from '@remix-run/react';
 export default function ConvexConnect() {
   const [searchParams] = useSearchParams();
 
+  const dashboardHost = import.meta.env.VITE_DASHBOARD_HOST;
+  if (!dashboardHost) {
+    console.error('VITE_DASHBOARD_HOST is not set. Set in .env.local (copy from 1Password)');
+    return <div>VITE_DASHBOARD_HOST is not set. Set in .env.local (copy from 1Password)</div>;
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
-    const authUrl = `${import.meta.env.VITE_DASHBOARD_HOST}/oauth/authorize/project?${params.toString()}`;
+    const authUrl = `${dashboardHost}/oauth/authorize/project?${params.toString()}`;
     window.location.href = authUrl;
   }, [searchParams]);
 
