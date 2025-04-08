@@ -24,7 +24,7 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   // TODO(nipunn) - enable rate limiting before launch
   // keeping it off for now to avoid ratelimiting our early adopter testers
   // until we have full entitlements grants in place.
-  const enableRateLimiting = true;
+  const enableRateLimiting = getEnv(env, 'ENABLE_RATE_LIMITING');
 
   let tracer: Tracer | null = null;
   if (AXIOM_API_TOKEN && AXIOM_API_URL && AXIOM_DATASET_NAME) {
