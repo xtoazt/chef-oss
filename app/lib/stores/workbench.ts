@@ -21,7 +21,7 @@ import type { WebContainer } from '@webcontainer/api';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
-import { buildSnapshot, compressSnapshot } from '~/lib/snapshot';
+import { buildUncompressedSnapshot, compressSnapshot } from '~/lib/snapshot';
 import { sessionIdStore } from './convex';
 import { withResolvers } from '~/utils/promises';
 import type { Artifacts, PartId } from './Artifacts';
@@ -95,10 +95,10 @@ export class WorkbenchStore {
   }
 
   async snapshotUrl(id?: string) {
-    const SNAPSHOT_URL = 'https://static.convex.dev/chef/snapshot.bin';
+    const templateUrl = '/template-snapshot-351f4521.bin';
     if (!id) {
-      console.log('No chat id yet, downloading from Convex');
-      return SNAPSHOT_URL;
+      console.log('No chat id yet, downloading base template');
+      return templateUrl;
     }
     const sessionId = sessionIdStore.get();
     if (!sessionId) {
@@ -106,8 +106,8 @@ export class WorkbenchStore {
     }
     const maybeSnapshotUrl = await this.#convexClient.query(api.snapshot.getSnapshotUrl, { chatId: id, sessionId });
     if (!maybeSnapshotUrl) {
-      console.log('No snapshot URL found, downloading from Convex');
-      return SNAPSHOT_URL;
+      console.log('No snapshot URL found, downloading base template');
+      return templateUrl;
     }
     console.log('Snapshot URL found, downloading from Convex');
     return maybeSnapshotUrl;
@@ -163,12 +163,7 @@ export class WorkbenchStore {
           throw new Error('Session ID is not set');
         }
 
-        const binarySnapshot = await buildSnapshot('binary', true);
-
-        if (!(binarySnapshot instanceof Uint8Array)) {
-          throw new Error('Snapshot must be a Uint8Array');
-        }
-
+        const binarySnapshot = await buildUncompressedSnapshot();
         const compressed = await compressSnapshot(binarySnapshot);
         const uploadUrl = await this.#convexClient.mutation(api.snapshot.generateUploadUrl);
         const result = await fetch(uploadUrl, {
