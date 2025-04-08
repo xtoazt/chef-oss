@@ -38,7 +38,7 @@ export function takeContainerBootError() {
   if (existing.state !== ContainerBootState.ERROR) {
     throw new Error('Container boot state is not in error');
   }
-  const { errorToLog, ...rest } = existing;
+  const { errorToLog: _, ...rest } = existing;
   containerBootStore.set(rest);
 }
 
