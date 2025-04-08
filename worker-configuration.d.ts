@@ -30,4 +30,5 @@ interface Env {
   AXIOM_DATASET_NAME: string;
 
   PROVISION_HOST: string;
+  ENABLE_RATE_LIMITING: string;
 }
