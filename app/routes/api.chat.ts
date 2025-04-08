@@ -3,7 +3,7 @@ import { createScopedLogger } from '~/utils/logger';
 import { convexAgent, getEnv } from '~/lib/.server/llm/convex-agent';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { BatchSpanProcessor, WebTracerProvider } from '@opentelemetry/sdk-trace-web';
-import type { Message } from 'ai';
+import type { LanguageModelUsage, Message } from 'ai';
 import { checkTokenUsage, recordUsage } from '~/lib/.server/usage';
 
 type Messages = Message[];
@@ -69,22 +69,16 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
     }
   }
 
+  const recordUsageCb = async (usage: LanguageModelUsage) => {
+    if (token) {
+      await recordUsage(PROVISION_HOST, token, teamSlug, deploymentName, usage);
+    }
+  };
+
   try {
     const totalMessageContent = messages.reduce((acc, message) => acc + message.content, '');
     logger.debug(`Total message length: ${totalMessageContent.split(' ').length}, words`);
-    const result = await convexAgent(chatId, env, firstUserMessage, messages, tracer);
-
-    // Create the streaming response
-    const dataStream = result.toDataStream({
-      getErrorMessage: (error: any) => {
-        return `Failed to generate response: ${error.message}`;
-      },
-    });
-
-    // Record usage once the dataStream is closed.
-    if (token) {
-      result.usage.then((usage) => recordUsage(PROVISION_HOST, token, teamSlug, deploymentName, usage));
-    }
+    const dataStream = await convexAgent(chatId, env, firstUserMessage, messages, tracer, recordUsageCb);
 
     return new Response(dataStream, {
       status: 200,
