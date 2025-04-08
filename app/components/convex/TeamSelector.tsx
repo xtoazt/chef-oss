@@ -11,6 +11,8 @@ import {
 import { useAuth0 } from '@auth0/auth0-react';
 import { useStore } from '@nanostores/react';
 
+const VITE_PROVISION_HOST = import.meta.env.VITE_PROVISION_HOST || 'https://api.convex.dev';
+
 export function TeamSelector() {
   const [open, setOpen] = useState(false);
   const { getAccessTokenSilently } = useAuth0();
@@ -24,13 +26,16 @@ export function TeamSelector() {
         const tokenResponse = await getAccessTokenSilently({
           detailedResponse: true,
         });
-        const response = await fetch('https://api.convex.dev/api/dashboard/teams', {
+        console.log('tokenResponse', tokenResponse);
+        console.log('VITE_PROVISION_HOST', VITE_PROVISION_HOST);
+        const response = await fetch(`${VITE_PROVISION_HOST}/api/dashboard/teams`, {
           headers: {
             Authorization: `Bearer ${tokenResponse.id_token}`,
           },
         });
         if (!response.ok) {
-          throw new Error('Failed to fetch teams');
+          const body = await response.text();
+          throw new Error(`Failed to fetch teams: ${response.statusText}: ${body}`);
         }
         const teamsData = await response.json();
         teamsStore.set(teamsData as ConvexTeam[]);
