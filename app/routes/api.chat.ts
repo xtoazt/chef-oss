@@ -4,6 +4,7 @@ import { convexAgent, getEnv } from '~/lib/.server/llm/convex-agent';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { BatchSpanProcessor, WebTracerProvider } from '@opentelemetry/sdk-trace-web';
 import type { Message } from 'ai';
+import { checkTokenUsage, recordUsage } from '~/lib/.server/usage';
 
 type Messages = Message[];
 
@@ -56,37 +57,16 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
     firstUserMessage: boolean;
     chatId: string;
     deploymentName: string;
-    token: string;
+    token: string | undefined;
     teamSlug: string;
   }>();
   const { messages, firstUserMessage, chatId, deploymentName, token, teamSlug } = body;
 
   if (token) {
-    const Authorization = `Bearer ${token}`;
-    const url = `${PROVISION_HOST}/api/dashboard/teams/${teamSlug}/usage/get_token_info`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Authorization,
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) {
-      logger.error(url);
-      logger.error(response);
-      logger.error(await response.json());
-      return new Response(JSON.stringify({ error: 'Failed to check for tokens' }), {
-        status: response.status,
-      });
+    const resp = await checkTokenUsage(PROVISION_HOST, token, teamSlug, deploymentName);
+    if (resp) {
+      return resp;
     }
-    const { tokensUsed, tokensQuota }: { tokensUsed: number; tokensQuota: number } = await response.json();
-    if (tokensUsed >= tokensQuota) {
-      logger.error(`No tokens available for ${deploymentName}: ${tokensUsed} of ${tokensQuota}`);
-      return new Response(JSON.stringify({ error: `No tokens available. Used ${tokensUsed} of ${tokensQuota}` }), {
-        status: 402,
-      });
-    }
-    logger.info(`Tokens used: ${tokensUsed}, quota: ${tokensQuota}`);
   }
 
   try {
@@ -103,28 +83,7 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
 
     // Record usage once the dataStream is closed.
     if (token) {
-      result.usage
-        .then(async (usage) => {
-          const Authorization = `Bearer ${token}`;
-          const url = `${PROVISION_HOST}/api/dashboard/teams/${teamSlug}/usage/record_tokens`;
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              Authorization,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              tokens: usage.totalTokens,
-            }),
-          });
-          if (!response.ok) {
-            logger.error('Failed to record usage', response);
-            logger.error(await response.json());
-          }
-        })
-        .catch((error) => {
-          logger.error('Error in usage recording:', error);
-        });
+      result.usage.then((usage) => recordUsage(PROVISION_HOST, token, teamSlug, deploymentName, usage));
     }
 
     return new Response(dataStream, {
