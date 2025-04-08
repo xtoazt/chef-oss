@@ -148,11 +148,6 @@ function removeCodeFromUrl() {
 const SELECTED_TEAM_SLUG_KEY = 'selectedConvexTeamSlug';
 export const selectedTeamSlugStore = atom<string | null>(null);
 
-export function useSelectedTeamSlug(): string | null {
-  const selectedTeamSlug = useStore(selectedTeamSlugStore);
-  return selectedTeamSlug;
-}
-
 export function initializeSelectedTeamSlug(teams: ConvexTeam[]) {
   const teamSlugFromLocalStorage = getLocalStorage(SELECTED_TEAM_SLUG_KEY);
   if (teamSlugFromLocalStorage) {
@@ -174,6 +169,11 @@ export function initializeSelectedTeamSlug(teams: ConvexTeam[]) {
 }
 
 export function setSelectedTeamSlug(teamSlug: string | null) {
-  selectedTeamSlugStore.set(teamSlug);
   setLocalStorage(SELECTED_TEAM_SLUG_KEY, teamSlug);
+  selectedTeamSlugStore.set(teamSlug);
+}
+
+export function useSelectedTeamSlug(): string | null {
+  const selectedTeamSlug = useStore(selectedTeamSlugStore);
+  return selectedTeamSlug;
 }
