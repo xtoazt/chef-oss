@@ -36,6 +36,7 @@ import { captureException } from '@sentry/remix';
 import { setExtra, setUser } from '@sentry/remix';
 import { useAuth0 } from '@auth0/auth0-react';
 import { setProfile } from '~/lib/stores/profile';
+import type { ActionStatus } from '~/lib/runtime/action-runner';
 
 const logger = createScopedLogger('Chat');
 
