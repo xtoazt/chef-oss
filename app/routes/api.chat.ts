@@ -24,7 +24,7 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   // TODO(nipunn) - enable rate limiting before launch
   // keeping it off for now to avoid ratelimiting our early adopter testers
   // until we have full entitlements grants in place.
-  const enableRateLimiting = false;
+  const enableRateLimiting = true;
 
   let tracer: Tracer | null = null;
   if (AXIOM_API_TOKEN && AXIOM_API_URL && AXIOM_DATASET_NAME) {
@@ -60,13 +60,13 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
     messages: Messages;
     firstUserMessage: boolean;
     chatId: string;
-    deploymentName: string;
-    token: string | undefined;
+    token: string;
     teamSlug: string;
+    deploymentName: string | undefined;
   }>();
   const { messages, firstUserMessage, chatId, deploymentName, token, teamSlug } = body;
 
-  if (token && enableRateLimiting) {
+  if (enableRateLimiting) {
     const resp = await checkTokenUsage(PROVISION_HOST, token, teamSlug, deploymentName);
     if (resp) {
       return resp;
@@ -74,7 +74,7 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   }
 
   const recordUsageCb = async (usage: LanguageModelUsage) => {
-    if (token && enableRateLimiting) {
+    if (enableRateLimiting) {
       await recordUsage(PROVISION_HOST, token, teamSlug, deploymentName, usage);
     }
   };
