@@ -27,7 +27,7 @@ export async function checkTokenUsage(provisionHost: string, token: string, team
       status: 402,
     });
   }
-  logger.info(`Tokens used: ${tokensUsed}, quota: ${tokensQuota}`);
+  logger.info(`${teamSlug}/${deploymentName}: Tokens used: ${tokensUsed} / ${tokensQuota}`);
   return null;
 }
 
