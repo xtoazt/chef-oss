@@ -15,7 +15,7 @@ export async function action(args: ActionFunctionArgs) {
 
 export type Tracer = ReturnType<typeof WebTracerProvider.prototype.getTracer>;
 
-async function chatAction({ request, context }: ActionFunctionArgs, env: Env) {
+async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   const AXIOM_API_TOKEN = getEnv(env, 'AXIOM_API_TOKEN');
   const AXIOM_API_URL = getEnv(env, 'AXIOM_API_URL');
   const AXIOM_DATASET_NAME = getEnv(env, 'AXIOM_DATASET_NAME');
@@ -51,7 +51,14 @@ async function chatAction({ request, context }: ActionFunctionArgs, env: Env) {
     logger.warn('⚠️ AXIOM_API_TOKEN, AXIOM_API_URL, and AXIOM_DATASET_NAME not set, skipping Axiom instrumentation.');
   }
 
-  const body = await request.json<{ messages: Messages; firstUserMessage: boolean; chatId: string; deploymentName: string; token: string; teamSlug: string; }>();
+  const body = await request.json<{
+    messages: Messages;
+    firstUserMessage: boolean;
+    chatId: string;
+    deploymentName: string;
+    token: string;
+    teamSlug: string;
+  }>();
   const { messages, firstUserMessage, chatId, deploymentName, token, teamSlug } = body;
 
   if (token) {
