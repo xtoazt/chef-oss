@@ -1,6 +1,6 @@
 import { convertToCoreMessages, streamText, type LanguageModelV1, type Message, type StepResult } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { constantPrompt, roleSystemPrompt } from '~/lib/common/prompts/system';
+import { ROLE_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT_PRELUDE, generalSystemPrompt } from '~/lib/common/prompts/system';
 import { deployTool } from '~/lib/runtime/deployTool';
 import { viewTool } from '~/lib/runtime/viewTool';
 import type { ConvexToolSet } from '~/lib/common/types';
@@ -9,6 +9,7 @@ import { openai } from '@ai-sdk/openai';
 import type { Tracer } from '~/routes/api.chat';
 import { editTool } from '~/lib/runtime/editTool';
 import { captureException } from '@sentry/remix';
+import type { SystemPromptOptions } from '~/lib/common/prompts/types';
 
 type Messages = Message[];
 
@@ -40,46 +41,43 @@ export async function convexAgent(
     };
   } else {
     // Falls back to the low Quality-of-Service Anthropic API key if the primary key is rate limited
-    const rateLimitAwareFetch = () => {
-      return async (input: RequestInfo | URL, init?: RequestInit) => {
-        const enrichedOptions = anthropicInjectCacheControl(constantPrompt, init);
-        try {
-          const response = await fetch(input, enrichedOptions);
+    const rateLimitAwareFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const enrichedOptions = anthropicInjectCacheControl(init);
+      try {
+        const response = await fetch(input, enrichedOptions);
+        if (response.status == 429) {
+          captureException('Rate limited by Anthropic, switching to low QoS API key', {
+            level: 'warning',
+            extra: {
+              response,
+            },
+          });
 
-          if (response.status == 429) {
-            captureException('Rate limited by Anthropic, switching to low QoS API key', {
-              level: 'warning',
-              extra: {
-                response,
-              },
-            });
+          const lowQosKey = getEnv(env, 'ANTHROPIC_LOW_QOS_API_KEY');
 
-            const lowQosKey = getEnv(env, 'ANTHROPIC_LOW_QOS_API_KEY');
-
-            if (!lowQosKey) {
-              return response;
-            }
-
-            if (enrichedOptions && enrichedOptions.headers) {
-              const headers = new Headers(enrichedOptions.headers);
-              headers.set('x-api-key', lowQosKey);
-              enrichedOptions.headers = headers;
-            }
-
-            return fetch(input, enrichedOptions);
+          if (!lowQosKey) {
+            return response;
           }
 
-          return response;
-        } catch (error) {
-          console.error('Error with Anthropic API call:', error);
-          throw error;
+          if (enrichedOptions && enrichedOptions.headers) {
+            const headers = new Headers(enrichedOptions.headers);
+            headers.set('x-api-key', lowQosKey);
+            enrichedOptions.headers = headers;
+          }
+
+          return fetch(input, enrichedOptions);
         }
-      };
+
+        return response;
+      } catch (error) {
+        console.error('Error with Anthropic API call:', error);
+        throw error;
+      }
     };
 
     const anthropic = createAnthropic({
       apiKey: getEnv(env, 'ANTHROPIC_API_KEY'),
-      fetch: rateLimitAwareFetch(),
+      fetch: rateLimitAwareFetch,
     });
     const model = getEnv(env, 'ANTHROPIC_MODEL') || 'claude-3-5-sonnet-20241022';
     provider = {
@@ -87,17 +85,22 @@ export async function convexAgent(
       maxTokens: 8192,
     };
   }
+  const opts: SystemPromptOptions = {
+    enableBulkEdits: true,
+    enablePreciseEdits: false,
+    includeTemplate: true,
+  };
   const result = streamText({
     model: provider.model,
     maxTokens: provider.maxTokens,
     messages: [
       {
         role: 'system',
-        content: roleSystemPrompt,
+        content: ROLE_SYSTEM_PROMPT,
       },
       {
         role: 'system',
-        content: constantPrompt,
+        content: generalSystemPrompt(opts),
       },
       ...cleanupAssistantMessages(messages),
     ],
@@ -125,7 +128,7 @@ export async function convexAgent(
 // `providerOptions.anthropic.cacheControl` doesn't seem to do
 // anything. So, we instead directly inject the cache control
 // header into the body of the request.
-function anthropicInjectCacheControl(guidelinesPrompt: string, options?: RequestInit) {
+function anthropicInjectCacheControl(options?: RequestInit) {
   const start = Date.now();
   if (!options) {
     return options;
@@ -150,11 +153,11 @@ function anthropicInjectCacheControl(guidelinesPrompt: string, options?: Request
   if (body.system.length < 2) {
     throw new Error('Body must contain at least two system messages');
   }
-  if (body.system[0].text !== roleSystemPrompt) {
+  if (body.system[0].text !== ROLE_SYSTEM_PROMPT) {
     throw new Error('First system message must be the roleSystemPrompt');
   }
-  if (body.system[1].text !== constantPrompt) {
-    throw new Error('Second system message must be the constantPrompt');
+  if (!body.system[1].text.startsWith(GENERAL_SYSTEM_PROMPT_PRELUDE)) {
+    throw new Error('Second system message must be the generalSystemPrompt');
   }
 
   // Inject the cache control header after the constant prompt, but leave

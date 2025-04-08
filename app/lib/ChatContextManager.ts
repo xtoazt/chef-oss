@@ -347,7 +347,7 @@ function abbreviateToolInvocation(toolInvocation: ToolInvocation): string {
       if (toolInvocation.result.startsWith('Directory:')) {
         verb = 'listed';
       }
-      toolCall = `${verb} ${args?.data.path || 'unknown file'}`;
+      toolCall = `${verb} ${args?.data?.path || 'unknown file'}`;
       break;
     }
     case 'deploy': {
