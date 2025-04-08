@@ -55,6 +55,8 @@ export function Chat() {
         token: projectInfo.adminKey,
         deploymentName: projectInfo.deploymentName,
         deploymentUrl: projectInfo.deploymentUrl,
+        projectSlug: projectInfo.projectSlug,
+        teamSlug: projectInfo.teamSlug,
       });
     }
   }, [projectInfo]);
@@ -139,10 +141,14 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     sendExtraMessageFields: true,
     experimental_prepareRequestBody: ({ messages }) => {
       const chatId = chatIdStore.get() ?? '';
+      const convex = convexStore.get();
       return {
         messages: chatContextManager.current.prepareContext(messages),
         firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
         chatId,
+        deploymentName: convex?.deploymentName,
+        token: convex?.token,
+        teamSlug: convex?.teamSlug,
       };
     },
     maxSteps: 64,

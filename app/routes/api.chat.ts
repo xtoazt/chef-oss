@@ -3,7 +3,8 @@ import { createScopedLogger } from '~/utils/logger';
 import { convexAgent, getEnv } from '~/lib/.server/llm/convex-agent';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { BatchSpanProcessor, WebTracerProvider } from '@opentelemetry/sdk-trace-web';
-import type { Message } from 'ai';
+import type { LanguageModelUsage, Message } from 'ai';
+import { checkTokenUsage, recordUsage } from '~/lib/.server/usage';
 
 type Messages = Message[];
 
@@ -19,6 +20,8 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   const AXIOM_API_TOKEN = getEnv(env, 'AXIOM_API_TOKEN');
   const AXIOM_API_URL = getEnv(env, 'AXIOM_API_URL');
   const AXIOM_DATASET_NAME = getEnv(env, 'AXIOM_DATASET_NAME');
+  const PROVISION_HOST = getEnv(env, 'PROVISION_HOST') || 'https://api.convex.dev';
+
   let tracer: Tracer | null = null;
   if (AXIOM_API_TOKEN && AXIOM_API_URL && AXIOM_DATASET_NAME) {
     const exporter = new OTLPTraceExporter({
@@ -49,12 +52,34 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
     logger.warn('⚠️ AXIOM_API_TOKEN, AXIOM_API_URL, and AXIOM_DATASET_NAME not set, skipping Axiom instrumentation.');
   }
 
-  const body = await request.json<{ messages: Messages; firstUserMessage: boolean; chatId: string }>();
-  const { messages, firstUserMessage, chatId } = body;
+  const body = await request.json<{
+    messages: Messages;
+    firstUserMessage: boolean;
+    chatId: string;
+    deploymentName: string;
+    token: string | undefined;
+    teamSlug: string;
+  }>();
+  const { messages, firstUserMessage, chatId, deploymentName, token, teamSlug } = body;
+
+  if (token) {
+    const resp = await checkTokenUsage(PROVISION_HOST, token, teamSlug, deploymentName);
+    if (resp) {
+      return resp;
+    }
+  }
+
+  const recordUsageCb = async (usage: LanguageModelUsage) => {
+    if (token) {
+      await recordUsage(PROVISION_HOST, token, teamSlug, deploymentName, usage);
+    }
+  };
+
   try {
     const totalMessageContent = messages.reduce((acc, message) => acc + message.content, '');
     logger.debug(`Total message length: ${totalMessageContent.split(' ').length}, words`);
-    const dataStream = await convexAgent(chatId, env, firstUserMessage, messages, tracer);
+    const dataStream = await convexAgent(chatId, env, firstUserMessage, messages, tracer, recordUsageCb);
+
     return new Response(dataStream, {
       status: 200,
       headers: {

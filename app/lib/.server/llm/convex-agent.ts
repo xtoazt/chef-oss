@@ -1,4 +1,11 @@
-import { convertToCoreMessages, streamText, type LanguageModelV1, type Message, type StepResult } from 'ai';
+import {
+  convertToCoreMessages,
+  streamText,
+  type LanguageModelUsage,
+  type LanguageModelV1,
+  type Message,
+  type StepResult,
+} from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { ROLE_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT_PRELUDE, generalSystemPrompt } from '~/lib/common/prompts/system';
 import { deployTool } from '~/lib/runtime/deployTool';
@@ -31,6 +38,7 @@ export async function convexAgent(
   firstUserMessage: boolean,
   messages: Messages,
   tracer: Tracer | null,
+  recordUsageCb: (usage: LanguageModelUsage) => Promise<void>,
 ) {
   let provider: Provider;
   if (getEnv(env, 'USE_OPENAI')) {
@@ -105,7 +113,7 @@ export async function convexAgent(
       ...cleanupAssistantMessages(messages),
     ],
     tools,
-    onFinish: (result) => onFinishHandler(result, tracer, chatId),
+    onFinish: (result) => onFinishHandler(result, tracer, chatId, recordUsageCb),
 
     experimental_telemetry: {
       isEnabled: true,
@@ -187,6 +195,7 @@ async function onFinishHandler(
   result: Omit<StepResult<any>, 'stepType' | 'isContinued'>,
   tracer: Tracer | null,
   chatId: string,
+  recordUsageCb: (usage: LanguageModelUsage) => Promise<void>,
 ) {
   const { usage } = result;
   console.log('Finished streaming', {
@@ -210,6 +219,10 @@ async function onFinishHandler(
     }
     span.end();
   }
+
+  // Record usage once the dataStream is closed.
+  await recordUsageCb(usage);
+
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
