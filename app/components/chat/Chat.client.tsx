@@ -15,8 +15,6 @@ import Cookies from 'js-cookie';
 import { debounce } from '~/utils/debounce';
 import { useSearchParams } from '@remix-run/react';
 import { createSampler } from '~/utils/sampler';
-import { logStore } from '~/lib/stores/logs';
-import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
 import { webcontainer } from '~/lib/webcontainer';
@@ -31,7 +29,7 @@ import { convexStore, useConvexSessionId, useConvexSessionIdOrNullOrLoading } fr
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { toast, Toaster } from 'sonner';
-import type { PartId } from '~/lib/stores/Artifacts';
+import type { PartId } from '~/lib/stores/artifacts';
 import { captureException } from '@sentry/remix';
 import { setExtra, setUser } from '@sentry/remix';
 import { useAuth0 } from '@auth0/auth0-react';
@@ -178,11 +176,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
       });
       console.log('Error', e);
       logger.error('Request failed\n\n', e, error);
-      logStore.logError('Chat request failed', e, {
-        component: 'Chat',
-        action: 'request',
-        error: e.message,
-      });
       toast.error(
         'There was an error processing your request: ' + (e.message ? e.message : 'No details were returned'),
       );
@@ -193,12 +186,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
 
       if (usage) {
         console.log('Token usage:', usage);
-        logStore.logProvider('Chat response completed', {
-          component: 'Chat',
-          action: 'response',
-          usage,
-          messageLength: message.content.length,
-        });
       }
 
       logger.debug('Finished streaming');
@@ -252,11 +239,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     stop();
     chatStore.setKey('aborted', true);
     workbenchStore.abortAllActions();
-
-    logStore.logProvider('Chat response aborted', {
-      component: 'Chat',
-      action: 'abort',
-    });
   };
 
   useEffect(() => {
@@ -411,9 +393,6 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
       showChat={showChat}
       chatStarted={chatStarted}
       streamStatus={status}
-      onStreamingChange={(streaming) => {
-        streamingState.set(streaming);
-      }}
       sendMessage={sendMessage}
       messageRef={messageRef}
       scrollRef={scrollRef}

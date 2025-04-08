@@ -1,5 +1,5 @@
 import type { JSONValue, Message } from 'ai';
-import React, { type RefCallback, useEffect } from 'react';
+import React, { type RefCallback } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
 import { Menu } from '~/components/sidebar/Menu.client';
 import { Workbench } from '~/components/workbench/Workbench.client';
@@ -32,7 +32,6 @@ interface BaseChatProps {
   showChat?: boolean;
   chatStarted?: boolean;
   streamStatus?: 'streaming' | 'submitted' | 'ready' | 'error';
-  onStreamingChange?: (streaming: boolean) => void;
   messages?: Message[];
   description?: string;
   input?: string;
@@ -64,7 +63,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       showChat = true,
       chatStarted = false,
       streamStatus = 'ready',
-      onStreamingChange,
       input = '',
       handleInputChange,
       sendMessage,
@@ -86,9 +84,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const selectedTeamSlug = useSelectedTeamSlug();
 
     const isStreaming = streamStatus === 'streaming' || streamStatus === 'submitted';
-    useEffect(() => {
-      onStreamingChange?.(isStreaming);
-    }, [isStreaming, onStreamingChange]);
 
     const handleSendMessage = (event: React.UIEvent, messageInput?: string) => {
       const canSendMessage = flexAuthMode !== 'ConvexOAuth' || selectedTeamSlug !== null;
