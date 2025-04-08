@@ -21,6 +21,10 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   const AXIOM_API_URL = getEnv(env, 'AXIOM_API_URL');
   const AXIOM_DATASET_NAME = getEnv(env, 'AXIOM_DATASET_NAME');
   const PROVISION_HOST = getEnv(env, 'PROVISION_HOST') || 'https://api.convex.dev';
+  // TODO(nipunn) - enable rate limiting before launch
+  // keeping it off for now to avoid ratelimiting our early adopter testers
+  // until we have full entitlements grants in place.
+  const enableRateLimiting = false;
 
   let tracer: Tracer | null = null;
   if (AXIOM_API_TOKEN && AXIOM_API_URL && AXIOM_DATASET_NAME) {
@@ -62,7 +66,7 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   }>();
   const { messages, firstUserMessage, chatId, deploymentName, token, teamSlug } = body;
 
-  if (token) {
+  if (token && enableRateLimiting) {
     const resp = await checkTokenUsage(PROVISION_HOST, token, teamSlug, deploymentName);
     if (resp) {
       return resp;
@@ -70,7 +74,7 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
   }
 
   const recordUsageCb = async (usage: LanguageModelUsage) => {
-    if (token) {
+    if (token && enableRateLimiting) {
       await recordUsage(PROVISION_HOST, token, teamSlug, deploymentName, usage);
     }
   };
