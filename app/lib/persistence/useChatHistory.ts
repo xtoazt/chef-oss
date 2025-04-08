@@ -11,6 +11,7 @@ import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/convex';
 import { webcontainer } from '~/lib/webcontainer';
 import { loadSnapshot } from '~/lib/snapshot';
 import { makePartId, type PartId } from '~/lib/stores/Artifacts';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface IChatMetadata {
   gitUrl: string;
@@ -138,6 +139,8 @@ export const useChatHistoryConvex = () => {
       });
   }, [mixedId, sessionId, convex]);
 
+  const { getAccessTokenSilently } = useAuth0();
+
   return {
     ready: mixedId === undefined || (ready && !isLoading),
     initialMessages: initialDeserializedMessages,
@@ -163,39 +166,41 @@ export const useChatHistoryConvex = () => {
       },
       [convex, sessionId],
     ),
-    initializeChat: useCallback(async () => {
-      if (!sessionId) {
-        console.error('Cannot start chat with no session ID');
-        return;
-      }
+    initializeChat: useCallback(
+      async (teamSlug: string) => {
+        if (!sessionId) {
+          console.error('Cannot start chat with no session ID');
+          return;
+        }
 
-      /*
-       * Synchronously allocate a new ID -- this ID is temporary and will be replaced by a
-       * more human-friendly ID when the first message is added.
-       */
-      if (!chatIdStore.get()) {
-        const nextId = crypto.randomUUID();
-        chatIdStore.set(nextId);
-      }
+        /*
+         * Synchronously allocate a new ID -- this ID is temporary and will be replaced by a
+         * more human-friendly ID when the first message is added.
+         */
+        if (!chatIdStore.get()) {
+          const nextId = crypto.randomUUID();
+          chatIdStore.set(nextId);
+        }
 
-      const id = chatIdStore.get() as string;
+        const id = chatIdStore.get() as string;
 
-      const result = await convex.mutation(api.messages.addMessages, {
-        id,
-        sessionId,
-        messages: [],
-        expectedLength: 0,
-        startIndex: 0,
-      });
+        const response = await getAccessTokenSilently({ detailedResponse: true });
 
-      setPersistedMessages([]);
-      persistInProgress.current = false;
+        await convex.mutation(api.messages.initializeChat, {
+          id,
+          sessionId,
+          projectInitParams: {
+            teamSlug,
+            auth0AccessToken: response.id_token,
+          },
+        });
+        setPersistedMessages([]);
 
-      if (urlId !== result.id) {
-        setUrlId(result.id);
-        navigateChat(result.id);
-      }
-    }, [convex, urlId, sessionId]),
+        setUrlId(id);
+        navigateChat(id);
+      },
+      [convex, urlId, sessionId, getAccessTokenSilently],
+    ),
     storeMessageHistory: useCallback(
       async (messages: Message[]) => {
         if (messages.length === 0) {
