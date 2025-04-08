@@ -86,12 +86,47 @@ async function chatAction({ request }: ActionFunctionArgs, env: Env) {
         status: 402,
       });
     }
+    logger.info(`Tokens used: ${tokensUsed}, quota: ${tokensQuota}`);
   }
 
   try {
     const totalMessageContent = messages.reduce((acc, message) => acc + message.content, '');
     logger.debug(`Total message length: ${totalMessageContent.split(' ').length}, words`);
-    const dataStream = await convexAgent(chatId, env, firstUserMessage, messages, tracer);
+    const result = await convexAgent(chatId, env, firstUserMessage, messages, tracer);
+
+    // Create the streaming response
+    const dataStream = result.toDataStream({
+      getErrorMessage: (error: any) => {
+        return `Failed to generate response: ${error.message}`;
+      },
+    });
+
+    // Record usage once the dataStream is closed.
+    if (token) {
+      result.usage
+        .then(async (usage) => {
+          const Authorization = `Bearer ${token}`;
+          const url = `${PROVISION_HOST}/api/dashboard/teams/${teamSlug}/usage/record_tokens`;
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              Authorization,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              tokens: usage.totalTokens,
+            }),
+          });
+          if (!response.ok) {
+            logger.error('Failed to record usage', response);
+            logger.error(await response.json());
+          }
+        })
+        .catch((error) => {
+          logger.error('Error in usage recording:', error);
+        });
+    }
+
     return new Response(dataStream, {
       status: 200,
       headers: {

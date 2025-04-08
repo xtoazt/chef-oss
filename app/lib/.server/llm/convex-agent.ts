@@ -115,11 +115,7 @@ export async function convexAgent(
       },
     },
   });
-  return result.toDataStream({
-    getErrorMessage: (error: any) => {
-      return `Failed to generate response: ${error.message}`;
-    },
-  });
+  return result;
 }
 
 // sujayakar, 2025-03-25: This is mega-hax, but I can't figure out
