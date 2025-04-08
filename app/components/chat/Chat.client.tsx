@@ -107,7 +107,6 @@ interface ChatProps {
 
 const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, initializeChat }: ChatProps) => {
   useShortcuts();
-  const convex = useStore(convexStore);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [chatStarted, setChatStarted] = useState(initialMessages.length > 0);
@@ -142,6 +141,7 @@ const ChatImpl = memo(({ description, initialMessages, storeMessageHistory, init
     sendExtraMessageFields: true,
     experimental_prepareRequestBody: ({ messages }) => {
       const chatId = chatIdStore.get() ?? '';
+      const convex = convexStore.get();
       return {
         messages: chatContextManager.current.prepareContext(messages),
         firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
