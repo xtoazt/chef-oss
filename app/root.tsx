@@ -18,6 +18,8 @@ import { ErrorDisplay } from './components/ErrorComponent';
 import globalStyles from './styles/index.scss?url';
 import xtermStyles from '@xterm/xterm/css/xterm.css?url';
 
+import 'allotment/dist/style.css';
+
 import 'virtual:uno.css';
 
 export async function loader({ context: _context }: LoaderFunctionArgs) {

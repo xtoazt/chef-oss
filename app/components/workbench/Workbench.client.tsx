@@ -1,7 +1,7 @@
 import { useStore } from '@nanostores/react';
 import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { ActionRunner } from '~/lib/runtime/action-runner';
 import {
@@ -21,6 +21,7 @@ import useViewport from '~/lib/hooks';
 import { Dashboard } from './Dashboard';
 import { convexStore } from '~/lib/stores/convex';
 import { WORK_DIR } from '~/utils/constants';
+import { Allotment } from 'allotment';
 import { SaveStatusIndicator } from '~/components/SaveStatusIndicator';
 
 interface WorkspaceProps {
@@ -62,6 +63,8 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
   const selectedView = useStore(workbenchStore.currentView);
 
   const isSmallViewport = useViewport(1024);
+
+  const [previewPanes, setPreviewPanes] = useState<string[]>(() => [randomId()]);
 
   const setSelectedView = (view: WorkbenchViewType) => {
     workbenchStore.currentView.set(view);
@@ -189,6 +192,17 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
                       </PanelHeaderButton>
                     </div>
                   )}
+                  {selectedView === 'preview' && (
+                    <PanelHeaderButton
+                      className="mr-1 text-sm"
+                      onClick={() => {
+                        setPreviewPanes([...previewPanes, randomId()]);
+                      }}
+                    >
+                      <div className="i-ph:plus" />
+                      Add Preview
+                    </PanelHeaderButton>
+                  )}
                   <IconButton
                     icon="i-ph:x-circle"
                     className="-mr-1"
@@ -215,7 +229,17 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
                     />
                   </View>
                   <View {...slidingPosition({ view: 'preview', selectedView, showDashboard })}>
-                    <Preview />
+                    <Allotment vertical minSize={150}>
+                      {previewPanes.map((paneId) => (
+                        <Preview
+                          key={paneId}
+                          showClose={previewPanes.length > 1}
+                          onClose={() => {
+                            setPreviewPanes(previewPanes.filter((id) => id !== paneId));
+                          }}
+                        />
+                      ))}
+                    </Allotment>
                   </View>
                   {showDashboard && (
                     <View {...slidingPosition({ view: 'dashboard', selectedView, showDashboard })}>
@@ -265,4 +289,8 @@ function slidingPosition({
     initial: position,
     animate: position,
   } satisfies Partial<ViewProps>;
+}
+
+function randomId() {
+  return Math.random().toString(36).substring(2, 15);
 }
