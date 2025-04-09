@@ -4,7 +4,6 @@ import { useStore } from '@nanostores/react';
 import type { ConvexReactClient } from 'convex/react';
 import { atom } from 'nanostores';
 import { setLocalStorage, getLocalStorage } from '~/lib/persistence';
-import { removeCodeFromUrl } from '~/lib/stores/convex';
 
 export function useConvexSessionIdOrNullOrLoading(): Id<'sessions'> | null | undefined {
   const sessionId = useStore(sessionIdStore);
@@ -40,34 +39,17 @@ export async function waitForConvexSessionId(caller?: string): Promise<Id<'sessi
 const SESSION_ID_KEY = 'sessionIdForConvex';
 export const sessionIdStore = atom<Id<'sessions'> | null | undefined>(undefined);
 
-export function setInitialConvexSessionId(
-  convex: ConvexReactClient,
-  args: {
-    codeFromLoader: string | null;
-    flexAuthMode: 'InviteCode' | 'ConvexOAuth';
-  },
-) {
+export function setInitialConvexSessionId(convex: ConvexReactClient) {
   function setSessionId(sessionId: Id<'sessions'> | null) {
     setLocalStorage(SESSION_ID_KEY, sessionId);
     sessionIdStore.set(sessionId);
   }
-
-  if (args.codeFromLoader && args.flexAuthMode === 'InviteCode') {
-    convex.mutation(api.sessions.getSession, { code: args.codeFromLoader }).then((sessionId) => {
-      if (sessionId) {
-        setSessionId(sessionId as Id<'sessions'>);
-        removeCodeFromUrl();
-      }
-    });
-    return;
-  }
-
   const sessionIdFromLocalStorage = getLocalStorage(SESSION_ID_KEY);
   if (sessionIdFromLocalStorage) {
     convex
       .query(api.sessions.verifySession, {
         sessionId: sessionIdFromLocalStorage as Id<'sessions'>,
-        flexAuthMode: args.flexAuthMode,
+        flexAuthMode: 'ConvexOAuth',
       })
       .then((validatedSessionId) => {
         if (validatedSessionId) {
@@ -79,36 +61,14 @@ export function setInitialConvexSessionId(
     return;
   }
 
-  if (args.flexAuthMode === 'ConvexOAuth') {
-    convex
-      .mutation(api.sessions.startSession)
-      .then((sessionId) => {
-        setSessionId(sessionId);
-      })
-      .catch((error) => {
-        setSessionId(null);
-        console.error('Error starting session', error);
-      });
-    return;
-  }
-
-  // If there's not a sessionId in local storage or from the loader, set it to null
-  sessionIdStore.set(null);
-}
-
-export async function setConvexSessionIdFromCode(
-  convex: ConvexReactClient,
-  code: string,
-  onError: (error: Error) => void,
-) {
   convex
-    .mutation(api.sessions.getSession, { code })
+    .mutation(api.sessions.startSession)
     .then((sessionId) => {
-      sessionIdStore.set(sessionId);
-      setLocalStorage(SESSION_ID_KEY, sessionId);
+      setSessionId(sessionId);
     })
     .catch((error) => {
-      sessionIdStore.set(null);
-      onError(error);
+      setSessionId(null);
+      console.error('Error starting session', error);
     });
+  return;
 }
