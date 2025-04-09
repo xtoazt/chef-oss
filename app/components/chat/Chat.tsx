@@ -336,6 +336,11 @@ export const Chat = memo(({ initialMessages, storeMessageHistory, initializeChat
   );
 
   const [messageRef, scrollRef] = useSnapScroll();
+  const shouldDeployConvexFunctions = messages.some(
+    (message) =>
+      message.role === 'assistant' &&
+      message.parts?.some((part) => part.type === 'tool-invocation' && part.toolInvocation.toolName === 'deploy'),
+  );
 
   return (
     <BaseChat
@@ -372,6 +377,10 @@ export const Chat = memo(({ initialMessages, storeMessageHistory, initializeChat
       })}
       actionAlert={actionAlert}
       clearAlert={() => workbenchStore.clearAlert()}
+      terminalInitializationOptions={{
+        isReload: initialMessages.length > 0,
+        shouldDeployConvexFunctions,
+      }}
     />
   );
 });

@@ -22,10 +22,12 @@ import { convexStore } from '~/lib/stores/convex';
 import { WORK_DIR } from '~/utils/constants';
 import { SaveStatusIndicator } from '~/components/SaveStatusIndicator';
 import { Allotment } from 'allotment';
+import type { TerminalInitializationOptions } from '~/types/terminal';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
   isStreaming?: boolean;
+  terminalInitializationOptions?: TerminalInitializationOptions;
 }
 
 const viewTransition = { ease: cubicEasingFn };
@@ -47,7 +49,7 @@ const workbenchVariants = {
   },
 } satisfies Variants;
 
-export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => {
+export const Workbench = memo(({ chatStarted, isStreaming, terminalInitializationOptions }: WorkspaceProps) => {
   renderLogger.trace('Workbench');
 
   // const modifiedFiles = Array.from(useStore(workbenchStore.unsavedFiles).keys());
@@ -224,6 +226,7 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
                       onEditorChange={onEditorChange}
                       onFileSave={onFileSave}
                       onFileReset={onFileReset}
+                      terminalInitializationOptions={terminalInitializationOptions}
                     />
                   </View>
                   <View {...slidingPosition({ view: 'preview', selectedView, showDashboard })}>

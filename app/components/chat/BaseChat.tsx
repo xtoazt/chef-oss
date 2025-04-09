@@ -18,6 +18,7 @@ import { KeyboardShortcut } from '~/components/ui/KeyboardShortcut';
 import StreamingIndicator from './StreamingIndicator';
 import type { ToolStatus } from '~/lib/common/types';
 import { TeamSelector } from '~/components/convex/TeamSelector';
+import type { TerminalInitializationOptions } from '~/types/terminal';
 const TEXTAREA_MIN_HEIGHT = 76;
 
 interface BaseChatProps {
@@ -48,6 +49,7 @@ interface BaseChatProps {
   currentError: Error | undefined;
   toolStatus: ToolStatus;
   messages: Message[];
+  terminalInitializationOptions: TerminalInitializationOptions | undefined;
 
   // Alert related props
   actionAlert: ActionAlert | undefined;
@@ -75,6 +77,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       actionAlert,
       clearAlert,
       toolStatus,
+      terminalInitializationOptions,
     },
     ref,
   ) => {
@@ -273,7 +276,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
               }}
             />
           </div>
-          <Workbench chatStarted={chatStarted} isStreaming={isStreaming} />
+          <Workbench
+            chatStarted={chatStarted}
+            isStreaming={isStreaming}
+            terminalInitializationOptions={terminalInitializationOptions}
+          />
         </div>
         {!chatStarted && (
           <div className="absolute bottom-4 right-6 text-lg font-display font-medium text-bolt-elements-textTertiary flex gap-3">
