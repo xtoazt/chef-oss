@@ -59,13 +59,16 @@ export function FlexAuthWrapper({ children }: { children: React.ReactNode }) {
     });
   }, [codeFromLoader]);
 
-  const isLoading = sessionId === undefined || flexAuthMode === undefined;
+  const isLoading =
+    sessionId === undefined || flexAuthMode === undefined || (flexAuthMode === 'ConvexOAuth' && isConvexAuthLoading);
 
   if (isLoading) {
     return <Loading />;
   }
 
-  if (sessionId === null) {
+  const isUnauthenticated = sessionId === null || (flexAuthMode === 'ConvexOAuth' && !isAuthenticated);
+
+  if (isUnauthenticated) {
     return <UnauthenticatedPrompt flexAuthMode={flexAuthMode} />;
   }
   if (!hasValidCode && flexAuthMode !== 'InviteCode') {
