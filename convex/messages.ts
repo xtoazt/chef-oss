@@ -95,38 +95,6 @@ export const setDescription = mutation({
   },
 });
 
-export const importChat = mutation({
-  args: {
-    sessionId: v.id('sessions'),
-    description: v.string(),
-    messages: v.array(v.any() as VAny<SerializedMessage>),
-  },
-  returns: v.object({
-    id: v.string(),
-    description: v.optional(v.string()),
-  }),
-  handler: async (ctx, args) => {
-    const { description, messages, sessionId } = args;
-
-    const chatId = await createNewChatFromMessages(ctx, {
-      id: crypto.randomUUID(),
-      sessionId,
-      description,
-    });
-    const chat = await ctx.db.get(chatId);
-
-    if (!chat) {
-      throw new Error(`Invalid state -- chat just created should exist: ${chatId}`);
-    }
-
-    return await _appendMessages(ctx, {
-      sessionId,
-      chat,
-      messages,
-    });
-  },
-});
-
 export async function getChat(ctx: QueryCtx, id: string, sessionId: Id<'sessions'>) {
   const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
 
@@ -162,47 +130,6 @@ export const get = query({
   handler: async (ctx, args) => {
     const { id, sessionId } = args;
     return await getChat(ctx, id, sessionId);
-  },
-});
-
-export const getWithMessages = query({
-  args: {
-    id: v.string(),
-    sessionId: v.id('sessions'),
-  },
-  returns: v.union(
-    v.null(),
-    v.object({
-      id: v.string(),
-      initialId: v.string(),
-      urlId: v.optional(v.string()),
-      description: v.optional(v.string()),
-      timestamp: v.string(),
-      messages: v.array(v.any() as VAny<SerializedMessage>),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const { id, sessionId } = args;
-
-    const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId });
-
-    if (!chat) {
-      return null;
-    }
-
-    const messages = await ctx.db
-      .query('chatMessages')
-      .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
-      .collect();
-
-    return {
-      id: getIdentifier(chat),
-      initialId: chat.initialId,
-      urlId: chat.urlId,
-      description: chat.description,
-      timestamp: chat.timestamp,
-      messages: messages.map((m) => m.content),
-    };
   },
 });
 
@@ -317,24 +244,6 @@ export const remove = mutation({
     }
 
     await ctx.db.delete(existing._id);
-  },
-});
-
-export const deleteAll = mutation({
-  args: {
-    sessionId: v.id('sessions'),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const { sessionId } = args;
-    const chats = await ctx.db
-      .query('chats')
-      .withIndex('byCreatorAndUrlId', (q) => q.eq('creatorId', sessionId))
-      .collect();
-
-    for (const chat of chats) {
-      await ctx.db.delete(chat._id);
-    }
   },
 });
 
