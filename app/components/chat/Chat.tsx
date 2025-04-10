@@ -5,7 +5,7 @@ import { useAnimate } from 'framer-motion';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useMessageParser, useShortcuts, useSnapScroll, type PartCache } from '~/lib/hooks';
 import { description } from '~/lib/stores/description';
-import { chatStore, useChatId } from '~/lib/stores/chatId';
+import { chatStore } from '~/lib/stores/chatId';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { PROMPT_COOKIE_KEY } from '~/utils/constants';
 import { cubicEasingFn } from '~/utils/easings';
@@ -19,15 +19,11 @@ import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
 import { webcontainer } from '~/lib/webcontainer';
 import { ContainerBootState, waitForBootStepCompleted } from '~/lib/stores/containerBootState';
-import { useConvexSessionId } from '~/lib/stores/sessionId';
 import { selectedTeamSlugStore } from '~/lib/stores/convexTeams';
 import { convexProjectStore } from '~/lib/stores/convexProject';
 import { toast } from 'sonner';
 import type { PartId } from '~/lib/stores/artifacts';
 import { captureException } from '@sentry/remix';
-import { setExtra, setUser } from '@sentry/remix';
-import { useAuth0 } from '@auth0/auth0-react';
-import { setProfile } from '~/lib/stores/profile';
 import type { ActionStatus } from '~/lib/runtime/action-runner';
 import { chatIdStore } from '~/lib/stores/chatId';
 import type { ModelProvider } from '~/lib/.server/llm/convex-agent';
@@ -40,7 +36,7 @@ const logger = createScopedLogger('Chat');
 const MAX_RETRIES = 3;
 
 const CHEF_TOO_BUSY_ERROR = 'Chef is too busy cooking right now. Please try again in a moment.';
-const VITE_PROVISION_HOST = import.meta.env.VITE_PROVISION_HOST || 'https://api.convex.dev';
+export const VITE_PROVISION_HOST = import.meta.env.VITE_PROVISION_HOST || 'https://api.convex.dev';
 
 const processSampledMessages = createSampler(
   (options: {
@@ -518,36 +514,6 @@ function useCurrentToolStatus() {
     };
   }, []);
   return toolStatus;
-}
-
-export function SentryUserProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth0();
-  const sessionId = useConvexSessionId();
-  const chatId = useChatId();
-
-  useEffect(() => {
-    setExtra('sessionId', sessionId);
-  }, [sessionId]);
-
-  useEffect(() => {
-    setExtra('chatId', chatId);
-  }, [chatId]);
-
-  useEffect(() => {
-    if (user) {
-      setUser({
-        id: user.sub ?? undefined,
-        username: user.name ?? user.nickname ?? undefined,
-        email: user.email ?? undefined,
-      });
-    }
-    setProfile({
-      username: user?.name ?? user?.nickname ?? '',
-      avatar: user?.picture ?? '',
-    });
-  }, [user]);
-
-  return children;
 }
 
 function exponentialBackoff(numFailures: number) {
