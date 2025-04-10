@@ -304,8 +304,8 @@ export const Preview = memo(({ showClose, onClose }: { showClose: boolean; onClo
                 title="preview"
                 className="border-none w-full h-full bg-bolt-elements-background-depth-1"
                 src={iframeUrl}
-                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-same-origin"
-                allow="cross-origin-isolated"
+                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-storage-access-by-user-activation allow-same-origin"
+                allow="cross-origin-isolated; clipboard-write"
               />
             ) : (
               <div className="flex w-full h-full justify-center items-center bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary">
