@@ -21,6 +21,7 @@ import type { TerminalInitializationOptions } from '~/types/terminal';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/sessionId';
 import { useChefAuth } from './ChefAuthWrapper';
 import { setSelectedTeamSlug, useSelectedTeamSlug } from '~/lib/stores/convexTeams';
+import { useFlags } from 'launchdarkly-react-client-sdk';
 import { openSignInWindow } from '~/components/ChefSignInPage';
 
 const TEXTAREA_MIN_HEIGHT = 76;
@@ -90,6 +91,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     },
     ref,
   ) => {
+    const { maintenanceMode } = useFlags();
     const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
 
     const isStreaming = streamStatus === 'streaming' || streamStatus === 'submitted';
@@ -118,7 +120,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             {!chatStarted && (
               <div id="intro" className="mt-[16vh] max-w-chat mx-auto text-center px-4 lg:px-0">
                 <h1 className="text-4xl lg:text-6xl font-black text-bolt-elements-textPrimary mb-4 animate-fade-in font-display tracking-tight">
-                  Now you’re cooking
+                  Now you&rsquo;re cooking
                 </h1>
                 <p className="text-md lg:text-2xl text-balance mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200 font-medium font-display">
                   Generate and launch realtime full‑stack apps you never thought possible
@@ -188,7 +190,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         'hover:border-bolt-elements-focus',
                         'disabled:opacity-50 disabled:cursor-not-allowed',
                       )}
-                      disabled={disableChatMessage !== null}
+                      disabled={disableChatMessage !== null || maintenanceMode}
                       onDragEnter={(e) => {
                         e.preventDefault();
                         e.currentTarget.style.border = '2px solid #1488fc';
@@ -260,7 +262,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                     <SendButton
                       show={input.length > 0 || isStreaming || uploadedFiles.length > 0 || sendMessageInProgress}
                       isStreaming={isStreaming}
-                      disabled={chefAuthState.kind === 'loading' || sendMessageInProgress}
+                      disabled={chefAuthState.kind === 'loading' || sendMessageInProgress || maintenanceMode}
                       onClick={(event) => {
                         if (isStreaming) {
                           handleStop?.();
@@ -295,6 +297,16 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 </div>
               </div>
             </div>
+            {maintenanceMode && (
+              <div className="max-w-chat mx-auto mb-4">
+                <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-200 px-4 py-3 rounded relative">
+                  <p className="font-bold">Chef is temporarily unavailable</p>
+                  <p className="text-sm">
+                    We're experiencing high load and will be back soon. Thank you for your patience.
+                  </p>
+                </div>
+              </div>
+            )}
             <SuggestionButtons
               disabled={disableChatMessage !== null}
               chatStarted={chatStarted}
