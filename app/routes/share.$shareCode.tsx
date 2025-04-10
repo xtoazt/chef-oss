@@ -1,6 +1,5 @@
 import { useStore } from '@nanostores/react';
 import { sessionIdStore, waitForConvexSessionId } from '~/lib/stores/sessionId';
-import type { Id } from '@convex/_generated/dataModel';
 import { json } from '@vercel/remix';
 import type { LoaderFunctionArgs } from '@vercel/remix';
 import { useMutation } from 'convex/react';
@@ -38,17 +37,17 @@ export default function ShareProject() {
 }
 
 function ShareProjectContent() {
-  const { shareId } = useParams();
+  const { shareCode } = useParams();
 
-  if (!shareId) {
-    throw new Error('shareId is required');
+  if (!shareCode) {
+    throw new Error('shareCode is required');
   }
 
   useTeamsInitializer();
   const chefAuthState = useChefAuth();
 
   const sessionId = useStore(sessionIdStore);
-  const cloneChat = useMutation(api.messages.clone);
+  const cloneChat = useMutation(api.share.clone);
   const { getAccessTokenSilently } = useAuth0();
   const handleCloneChat = useCallback(async () => {
     const sessionId = await waitForConvexSessionId('useInitializeChat');
@@ -58,7 +57,7 @@ function ShareProjectContent() {
       teamSlug,
       auth0AccessToken: response.id_token,
     };
-    const { id: chatId } = await cloneChat({ id: shareId as Id<'shares'>, sessionId, projectInitParams });
+    const { id: chatId } = await cloneChat({ shareCode, sessionId, projectInitParams });
     window.location.href = `/chat/${chatId}`;
   }, [sessionId, getAccessTokenSilently]);
   const signIn = useCallback(() => {
