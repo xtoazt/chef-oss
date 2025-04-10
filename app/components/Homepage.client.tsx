@@ -1,5 +1,5 @@
 import { Chat } from './chat/Chat';
-import { ChefAuthWrapper } from './chat/ChefAuthWrapper';
+import { ChefAuthProvider } from './chat/ChefAuthWrapper';
 import { useRef } from 'react';
 import { useConvexChatHomepage } from '~/lib/stores/startup';
 import { Toaster } from 'sonner';
@@ -9,34 +9,38 @@ import type { PartCache } from '~/lib/hooks';
 import { UserProvider } from '~/components/UserProvider';
 
 export function Homepage() {
+  // NB: On this path, we render `ChatImpl` immediately.
+  return (
+    <>
+      <ChefAuthProvider redirectIfUnauthenticated={false}>
+        <UserProvider>
+          <ChatWrapper />
+        </UserProvider>
+      </ChefAuthProvider>
+      <Toaster position="bottom-right" closeButton richColors />
+    </>
+  );
+}
+
+const ChatWrapper = () => {
   // Set up a temporary chat ID early in app initialization. We'll
   // eventually replace this with a slug once we receive the first
   // artifact from the model if the user submits a prompt.
   const initialId = useRef(crypto.randomUUID());
   setPageLoadChatId(initialId.current);
 
-  const { storeMessageHistory, initializeChat } = useConvexChatHomepage(initialId.current);
-
   const partCache = useRef<PartCache>(new Map());
-
-  // NB: On this path, we render `ChatImpl` immediately.
+  const { storeMessageHistory, initializeChat } = useConvexChatHomepage(initialId.current);
   return (
-    <>
-      <ChefAuthWrapper>
-        <UserProvider>
-          <Chat
-            initialMessages={emptyList}
-            partCache={partCache.current}
-            storeMessageHistory={storeMessageHistory}
-            initializeChat={initializeChat}
-            isReload={false}
-            hadSuccessfulDeploy={false}
-          />
-        </UserProvider>
-      </ChefAuthWrapper>
-      <Toaster position="bottom-right" closeButton richColors />
-    </>
+    <Chat
+      initialMessages={emptyList}
+      partCache={partCache.current}
+      storeMessageHistory={storeMessageHistory}
+      initializeChat={initializeChat}
+      isReload={false}
+      hadSuccessfulDeploy={false}
+    />
   );
-}
+};
 
 const emptyList: Message[] = [];

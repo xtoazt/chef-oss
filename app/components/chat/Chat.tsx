@@ -28,6 +28,7 @@ import type { ActionStatus } from '~/lib/runtime/action-runner';
 import { chatIdStore } from '~/lib/stores/chatId';
 import type { ModelProvider } from '~/lib/.server/llm/convex-agent';
 import { useConvex, useQuery } from 'convex/react';
+import type { ConvexReactClient } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { disabledText, getTokenUsage, noTokensText } from '~/lib/convexUsage';
 
@@ -60,7 +61,7 @@ interface ChatProps {
   initialMessages: Message[];
   partCache: PartCache;
   storeMessageHistory: (messages: Message[]) => Promise<void>;
-  initializeChat: (teamSlug: string | null) => Promise<void>;
+  initializeChat: () => Promise<void>;
   description?: string;
 
   isReload: boolean;
@@ -153,8 +154,7 @@ export const Chat = memo(
         const chatId = chatIdStore.get();
         const deploymentName = convexProjectStore.get()?.deploymentName;
         const teamSlug = selectedTeamSlugStore.get();
-        const convexAny = convex as any;
-        const token = convexAny?.sync?.state?.auth?.value;
+        const token = getConvexAuthToken(convex);
         if (!token) {
           throw new Error('No token');
         }
@@ -309,7 +309,7 @@ export const Chat = memo(
       setChatStarted(true);
     };
 
-    const sendMessage = async (_event: React.UIEvent, teamSlug: string | null, messageInput?: string) => {
+    const sendMessage = async (_event: React.UIEvent, messageInput?: string) => {
       if (retries.numFailures >= MAX_RETRIES || Date.now() < retries.nextRetry) {
         toast.error(CHEF_TOO_BUSY_ERROR);
         return;
@@ -325,7 +325,7 @@ export const Chat = memo(
         abort();
         return;
       }
-      await initializeChat(teamSlug);
+      await initializeChat();
 
       runAnimation();
 
@@ -520,4 +520,20 @@ function exponentialBackoff(numFailures: number) {
   const jitter = Math.random() + 0.5;
   const delay = 1000 * Math.pow(2, numFailures) * jitter;
   return delay;
+}
+
+/**
+ * We send the auth token in big brain requests. The Convex client already makes
+ * sure it has an up-to-date auth token, so we just need to extract it.
+ *
+ * This is especially convenient in functions that are not async.
+ *
+ * Since there's not a public API for this, we internally type cast.
+ */
+function getConvexAuthToken(convex: ConvexReactClient): string | null {
+  const token = (convex as any)?.sync?.state?.auth?.value;
+  if (!token) {
+    return null;
+  }
+  return token;
 }
