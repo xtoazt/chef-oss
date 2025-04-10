@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import * as Select from '@radix-ui/react-select';
 import { classNames } from '~/utils/classNames';
-import { setSelectedTeamSlug, useSelectedTeamSlug } from '~/lib/stores/convexTeams';
 import { convexTeamsStore } from '~/lib/stores/convexTeams';
 import { useStore } from '@nanostores/react';
 
-export function TeamSelector({ description }: { description?: string }) {
+export function TeamSelector({
+  selectedTeamSlug,
+  setSelectedTeamSlug,
+  description,
+}: {
+  selectedTeamSlug: string | null;
+  setSelectedTeamSlug: (teamSlug: string) => void;
+  description?: string;
+}) {
   const [open, setOpen] = useState(false);
   const teams = useStore(convexTeamsStore);
-  const selectedTeamSlug = useSelectedTeamSlug();
 
   if (!teams) {
     return (

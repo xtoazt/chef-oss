@@ -20,6 +20,7 @@ import { TeamSelector } from '~/components/convex/TeamSelector';
 import type { TerminalInitializationOptions } from '~/types/terminal';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/sessionId';
 import { useChefAuth } from './ChefAuthWrapper';
+import { setSelectedTeamSlug, useSelectedTeamSlug } from '~/lib/stores/convexTeams';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -101,6 +102,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     };
     const sessionId = useConvexSessionIdOrNullOrLoading();
     const chefAuthState = useChefAuth();
+
+    const selectedTeamSlug = useSelectedTeamSlug();
 
     const baseChat = (
       <div
@@ -294,7 +297,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       ) : null}
                       {chatStarted && <ConvexConnection />}
                       {!chatStarted && sessionId && (
-                        <TeamSelector description="Your project will be created in this Convex team" />
+                        <TeamSelector
+                          description="Your project will be created in this Convex team"
+                          selectedTeamSlug={selectedTeamSlug}
+                          setSelectedTeamSlug={setSelectedTeamSlug}
+                        />
                       )}
                     </div>
                   </div>
