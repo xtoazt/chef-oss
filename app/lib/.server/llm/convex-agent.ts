@@ -65,8 +65,9 @@ export async function convexAgent(
   const fetch = undiciFetch as unknown as Fetch;
   switch (modelProvider) {
     case 'OpenAI': {
-      model = getEnv(env, 'OPENAI_MODEL') || 'gpt-4o-2024-11-20';
+      model = 'gpt-4o-alpha-2025-04-09';
       const openai = createOpenAI({
+        apiKey: userApiKey || getEnv(env, 'OPENAI_API_KEY'),
         fetch,
       });
       provider = {
@@ -314,7 +315,12 @@ async function onFinishHandler(
     finalGeneration: { usage: LanguageModelUsage; providerMetadata?: ProviderMetadata },
   ) => Promise<void>,
 ) {
-  const { usage, providerMetadata } = result;
+  const { providerMetadata } = result;
+  const usage = {
+    completionTokens: normalizeUsage(result.usage.completionTokens),
+    promptTokens: normalizeUsage(result.usage.promptTokens),
+    totalTokens: normalizeUsage(result.usage.totalTokens),
+  };
   console.log('Finished streaming', {
     finishReason: result.finishReason,
     usage,
@@ -324,9 +330,9 @@ async function onFinishHandler(
     const span = tracer.startSpan('on-finish-handler');
     span.setAttribute('chatId', chatId);
     span.setAttribute('finishReason', result.finishReason);
-    span.setAttribute('usage.completionTokens', usage?.completionTokens || 0);
-    span.setAttribute('usage.promptTokens', usage?.promptTokens || 0);
-    span.setAttribute('usage.totalTokens', usage?.totalTokens || 0);
+    span.setAttribute('usage.completionTokens', usage.completionTokens);
+    span.setAttribute('usage.promptTokens', usage.promptTokens);
+    span.setAttribute('usage.totalTokens', usage.totalTokens);
     if (result.providerMetadata) {
       const anthropic: any = result.providerMetadata.anthropic;
       if (anthropic) {
@@ -356,11 +362,14 @@ async function onFinishHandler(
   else {
     await recordUsageCb(messages[messages.length - 1], { usage, providerMetadata });
   }
-
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 // TODO this was cool, do something to type our environment variables
 export function getEnv(env: Record<string, string | undefined>, name: string): string | undefined {
   return env[name] || globalThis.process.env[name];
+}
+
+function normalizeUsage(usage: number) {
+  return Number.isNaN(usage) ? 0 : usage;
 }
