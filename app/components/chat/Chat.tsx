@@ -108,15 +108,20 @@ export const Chat = memo(
     const [disableChatMessage, setDisableChatMessage] = useState<string | null>(null);
     const [sendMessageInProgress, setSendMessageInProgress] = useState(false);
 
-    async function checkTokenUsage() {
+    function hasApiKeySet() {
       const useAnthropic = modelSelection === 'claude-3.5-sonnet' || modelSelection === 'auto';
       const useOpenai = modelSelection === 'gpt-4.1';
       if (useAnthropic && apiKey && apiKey.value) {
-        setDisableChatMessage(null);
-        return;
+        return true;
       }
       if (useOpenai && apiKey && apiKey.openai) {
-        setDisableChatMessage(null);
+        return true;
+      }
+      return false;
+    }
+
+    async function checkTokenUsage() {
+      if (hasApiKeySet()) {
         return;
       }
 
@@ -184,7 +189,8 @@ export const Chat = memo(
           teamSlug,
           deploymentName,
           modelProvider,
-          userApiKey: apiKey,
+          // Fall back to the user's API key if the request has failed too many times
+          userApiKey: retries.numFailures < MAX_RETRIES ? apiKey : { ...apiKey, preference: 'always' },
         };
       },
       maxSteps: 64,
@@ -314,7 +320,7 @@ export const Chat = memo(
     };
 
     const sendMessage = async (messageInput?: string) => {
-      if (retries.numFailures >= MAX_RETRIES || Date.now() < retries.nextRetry) {
+      if ((retries.numFailures >= MAX_RETRIES || Date.now() < retries.nextRetry) && !hasApiKeySet()) {
         toast.error(CHEF_TOO_BUSY_ERROR);
         captureException('User tried to send message but chef is too busy');
         return;
