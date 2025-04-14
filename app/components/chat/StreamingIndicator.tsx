@@ -3,6 +3,8 @@ import type { ToolStatus } from '~/lib/common/types';
 import { classNames } from '~/utils/classNames';
 import { useStore } from '@nanostores/react';
 import { chatStore } from '~/lib/stores/chatId';
+import { Spinner } from '~/components/ui/Spinner';
+import { ExclamationTriangleIcon, CheckCircledIcon, ResetIcon } from '@radix-ui/react-icons';
 import { useEffect, useState } from 'react';
 
 interface StreamingIndicatorProps {
@@ -14,9 +16,9 @@ interface StreamingIndicatorProps {
 }
 
 // Icon components
-const LoadingIcon = () => <div className="i-svg-spinners:90-ring-with-bg" />;
-const WarningIcon = () => <div className="i-ph:warning text-yellow-500" />;
-const CheckIcon = () => <div className="i-ph:check" />;
+const WarningIcon = () => <ExclamationTriangleIcon className="text-[var(--cvx-content-warning)]" />;
+const LoadingIcon = () => <Spinner />;
+const CheckIcon = () => <CheckCircledIcon />;
 
 // Status messages
 export const STATUS_MESSAGES = {
@@ -159,7 +161,7 @@ export default function StreamingIndicator(props: StreamingIndicatorProps) {
                         className="flex items-center gap-1 px-2 py-1.5 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text rounded-md transition-colors"
                         onClick={props.resendMessage}
                       >
-                        <div className="i-ph:arrow-clockwise" />
+                        <ResetIcon />
                         Resend
                       </button>
                     )}
