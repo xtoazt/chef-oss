@@ -163,13 +163,13 @@ export const Menu = memo(() => {
           'z-sidebar',
         )}
       >
-        <div className="h-[var(--header-height)] flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/50"></div>
+        <div className="h-[var(--header-height)] flex items-center justify-between px-4 border-b border-bolt-elements-borderColor"></div>
 
         <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
           <div className="p-4 space-y-3">
             <a
               href="/"
-              className="inline-flex gap-2 items-center bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text hover:text-bolt-elements-button-primary-textHover rounded-lg px-4 py-2 transition-colors"
+              className="inline-flex gap-2 items-center bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text rounded-lg px-4 py-2 transition-colors"
             >
               <span className="text-sm font-medium">Start new project</span>
             </a>
@@ -193,7 +193,7 @@ export const Menu = memo(() => {
             <DialogRoot open={dialogContent !== null}>
               {binDates(filteredList).map(({ category, items }) => (
                 <div key={category} className="mt-2 first:mt-0 space-y-1">
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 sticky top-0 z-1 bg-[var(--bolt-elements-sidebar-background)] px-3 py-1">
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 sticky top-0 z-10 bg-[var(--bolt-elements-sidebar-background)] px-3 py-1">
                     {category}
                   </div>
                   <div className="space-y-0.5 pr-1">

@@ -110,7 +110,7 @@ function ShareProjectContent() {
           </div>
 
           <button
-            className="w-full px-6 py-3 rounded-lg border border-bolt-elements-borderColor flex items-center justify-center gap-2 text-bolt-elements-button-primary disabled:opacity-50 disabled:cursor-not-allowed bg-bolt-elements-button-secondary-background hover:bg-bolt-elements-button-secondary-backgroundHover"
+            className="w-full px-6 py-3 rounded-lg border border-bolt-elements-borderColor flex items-center justify-center gap-2 text-bolt-elements-button-primary-text disabled:opacity-50 disabled:cursor-not-allowed bg-bolt-elements-button-secondary-background hover:bg-bolt-elements-button-secondary-backgroundHover"
             onClick={signIn}
           >
             Sign in
@@ -144,7 +144,7 @@ function ShareProjectContent() {
         </div>
 
         <button
-          className="w-full px-6 py-3 rounded-lg border border-bolt-elements-borderColor flex items-center justify-center gap-2 text-bolt-elements-button-primary disabled:opacity-50 disabled:cursor-not-allowed bg-bolt-elements-button-secondary-background hover:bg-bolt-elements-button-secondary-backgroundHover"
+          className="w-full px-6 py-3 rounded-lg border border-bolt-elements-borderColor flex items-center justify-center gap-2 text-bolt-elements-button-primary-text disabled:opacity-50 disabled:cursor-not-allowed bg-bolt-elements-button-secondary-background hover:bg-bolt-elements-button-secondary-backgroundHover"
           onClick={handleCloneChat}
           disabled={!selectedTeamSlug}
         >

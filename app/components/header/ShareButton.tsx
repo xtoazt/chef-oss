@@ -29,7 +29,7 @@ const Button = forwardRef<
           'bg-bolt-elements-item-backgroundDefault hover:bg-bolt-elements-item-backgroundActive text-bolt-elements-textPrimary hover:text-bolt-elements-textPrimary':
             !active,
           'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent': active && !disabled,
-          'bg-bolt-elements-item-backgroundDefault text-alpha-gray-20 dark:text-alpha-white-20 cursor-not-allowed hover:bg-bolt-elements-item-backgroundDefault hover:text-bolt-elements-textTertiary':
+          'bg-bolt-elements-item-backgroundDefault text-gray-900/20 dark:text-white/20 cursor-not-allowed hover:bg-bolt-elements-item-backgroundDefault hover:text-bolt-elements-textTertiary':
             disabled,
         },
         className,
@@ -102,7 +102,7 @@ export function ShareButton() {
 
       <Popover.Portal>
         <Popover.Content
-          className="z-50 bg-bolt-elements-background-depth-1 border border-bolt-elements-borderColor rounded-md shadow-lg w-[320px] animate-in fade-in-0 zoom-in-95"
+          className="z-50 bg-bolt-elements-background-depth-1 border border-bolt-elements-borderColor rounded-md shadow-lg w-[320px] animate-fadeIn"
           sideOffset={5}
           align="end"
         >
