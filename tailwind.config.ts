@@ -1,26 +1,17 @@
-import type { Config } from 'tailwindcss';
+import TailwindConfig from '@convex-dev/design-system/tailwind.config';
 
 export default {
-  content: ['./app/**/*.{js,jsx,ts,tsx}', './app/styles/**/*.{css,scss}'],
+  ...TailwindConfig,
+  content: [
+    './app/**/*.{js,jsx,ts,tsx}',
+    './app/styles/**/*.{css,scss}',
+    './node_modules/@convex-dev/design-system/**/*.{js,jsx,ts,tsx}',
+  ],
   theme: {
     extend: {
-      keyframes: {
-        shimmer: {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(200%)' },
-        },
-        fadeIn: {
-          '0%': {
-            opacity: '0',
-          },
-          '100%': {
-            opacity: '1',
-          },
-        },
-      },
-      animation: {
-        fadeIn: 'fadeIn 1s',
-      },
+      ...TailwindConfig.theme?.extend,
+      keyframes: TailwindConfig.theme?.extend?.keyframes,
+      animation: TailwindConfig.theme?.extend?.animation,
       fontFamily: {
         display: [
           'GT America',
@@ -43,6 +34,7 @@ export default {
         ],
       },
       colors: {
+        ...TailwindConfig.theme?.extend?.colors,
         bolt: {
           elements: {
             borderColor: 'var(--bolt-elements-borderColor)',
@@ -219,6 +211,5 @@ export default {
       },
     },
   },
-  plugins: [],
-  darkMode: ['selector', '[data-theme="dark"]'],
-} satisfies Config;
+  plugins: [...(TailwindConfig.plugins || [])],
+} satisfies typeof TailwindConfig;
