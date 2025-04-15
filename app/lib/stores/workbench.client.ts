@@ -105,6 +105,15 @@ export class WorkbenchStore {
   get followingStreamedCode() {
     return this.#editorStore.followingStreamedCode;
   }
+  resumeFollowingStreamedCode() {
+    this.#editorStore.followingStreamedCode.set(true);
+  }
+  stopFollowingStreamedCode() {
+    const following = this.#editorStore.followingStreamedCode.get();
+    if (following) {
+      this.#editorStore.followingStreamedCode.set(false);
+    }
+  }
 
   get justChangedFiles(): boolean {
     const now = Date.now();
@@ -505,8 +514,6 @@ export class WorkbenchStore {
       if (!isStreaming) {
         await artifact.runner.runAction(data);
         this.resetAllFileModifications();
-        // hack, sometimes this isn't cleared
-        //setTimeout(() => this.resetAllFileModifications(), 10);
       }
     } else {
       await artifact.runner.runAction(data);

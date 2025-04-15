@@ -8,6 +8,7 @@ import {
   type OnChangeCallback as OnEditorChange,
   type OnSaveCallback as OnEditorSave,
   type OnScrollCallback as OnEditorScroll,
+  type OnWheelCallback as OnEditorWheel,
 } from '~/components/editor/codemirror/CodeMirrorEditor';
 import { PanelHeader } from '~/components/ui/PanelHeader';
 import { PanelHeaderButton } from '~/components/ui/PanelHeaderButton';
@@ -30,9 +31,11 @@ interface EditorPanelProps {
   editorDocument?: EditorDocument;
   selectedFile?: string | undefined;
   isStreaming?: boolean;
+  scrollToDocAppend?: boolean;
   fileHistory?: Record<string, FileHistory>;
   onEditorChange?: OnEditorChange;
   onEditorScroll?: OnEditorScroll;
+  onEditorWheel?: OnEditorWheel;
   onFileSelect?: (value?: string) => void;
   onFileSave?: OnEditorSave;
   onFileReset?: () => void;
@@ -50,10 +53,12 @@ export const EditorPanel = memo(
     editorDocument,
     selectedFile,
     isStreaming,
+    scrollToDocAppend,
     fileHistory,
     onFileSelect,
     onEditorChange,
     onEditorScroll,
+    onEditorWheel,
     onFileSave,
     onFileReset,
     terminalInitializationOptions,
@@ -122,7 +127,9 @@ export const EditorPanel = memo(
                   settings={editorSettings}
                   doc={editorDocument}
                   autoFocusOnDocumentChange={!isMobile()}
+                  scrollToDocAppend={!!scrollToDocAppend}
                   onScroll={onEditorScroll}
+                  onWheel={onEditorWheel}
                   onChange={onEditorChange}
                   onSave={onFileSave}
                 />
