@@ -31,13 +31,12 @@ import type { ConvexReactClient } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { disabledText, getTokenUsage, noTokensText } from '~/lib/convexUsage';
 import { STATUS_MESSAGES } from './StreamingIndicator';
+import { formatDistanceStrict } from 'date-fns';
 
 const logger = createScopedLogger('Chat');
 
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 4;
 
-const CHEF_TOO_BUSY_ERROR =
-  'Chef is too busy cooking right now. Please try again in a moment or enter your own API key at chef.convex.dev/settings.';
 export const VITE_PROVISION_HOST = import.meta.env.VITE_PROVISION_HOST || 'https://api.convex.dev';
 
 const processSampledMessages = createSampler(
@@ -235,8 +234,12 @@ export const Chat = memo(
             userHasOwnApiKey: !!apiKey,
           },
         });
-        logger.error('Request failed\n\n', e, error);
         setRetries((prevRetries) => {
+          logger.error(`Request failed (retries: ${JSON.stringify(prevRetries)})`, e, error);
+          if (prevRetries.numFailures === 0) {
+            logger.info('Retrying immediately on first failure.');
+            setTimeout(() => reload(), 0);
+          }
           const newRetries = prevRetries.numFailures + 1;
           const backoff = error?.message.includes(STATUS_MESSAGES.error) ? exponentialBackoff(newRetries) : 0;
           return { ...prevRetries, numFailures: newRetries, nextRetry: Date.now() + backoff };
@@ -329,8 +332,12 @@ export const Chat = memo(
     };
 
     const sendMessage = async (messageInput?: string) => {
-      if ((retries.numFailures >= MAX_RETRIES || Date.now() < retries.nextRetry) && !hasApiKeySet()) {
-        toast.error(CHEF_TOO_BUSY_ERROR);
+      const now = Date.now();
+      if ((retries.numFailures >= MAX_RETRIES || now < retries.nextRetry) && !hasApiKeySet()) {
+        const remaining = formatDistanceStrict(now, retries.nextRetry);
+        toast.error(
+          `Chef is too busy cooking right now. Please try again in ${remaining} or enter your own API key at chef.convex.dev/settings.`,
+        );
         captureException('User tried to send message but chef is too busy');
         return;
       }
