@@ -181,7 +181,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       />
                     )}
                   </div>
-                  {
+                  {!disableChatMessage && (
                     <StreamingIndicator
                       streamStatus={streamStatus}
                       numMessages={messages?.length ?? 0}
@@ -194,7 +194,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         }
                       }}
                     />
-                  }
+                  )}
                   {disableChatMessage && (
                     <Callout variant="upsell" className="min-w-full rounded-md">
                       {disableChatMessage}
