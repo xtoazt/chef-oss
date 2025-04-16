@@ -2,6 +2,7 @@ import blitzPlugin from '@blitz/eslint-plugin';
 import { jsFileExtensions } from '@blitz/eslint-plugin/dist/configs/javascript.js';
 import { getNamingConventionRule, tsFileExtensions } from '@blitz/eslint-plugin/dist/configs/typescript.js';
 import tailwindcss from "eslint-plugin-tailwindcss";
+import reactPlugin from 'eslint-plugin-react';
 
 export default [
   {
@@ -10,7 +11,13 @@ export default [
   ...blitzPlugin.configs.recommended(),
   {
     files: [...tsFileExtensions, ...jsFileExtensions],
+    plugins: {
+      react: reactPlugin,
+    },
     rules: {
+      ...reactPlugin.configs.flat.recommended.rules,
+      ...reactPlugin.configs.flat['jsx-runtime'].rules,
+      
       '@blitz/lines-around-comment': 'off',
       '@blitz/newline-before-return': 'off',
       '@blitz/catch-error-name': 'off',
@@ -51,7 +58,18 @@ export default [
           fixStyle: 'separate-type-imports', // This is also the default, enforces 'import type { Foo }'
         },
       ],
+      "prefer-arrow-callback": [
+        'error',
+        {
+          allowNamedFunctions: true,
+        },
+      ],
       'tailwindcss/classnames-order': 'off',
+    },
+    settings: {
+      react: {
+        version: 'detect',
+      },
     },
   },
   {

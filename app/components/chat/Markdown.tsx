@@ -17,10 +17,10 @@ interface MarkdownProps {
   limitedMarkdown?: boolean;
 }
 
-export const Markdown = memo(({ children, html = false, limitedMarkdown = false }: MarkdownProps) => {
+export const Markdown = memo(function Markdown({ children, html = false, limitedMarkdown = false }: MarkdownProps) {
   logger.trace('Render');
 
-  const components = useMemo(() => {
+  const components: Components = useMemo(() => {
     return {
       div: ({ className, children, node, ...props }) => {
         if (className?.includes('__boltArtifact__')) {
@@ -37,8 +37,9 @@ export const Markdown = memo(({ children, html = false, limitedMarkdown = false 
         );
       },
       pre: (props) => {
+        // eslint-disable-next-line react/prop-types
         const { children, node, ...rest } = props;
-
+        // eslint-disable-next-line react/prop-types
         const [firstChild] = node?.children ?? [];
 
         if (
