@@ -11,6 +11,7 @@ import {
   VITE_TAB_INDEX,
 } from './terminalTabs';
 import { toast } from 'sonner';
+import { ContainerBootState, waitForBootStepCompleted } from './containerBootState';
 
 export class TerminalStore {
   #webcontainer: Promise<WebContainer>;
@@ -36,13 +37,13 @@ export class TerminalStore {
     this.showTerminal.set(value !== undefined ? value : !this.showTerminal.get());
   }
 
-  async attachBoltTerminal(terminal: ITerminal, isReload: boolean) {
+  async attachBoltTerminal(terminal: ITerminal) {
     try {
       const wc = await this.#webcontainer;
       await this.#boltTerminal.init(wc, terminal);
-      if (isReload) {
-        await this.#boltTerminal.executeCommand('npx vite --open');
-      }
+      // Note -- do not start the dev server here, since it will be handled by
+      // `attachDeployTerminal` and to avoid conflicts with `npx convex dev`
+      // triggering this server to restart
     } catch (error: any) {
       console.error('Failed to initialize bolt terminal:', error);
       terminal.write(coloredText.red('Failed to spawn dev server shell\n\n') + error.message);
@@ -52,6 +53,8 @@ export class TerminalStore {
 
   async deployFunctionsAndRunDevServer(shouldDeployConvexFunctions: boolean) {
     if (shouldDeployConvexFunctions) {
+      // We want all the code to be there, but do not need to wait for "READY"
+      await waitForBootStepCompleted(ContainerBootState.STARTING_BACKUP);
       isConvexDeployTerminalVisibleStore.set(true);
       activeTerminalTabStore.set(CONVEX_DEPLOY_TAB_INDEX);
 
@@ -62,12 +65,11 @@ export class TerminalStore {
         toast.error('Failed to deploy Convex functions. Check the terminal for more details.');
         workbenchStore.currentView.set('code');
         activeTerminalTabStore.set(CONVEX_DEPLOY_TAB_INDEX);
-        return;
+      } else {
+        isConvexDeployTerminalVisibleStore.set(false);
+        activeTerminalTabStore.set(VITE_TAB_INDEX);
+        toast.success('Convex functions deployed successfully');
       }
-
-      isConvexDeployTerminalVisibleStore.set(false);
-      activeTerminalTabStore.set(VITE_TAB_INDEX);
-      toast.success('Convex functions deployed successfully');
     }
 
     if (!workbenchStore.isDefaultPreviewRunning()) {
