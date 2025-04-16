@@ -200,7 +200,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       {disableChatMessage}
                     </Callout>
                   )}
-                  <div className="z-prompt relative mx-auto w-full max-w-chat rounded-lg border bg-background-primary/75 backdrop-blur-md transition-all duration-200 focus-within:border-border-selected">
+                  <div className="z-prompt relative mx-auto w-full max-w-chat rounded-lg border bg-background-primary/75 backdrop-blur-md transition-all duration-200 has-[textarea:focus]:border-border-selected">
                     <FilePreview
                       files={uploadedFiles}
                       imageDataList={imageDataList}
@@ -219,8 +219,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       <textarea
                         ref={textareaRef}
                         className={classNames(
-                          'w-full pl-4 pt-4 pr-16 outline-none resize-none text-content-primary placeholder-content-tertiary bg-transparent text-sm',
-                          'focus:ring-0',
+                          'w-full pl-4 pt-4 pr-16 pb-2 outline-none resize-none text-content-primary placeholder-content-tertiary bg-transparent text-sm',
+                          'focus:outline-none',
                           'disabled:opacity-50 disabled:cursor-not-allowed',
                         )}
                         disabled={disableChatMessage !== null || maintenanceMode}
@@ -303,7 +303,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                               : undefined
                         }
                       />
-                      <div className="flex items-center justify-end gap-4 p-4 pb-3 pt-2 text-sm">
+                      <div className="flex items-center justify-end gap-4 px-4 pb-3 text-sm">
                         <ModelSelector modelSelection={modelSelection} setModelSelection={setModelSelection} />
                         <div className="grow" />
                         {input.length > 3 ? (
