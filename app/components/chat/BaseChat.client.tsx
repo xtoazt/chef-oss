@@ -129,6 +129,13 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
     const selectedTeamSlug = useSelectedTeamSlug();
 
+    const lastUserMessage = messages.findLast((message) => message.role === 'user');
+    const resendMessage = useCallback(() => {
+      if (lastUserMessage) {
+        handleSendMessage?.(lastUserMessage.content);
+      }
+    }, [lastUserMessage]);
+
     const baseChat = (
       <div
         ref={ref}
@@ -187,12 +194,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       numMessages={messages?.length ?? 0}
                       toolStatus={toolStatus}
                       currentError={currentError}
-                      resendMessage={() => {
-                        const lastUserMessage = messages.toReversed().find((message) => message.role === 'user');
-                        if (lastUserMessage) {
-                          handleSendMessage?.(lastUserMessage.content);
-                        }
-                      }}
+                      resendMessage={resendMessage}
                     />
                   )}
                   {disableChatMessage && (

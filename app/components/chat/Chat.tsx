@@ -2,8 +2,9 @@ import { useStore } from '@nanostores/react';
 import type { Message } from 'ai';
 import { useChat } from '@ai-sdk/react';
 import { useAnimate } from 'framer-motion';
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useMessageParser, useSnapScroll, type PartCache } from '~/lib/hooks';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMessageParser, type PartCache } from '~/lib/hooks/useMessageParser';
+import { useSnapScroll } from '~/lib/hooks/useSnapScroll';
 import { description } from '~/lib/stores/description';
 import { chatStore } from '~/lib/stores/chatId';
 import { workbenchStore } from '~/lib/stores/workbench.client';
@@ -101,6 +102,13 @@ export const Chat = memo(
     const apiKey = useQuery(api.apiKeys.apiKeyForCurrentMember);
 
     const [modelSelection, setModelSelection] = useState<ModelSelection>('auto');
+    const terminalInitializationOptions = useMemo(
+      () => ({
+        isReload,
+        shouldDeployConvexFunctions: hadSuccessfulDeploy,
+      }),
+      [isReload, hadSuccessfulDeploy],
+    );
 
     // Reset retries counter every minute
     useEffect(() => {
@@ -281,6 +289,7 @@ export const Chat = memo(
       });
     }, [searchParams]);
 
+    // AKA "processed messages," since parsing has side effects
     const { parsedMessages, parseMessages } = useMessageParser(partCache);
 
     const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
@@ -508,22 +517,10 @@ export const Chat = memo(
         streamStatus={status}
         currentError={error}
         toolStatus={toolStatus}
-        messages={messages.map((message, i) => {
-          if (message.role === 'user') {
-            return message;
-          }
-          return {
-            ...message,
-            content: parsedMessages[i]?.content || '',
-            parts: parsedMessages[i]?.parts || [],
-          };
-        })}
+        messages={parsedMessages /* Note that parsedMessages are throttled. */}
         actionAlert={actionAlert}
         clearAlert={() => workbenchStore.clearAlert()}
-        terminalInitializationOptions={{
-          isReload,
-          shouldDeployConvexFunctions: hadSuccessfulDeploy,
-        }}
+        terminalInitializationOptions={terminalInitializationOptions}
         disableChatMessage={
           disableChatMessage?.type === 'ExceededQuota'
             ? noTokensText(selectedTeamSlugStore.get())

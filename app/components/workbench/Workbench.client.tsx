@@ -17,7 +17,7 @@ import { cubicEasingFn } from '~/utils/easings';
 import { renderLogger } from '~/utils/logger';
 import { EditorPanel } from './EditorPanel';
 import { Preview } from './Preview';
-import useViewport from '~/lib/hooks';
+import useViewport from '~/lib/hooks/useViewport';
 import { Dashboard } from './Dashboard';
 import { Allotment } from 'allotment';
 import { convexProjectStore } from '~/lib/stores/convexProject';
@@ -161,6 +161,9 @@ export const Workbench = memo(({ chatStarted, isStreaming, terminalInitializatio
     [showDashboard],
   );
 
+  // TODO get rid of fileHistory since we don't use it
+  const fileHistory = useMemo(() => ({}), []);
+
   return (
     chatStarted && (
       <>
@@ -242,7 +245,7 @@ export const Workbench = memo(({ chatStarted, isStreaming, terminalInitializatio
                       selectedFile={selectedFile}
                       files={files}
                       unsavedFiles={unsavedFiles}
-                      fileHistory={{}}
+                      fileHistory={fileHistory}
                       onFileSelect={onFileSelect}
                       onEditorScroll={onEditorScroll}
                       onEditorWheel={onEditorWheel}
