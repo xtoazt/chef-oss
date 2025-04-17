@@ -17,7 +17,7 @@ import { debounce } from '~/utils/debounce';
 import { createSampler } from '~/utils/sampler';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
-import { selectedTeamSlugStore } from '~/lib/stores/convexTeams';
+import { selectedTeamSlugStore, setSelectedTeamSlug, useSelectedTeamSlug } from '~/lib/stores/convexTeams';
 import { convexProjectStore } from '~/lib/stores/convexProject';
 import { toast } from 'sonner';
 import type { PartId } from '~/lib/stores/artifacts';
@@ -28,10 +28,13 @@ import type { ModelProvider } from '~/lib/.server/llm/convex-agent';
 import { useConvex, useQuery } from 'convex/react';
 import type { ConvexReactClient } from 'convex/react';
 import { api } from '@convex/_generated/api';
-import { disabledText, getTokenUsage } from '~/lib/convexUsage';
+import { getTokenUsage } from '~/lib/convexUsage';
 import { formatDistanceStrict } from 'date-fns';
 import { atom } from 'nanostores';
 import { STATUS_MESSAGES } from './StreamingIndicator';
+import { Button } from '@ui/Button';
+import { TeamSelector } from '~/components/convex/TeamSelector';
+import { ExternalLinkIcon } from '@radix-ui/react-icons';
 
 const logger = createScopedLogger('Chat');
 
@@ -498,11 +501,14 @@ export const Chat = memo(
         clearAlert={() => workbenchStore.clearAlert()}
         terminalInitializationOptions={terminalInitializationOptions}
         disableChatMessage={
-          disableChatMessage?.type === 'ExceededQuota'
-            ? noTokensText(selectedTeamSlugStore.get())
-            : disableChatMessage?.type === 'TeamDisabled'
-              ? disabledText(disableChatMessage.isPaidPlan)
-              : null
+          disableChatMessage?.type === 'ExceededQuota' ? (
+            <NoTokensText resetDisableChatMessage={() => setDisableChatMessage(null)} />
+          ) : disableChatMessage?.type === 'TeamDisabled' ? (
+            <DisabledText
+              isPaidPlan={disableChatMessage.isPaidPlan}
+              resetDisableChatMessage={() => setDisableChatMessage(null)}
+            />
+          ) : null
         }
         sendMessageInProgress={sendMessageInProgress}
         modelSelection={modelSelection}
@@ -577,32 +583,86 @@ function getConvexAuthToken(convex: ConvexReactClient): string | null {
   return token;
 }
 
-export function noTokensText(selectedTeamSlug: string | null) {
+export function NoTokensText({ resetDisableChatMessage }: { resetDisableChatMessage: () => void }) {
+  const selectedTeamSlug = useSelectedTeamSlug();
   return (
-    <span className="max-w-prose text-pretty">
-      You’ve used all the tokens included with your free plan! Please{' '}
-      <a
-        href={
-          selectedTeamSlug
-            ? `https://dashboard.convex.dev/t/${selectedTeamSlug}/settings/billing`
-            : 'https://dashboard.convex.dev/team/settings/billing'
-        }
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-content-link hover:underline"
-      >
-        upgrade to a paid plan
-      </a>{' '}
-      or{' '}
-      <a
-        href={`https://chef.convex.dev/settings`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-content-link hover:underline"
-      >
-        add your own API key
-      </a>{' '}
-      to continue.
-    </span>
+    <div className="flex w-full flex-col gap-4">
+      <h3>You&apos;ve used all the tokens included with your free plan.</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          href={
+            selectedTeamSlug
+              ? `https://dashboard.convex.dev/t/${selectedTeamSlug}/settings/billing`
+              : 'https://dashboard.convex.dev/team/settings/billing'
+          }
+          className="w-fit"
+          rel="noopener noreferrer"
+          icon={<ExternalLinkIcon />}
+        >
+          Upgrade to a paid plan
+        </Button>{' '}
+        <span>
+          or{' '}
+          <a href="/settings" target="_blank" rel="noopener noreferrer" className="text-content-link hover:underline">
+            add your own API key
+          </a>{' '}
+          to continue.
+        </span>
+      </div>
+      <div className="ml-auto">
+        <TeamSelector
+          description="Your project will be created in this Convex team"
+          selectedTeamSlug={selectedTeamSlug}
+          setSelectedTeamSlug={(slug) => {
+            setSelectedTeamSlug(slug);
+            resetDisableChatMessage();
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function DisabledText({
+  isPaidPlan,
+  resetDisableChatMessage,
+}: {
+  isPaidPlan: boolean;
+  resetDisableChatMessage: () => void;
+}) {
+  const selectedTeamSlug = useSelectedTeamSlug();
+  return (
+    <div className="flex w-full flex-col gap-4">
+      <h3>
+        {isPaidPlan
+          ? "You've exceeded your spending limits, so your deployments have been disabled."
+          : "You've exceeded the free plan limits, so your deployments have been disabled."}
+      </h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          href={
+            selectedTeamSlug
+              ? `https://dashboard.convex.dev/t/${selectedTeamSlug}/settings/billing`
+              : 'https://dashboard.convex.dev/team/settings/billing'
+          }
+          className="w-fit"
+          icon={<ExternalLinkIcon />}
+          rel="noopener noreferrer"
+        >
+          {isPaidPlan ? 'Increase spending limit' : 'Upgrade to Pro'}
+        </Button>
+        {isPaidPlan && <span>or wait until limits reset</span>}
+      </div>
+      <div className="ml-auto">
+        <TeamSelector
+          description="Your project will be created in this Convex team"
+          selectedTeamSlug={selectedTeamSlug}
+          setSelectedTeamSlug={(slug) => {
+            setSelectedTeamSlug(slug);
+            resetDisableChatMessage();
+          }}
+        />
+      </div>
+    </div>
   );
 }
