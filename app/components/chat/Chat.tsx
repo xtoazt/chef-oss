@@ -35,6 +35,8 @@ import { STATUS_MESSAGES } from './StreamingIndicator';
 import { Button } from '@ui/Button';
 import { TeamSelector } from '~/components/convex/TeamSelector';
 import { ExternalLinkIcon } from '@radix-ui/react-icons';
+import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/sessionId';
+import type { Id } from 'convex/_generated/dataModel';
 
 const logger = createScopedLogger('Chat');
 
@@ -76,6 +78,7 @@ interface ChatProps {
   isReload: boolean;
   hadSuccessfulDeploy: boolean;
   initialInput?: string;
+  earliestRewindableMessageRank?: number;
 }
 
 const retryState = atom({
@@ -92,11 +95,38 @@ export const Chat = memo(
     isReload,
     hadSuccessfulDeploy,
     initialInput,
+    earliestRewindableMessageRank,
   }: ChatProps) => {
     const convex = useConvex();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [chatStarted, setChatStarted] = useState(initialMessages.length > 0);
     const actionAlert = useStore(workbenchStore.alert);
+    const sessionId = useConvexSessionIdOrNullOrLoading();
+
+    const rewindToMessage = async (messageIndex: number) => {
+      if (sessionId && typeof sessionId === 'string') {
+        const chatId = chatIdStore.get();
+        if (!chatId) {
+          return;
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('rewind', 'true');
+
+        try {
+          await convex.mutation(api.messages.rewindChat, {
+            sessionId: sessionId as Id<'sessions'>,
+            chatId,
+            lastMessageRank: messageIndex,
+          });
+          // Reload the chat to show the rewound state
+          window.location.replace(url.href);
+        } catch (error) {
+          console.error('Failed to rewind chat:', error);
+          toast.error('Failed to rewind chat');
+        }
+      }
+    };
 
     const title = useStore(description);
 
@@ -114,6 +144,13 @@ export const Chat = memo(
       }),
       [isReload, hadSuccessfulDeploy],
     );
+
+    useEffect(() => {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('rewind') === 'true') {
+        toast.info('Successfully reverted changes. You may need to clear or migrate your Convex data.');
+      }
+    }, []);
 
     // Reset retries counter every minute
     useEffect(() => {
@@ -501,6 +538,8 @@ export const Chat = memo(
         sendMessageInProgress={sendMessageInProgress}
         modelSelection={modelSelection}
         setModelSelection={setModelSelection}
+        onRewindToMessage={rewindToMessage}
+        earliestRewindableMessageRank={earliestRewindableMessageRank}
       />
     );
   },

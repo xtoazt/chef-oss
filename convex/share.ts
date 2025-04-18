@@ -1,6 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { internalAction, internalMutation, mutation, query, type DatabaseReader } from './_generated/server';
-import { getChatByIdOrUrlIdEnsuringAccess, type SerializedMessage } from './messages';
+import { getChatByIdOrUrlIdEnsuringAccess, getLatestChatMessageStorageState, type SerializedMessage } from './messages';
 import { startProvisionConvexProjectHelper } from './convexProjects';
 import { internal } from './_generated/api';
 import { compressMessages } from './compressMessages';
@@ -16,27 +16,24 @@ export const create = mutation({
       throw new ConvexError('Chat not found');
     }
 
-    if (!chat.snapshotId) {
-      throw new ConvexError('Your project has never been saved.');
-    }
-
     const code = await generateUniqueCode(ctx.db);
 
-    const storageState = await ctx.db
-      .query('chatMessagesStorageState')
-      .withIndex('byChatId', (q) => q.eq('chatId', chat._id))
-      .first();
+    const storageState = await getLatestChatMessageStorageState(ctx, chat);
 
     if (storageState) {
       if (storageState.storageId === null) {
         throw new ConvexError('Chat history not found');
+      }
+      const snapshotId = storageState.snapshotId ?? chat.snapshotId;
+      if (!snapshotId) {
+        throw new ConvexError('Your project has never been saved.');
       }
       await ctx.db.insert('shares', {
         chatId: chat._id,
 
         // It is safe to use the snapshotId from the chat because the user’s
         // snapshot excludes .env.local.
-        snapshotId: chat.snapshotId,
+        snapshotId,
 
         chatHistoryId: storageState.storageId,
 
@@ -47,6 +44,9 @@ export const create = mutation({
       });
       return { code };
     } else {
+      if (!chat.snapshotId) {
+        throw new ConvexError('Your project has never been saved.');
+      }
       console.warn('No storage state found for chat, using last message rank');
       const messages = await ctx.db
         .query('chatMessages')

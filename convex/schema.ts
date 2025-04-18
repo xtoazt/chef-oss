@@ -44,6 +44,7 @@ export default defineSchema({
     timestamp: v.string(),
     metadata: v.optional(v.any()), // TODO migration to remove this column
     snapshotId: v.optional(v.id('_storage')),
+    lastMessageRank: v.optional(v.number()),
     convexProject: v.optional(
       v.union(
         v.object({
@@ -88,9 +89,11 @@ export default defineSchema({
     storageId: v.union(v.id('_storage'), v.null()),
     lastMessageRank: v.number(),
     partIndex: v.number(),
+    snapshotId: v.optional(v.id('_storage')),
   })
-    .index('byChatId', ['chatId'])
-    .index('byStorageId', ['storageId']),
+    .index('byChatId', ['chatId', 'lastMessageRank', 'partIndex'])
+    .index('byStorageId', ['storageId'])
+    .index('bySnapshotId', ['snapshotId']),
   inviteCodes: defineTable({
     code: v.string(),
     sessionId: v.id('sessions'),
