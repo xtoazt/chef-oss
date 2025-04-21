@@ -157,6 +157,10 @@ export async function recordUsage(
     chefTokens += totalUsage.promptTokens * 40;
     // TODO - never seen xai set this field to anything but 0, so holding off until we understand.
     //chefTokens += totalUsage.xaiCachedPromptTokens * 3;
+  } else if (finalGeneration.providerMetadata?.google) {
+    chefTokens += totalUsage.completionTokens * 140;
+    chefTokens += totalUsage.promptTokens * 18;
+    // TODO: Implement Google billing for the prompt tokens that are cached. Google doesn't offer caching yet.
   } else {
     console.error(
       'WARNING: Unknown provider. Not recording usage. Giving away for free.',
