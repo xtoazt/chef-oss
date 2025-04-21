@@ -11,6 +11,7 @@ import {
 } from 'ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createXai } from '@ai-sdk/xai';
 import { ROLE_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT_PRELUDE, generalSystemPrompt } from '~/lib/common/prompts/system';
 import { deployTool } from '~/lib/runtime/deployTool';
@@ -43,7 +44,7 @@ type Provider = {
   };
 };
 
-export type ModelProvider = 'Anthropic' | 'Bedrock' | 'OpenAI' | 'XAI';
+export type ModelProvider = 'Anthropic' | 'Bedrock' | 'OpenAI' | 'XAI' | 'Google';
 
 const ALLOWED_AWS_REGIONS = ['us-east-1', 'us-east-2', 'us-west-2'];
 
@@ -69,7 +70,7 @@ export async function convexAgent(
   let model: string;
   // https://github.com/vercel/ai/issues/199#issuecomment-1605245593
   const fetch = undiciFetch as unknown as Fetch;
-  const userKeyApiFetch = (provider: 'Anthropic' | 'OpenAI' | 'XAI') => {
+  const userKeyApiFetch = (provider: ModelProvider) => {
     return async (input: RequestInfo | URL, init?: RequestInit) => {
       const result = await fetch(input, init);
       if (result.status === 401) {
@@ -116,6 +117,18 @@ export async function convexAgent(
     };
   };
   switch (modelProvider) {
+    case 'Google': {
+      model = getEnv(env, 'GOOGLE_MODEL') || 'gemini-2.5-pro-preview-03-25';
+      const google = createGoogleGenerativeAI({
+        apiKey: getEnv(env, 'GOOGLE_API_KEY'),
+        fetch: userApiKey ? userKeyApiFetch('Google') : fetch,
+      });
+      provider = {
+        model: google(model),
+        maxTokens: 20000,
+      };
+      break;
+    }
     case 'XAI': {
       model = getEnv(env, 'XAI_MODEL') || 'grok-3-mini';
       const xai = createXai({
@@ -240,6 +253,7 @@ export async function convexAgent(
     includeTemplate: true,
     openaiProxyEnabled: getEnv(env, 'OPENAI_PROXY_ENABLED') == '1',
     usingOpenAi: modelProvider == 'OpenAI',
+    usingGoogle: modelProvider == 'Google',
     resendProxyEnabled: getEnv(env, 'RESEND_PROXY_ENABLED') == '1',
   };
   const tools: ConvexToolSet = {
