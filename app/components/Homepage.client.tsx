@@ -7,7 +7,6 @@ import { setPageLoadChatId } from '~/lib/stores/chatId';
 import type { Message } from '@ai-sdk/react';
 import type { PartCache } from '~/lib/hooks/useMessageParser';
 import { UserProvider } from '~/components/UserProvider';
-import { useSearchParams } from '@remix-run/react';
 
 export function Homepage() {
   // Set up a temporary chat ID early in app initialization. We'll
@@ -29,9 +28,6 @@ export function Homepage() {
 }
 
 const ChatWrapper = ({ initialId }: { initialId: string }) => {
-  const [searchParams, _] = useSearchParams();
-  const prefill = searchParams.get('prefill');
-
   const partCache = useRef<PartCache>(new Map());
   const { storeMessageHistory, initializeChat } = useConvexChatHomepage(initialId);
   return (
@@ -42,7 +38,6 @@ const ChatWrapper = ({ initialId }: { initialId: string }) => {
       initializeChat={initializeChat}
       isReload={false}
       hadSuccessfulDeploy={false}
-      initialInput={prefill ?? undefined}
       earliestRewindableMessageRank={0}
     />
   );

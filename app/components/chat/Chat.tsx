@@ -8,12 +8,10 @@ import { useSnapScroll } from '~/lib/hooks/useSnapScroll';
 import { description } from '~/lib/stores/description';
 import { chatStore } from '~/lib/stores/chatId';
 import { workbenchStore } from '~/lib/stores/workbench.client';
-import { PROMPT_COOKIE_KEY, type ModelSelection } from '~/utils/constants';
+import { type ModelSelection } from '~/utils/constants';
 import { cubicEasingFn } from '~/utils/easings';
 import { createScopedLogger } from '~/utils/logger';
 import { BaseChat } from './BaseChat.client';
-import Cookies from 'js-cookie';
-import { debounce } from '~/utils/debounce';
 import { createSampler } from '~/utils/sampler';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { ChatContextManager } from '~/lib/ChatContextManager';
@@ -77,7 +75,6 @@ interface ChatProps {
 
   isReload: boolean;
   hadSuccessfulDeploy: boolean;
-  initialInput?: string;
   earliestRewindableMessageRank?: number;
 }
 
@@ -94,11 +91,9 @@ export const Chat = memo(
     initializeChat,
     isReload,
     hadSuccessfulDeploy,
-    initialInput,
     earliestRewindableMessageRank,
   }: ChatProps) => {
     const convex = useConvex();
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [chatStarted, setChatStarted] = useState(initialMessages.length > 0);
     const actionAlert = useStore(workbenchStore.alert);
     const sessionId = useConvexSessionIdOrNullOrLoading();
@@ -220,9 +215,8 @@ export const Chat = memo(
       }
     }
 
-    const { messages, status, input, handleInputChange, setInput, stop, append, setMessages, reload, error } = useChat({
+    const { messages, status, stop, append, setMessages, reload, error } = useChat({
       initialMessages,
-      initialInput: Cookies.get(PROMPT_COOKIE_KEY) || initialInput || '',
       api: '/api/chat',
       sendExtraMessageFields: true,
       experimental_prepareRequestBody: ({ messages }) => {
@@ -334,8 +328,6 @@ export const Chat = memo(
 
     (window as any).chefParsedMessages = parsedMessages;
 
-    const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
-
     useEffect(() => {
       chatStore.setKey('started', initialMessages.length > 0);
     }, [initialMessages.length]);
@@ -356,19 +348,6 @@ export const Chat = memo(
       workbenchStore.abortAllActions();
     };
 
-    useEffect(() => {
-      const textarea = textareaRef.current;
-
-      if (textarea) {
-        textarea.style.height = 'auto';
-
-        const scrollHeight = textarea.scrollHeight;
-
-        textarea.style.height = `${Math.min(scrollHeight, TEXTAREA_MAX_HEIGHT)}px`;
-        textarea.style.overflowY = scrollHeight > TEXTAREA_MAX_HEIGHT ? 'auto' : 'hidden';
-      }
-    }, [input, textareaRef, TEXTAREA_MAX_HEIGHT]);
-
     const toolStatus = useCurrentToolStatus();
 
     const runAnimation = async () => {
@@ -387,7 +366,7 @@ export const Chat = memo(
       setChatStarted(true);
     };
 
-    const sendMessage = async (messageInput?: string) => {
+    const sendMessage = async (messageInput: string) => {
       const now = Date.now();
       const retries = retryState.get();
       if ((retries.numFailures >= MAX_RETRIES || now < retries.nextRetry) && !hasApiKeySet()) {
@@ -421,12 +400,6 @@ export const Chat = memo(
         return;
       }
 
-      const messageContent = messageInput || input;
-
-      if (!messageContent?.trim()) {
-        return;
-      }
-
       if (status === 'streaming' || status === 'submitted') {
         console.log('Aborting current message.');
         abort();
@@ -450,11 +423,11 @@ export const Chat = memo(
             {
               id: `${new Date().getTime()}`,
               role: 'user',
-              content: messageContent,
+              content: messageInput,
               parts: [
                 {
                   type: 'text',
-                  text: messageContent,
+                  text: messageInput,
                 },
               ],
             },
@@ -470,11 +443,11 @@ export const Chat = memo(
           const userUpdateArtifact = filesToArtifacts(modifiedFiles, `${Date.now()}`);
           append({
             role: 'user',
-            content: messageContent,
+            content: messageInput,
             parts: [
               {
                 type: 'text',
-                text: `${userUpdateArtifact}${messageContent}`,
+                text: `${userUpdateArtifact}${messageInput}`,
               },
             ],
           });
@@ -483,31 +456,18 @@ export const Chat = memo(
         } else {
           append({
             role: 'user',
-            content: messageContent,
+            content: messageInput,
             parts: [
               {
                 type: 'text',
-                text: messageContent,
+                text: messageInput,
               },
             ],
           });
         }
-
-        setInput('');
-        Cookies.remove(PROMPT_COOKIE_KEY);
-
-        textareaRef.current?.blur();
       } finally {
         setSendMessageInProgress(false);
       }
-    };
-
-    /**
-     * Handles the change event for the textarea and updates the input state.
-     * @param event - The change event from the textarea.
-     */
-    const onTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      handleInputChange(event);
     };
 
     const { messageRef, scrollRef, enableAutoScroll } = useSnapScroll();
@@ -516,18 +476,12 @@ export const Chat = memo(
       <BaseChat
         ref={animationScope}
         messageRef={messageRef}
-        textareaRef={textareaRef}
         scrollRef={scrollRef}
         showChat={showChat}
         chatStarted={chatStarted}
         description={title}
-        input={input}
-        handleInputChange={(e) => {
-          onTextareaChange(e);
-          cachePrompt(e.target.value);
-        }}
-        handleStop={abort}
-        sendMessage={sendMessage}
+        onStop={abort}
+        onSend={sendMessage}
         streamStatus={status}
         currentError={error}
         toolStatus={toolStatus}
@@ -703,11 +657,3 @@ export function DisabledText({
     </div>
   );
 }
-
-/**
- * Debounced function to cache the prompt in cookies.
- * Caches the trimmed value of the textarea input after a delay to optimize performance.
- */
-const cachePrompt = debounce(function cachePrompt(prompt: string) {
-  Cookies.set(PROMPT_COOKIE_KEY, prompt.trim(), { expires: 30 });
-}, 1000);
