@@ -12,7 +12,7 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createXai } from '@ai-sdk/xai';
-import { ROLE_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT_PRELUDE, generalSystemPrompt } from 'chef-agent/prompts/system';
+import { ROLE_SYSTEM_PROMPT, generalSystemPrompt } from 'chef-agent/prompts/system';
 import { deployTool } from 'chef-agent/tools/deploy';
 import { viewTool } from 'chef-agent/tools/view';
 import type { ConvexToolSet } from '~/lib/common/types';
@@ -58,6 +58,7 @@ export async function convexAgent(args: {
   modelProvider: ModelProvider;
   userApiKey: string | undefined;
   shouldDisableTools: boolean;
+  skipSystemPrompt: boolean;
   recordUsageCb: (
     lastMessage: Message | undefined,
     finalGeneration: { usage: LanguageModelUsage; providerMetadata?: ProviderMetadata },
@@ -72,6 +73,7 @@ export async function convexAgent(args: {
     modelProvider,
     userApiKey,
     shouldDisableTools,
+    skipSystemPrompt,
     recordUsageCb,
   } = args;
   console.debug('Starting agent with model provider', modelProvider);
@@ -268,6 +270,7 @@ export async function convexAgent(args: {
     usingOpenAi: modelProvider == 'OpenAI',
     usingGoogle: modelProvider == 'Google',
     resendProxyEnabled: getEnv(env, 'RESEND_PROXY_ENABLED') == '1',
+    skipSystemPrompt,
   };
   const tools: ConvexToolSet = {
     deploy: deployTool,
@@ -286,13 +289,17 @@ export async function convexAgent(args: {
         providerOptions: provider.options,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: ROLE_SYSTEM_PROMPT,
           },
-          {
-            role: 'system',
-            content: generalSystemPrompt(opts),
-          },
+          ...(skipSystemPrompt
+            ? []
+            : [
+                {
+                  role: 'system' as const,
+                  content: generalSystemPrompt(opts),
+                },
+              ]),
           ...cleanupAssistantMessages(messages),
         ],
         tools,
@@ -363,9 +370,6 @@ function anthropicInjectCacheControl(options?: RequestInit) {
   }
   if (body.system[0].text !== ROLE_SYSTEM_PROMPT) {
     throw new Error('First system message must be the roleSystemPrompt');
-  }
-  if (!body.system[1].text.startsWith(GENERAL_SYSTEM_PROMPT_PRELUDE)) {
-    throw new Error('Second system message must be the generalSystemPrompt');
   }
 
   // Inject the cache control header after the constant prompt, but leave
