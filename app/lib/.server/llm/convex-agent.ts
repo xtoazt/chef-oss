@@ -21,16 +21,21 @@ import { captureException, captureMessage } from '@sentry/remix';
 import type { SystemPromptOptions } from 'chef-agent/types';
 import { cleanupAssistantMessages } from 'chef-agent/cleanupAssistantMessages';
 import { logger } from 'chef-agent/utils/logger';
-import { calculateChefTokens, encodeUsageAnnotation, usageFromGeneration } from '~/lib/.server/usage';
+import {
+  calculateChefTokens,
+  encodeUsageAnnotation,
+  usageFromGeneration,
+  encodeModelAnnotation,
+} from '~/lib/.server/usage';
 import { compressWithLz4Server } from '~/lib/compression.server';
-import { REPEATED_ERROR_REASON } from '~/lib/common/errors';
 import { getConvexSiteUrl } from '~/lib/convexSiteUrl';
-
+import { REPEATED_ERROR_REASON } from '~/lib/common/annotations';
 import { waitUntil } from '@vercel/functions';
 import type { internal } from '@convex/_generated/api';
 import type { Usage } from '~/lib/.server/validators';
 import type { UsageRecord } from '@convex/schema';
-import { getProvider, type ModelProvider } from './provider';
+import { getProvider, type ModelProvider } from '~/lib/.server/llm/provider';
+import { getEnv } from '~/lib/.server/env';
 
 type Messages = Message[];
 
@@ -67,7 +72,6 @@ export async function convexAgent(args: {
   }
 
   const provider = getProvider(userApiKey, modelProvider);
-
   const opts: SystemPromptOptions = {
     enableBulkEdits: true,
     enablePreciseEdits: false,
@@ -205,23 +209,30 @@ async function onFinishHandler({
     dataStream.writeMessageAnnotation({ type: 'failure', reason: REPEATED_ERROR_REASON });
   }
 
-  // Stash this part's usage as an annotation if we're not done yet.
-  if (result.finishReason !== 'stop') {
-    let toolCallId: string | undefined;
-    if (result.finishReason === 'tool-calls') {
-      if (result.toolCalls.length === 1) {
-        toolCallId = result.toolCalls[0].toolCallId;
-      } else {
-        logger.warn('Stopped with not exactly one tool call', {
-          toolCalls: result.toolCalls,
-        });
-      }
+  let toolCallId: { kind: 'tool-call'; toolCallId: string } | { kind: 'final' } | undefined;
+  // Always stash this part's usage as an annotation -- these are used for
+  // displaying usage info in the UI as well as calculating usage when the message
+  // finishes.
+  if (result.finishReason === 'tool-calls') {
+    if (result.toolCalls.length === 1) {
+      toolCallId = { kind: 'tool-call', toolCallId: result.toolCalls[0].toolCallId };
+    } else {
+      logger.warn('Stopped with not exactly one tool call', {
+        toolCalls: result.toolCalls,
+      });
     }
+  } else if (result.finishReason === 'stop') {
+    toolCallId = { kind: 'final' };
+  }
+  if (toolCallId) {
     const annotation = encodeUsageAnnotation(toolCallId, usage, providerMetadata);
     dataStream.writeMessageAnnotation({ type: 'usage', usage: annotation });
+    const modelAnnotation = encodeModelAnnotation(toolCallId, providerMetadata);
+    dataStream.writeMessageAnnotation({ type: 'model', ...modelAnnotation });
   }
-  // Otherwise, record usage once we've generated the final part.
-  else {
+
+  // Record usage once we've generated the final part.
+  if (result.finishReason === 'stop') {
     await recordUsageCb(messages[messages.length - 1], { usage, providerMetadata });
   }
   if (recordRawPromptsForDebugging) {
@@ -334,11 +345,6 @@ async function storeDebugPrompt(
     console.error(error);
     captureException(error);
   }
-}
-
-// TODO this was cool, do something to type our environment variables
-export function getEnv(name: string): string | undefined {
-  return globalThis.process.env[name];
 }
 
 function normalizeUsage(usage: number) {
