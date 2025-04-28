@@ -360,7 +360,7 @@ export const updateStorageState = internalMutation({
     }
 
     if (previous.lastMessageRank === lastMessageRank && previous.partIndex === partIndex) {
-      if (messageHistoryStorageId !== null) {
+      if (messageHistoryStorageId !== null && snapshotId === null) {
         // Should this error?
         console.warn(
           `Received duplicate update for message history, message ${lastMessageRank} part ${partIndex}, ignoring`,
@@ -374,6 +374,10 @@ export const updateStorageState = internalMutation({
         snapshotId,
       });
       return;
+    }
+
+    if (previous.storageId !== null && storageId === null) {
+      throw new Error("Received null storageId for a chat with messages");
     }
 
     await ctx.db.insert("chatMessagesStorageState", {
