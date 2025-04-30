@@ -16,8 +16,6 @@ import { path } from './utils/path.js';
 const MAX_RELEVANT_FILES_SIZE = 8192;
 const MAX_RELEVANT_FILES = 16;
 
-const MAX_COLLAPSED_MESSAGES_SIZE = 8192;
-
 type UIMessagePart = UIMessage['parts'][number];
 
 type ParsedAssistantMessage = {
@@ -28,12 +26,16 @@ export class ChatContextManager {
   assistantMessageCache: WeakMap<UIMessage, ParsedAssistantMessage> = new WeakMap();
   messageSizeCache: WeakMap<UIMessage, number> = new WeakMap();
   partSizeCache: WeakMap<UIMessagePart, number> = new WeakMap();
+  initialRelevantFiles: UIMessage[] = [];
 
   constructor(
     private getCurrentDocument: () => EditorDocument | undefined,
     private getFiles: () => FileMap,
     private getUserWrites: () => Map<AbsolutePath, number>,
-  ) {}
+    initialMessages: UIMessage[],
+  ) {
+    this.initialRelevantFiles = this.relevantFiles(initialMessages);
+  }
 
   /**
    * Our request context has a few sections:
@@ -45,10 +47,15 @@ export class ChatContextManager {
    * 3. A potentially collapsed segment of the chat history followed
    *    by the full fidelity recent chat history (~5k tokens).
    */
-  prepareContext(messages: UIMessage[]): UIMessage[] {
-    const relevantFiles = this.relevantFiles(messages);
-    const collapsedMessages = this.collapseMessages(messages);
-    return [...relevantFiles, ...collapsedMessages];
+  prepareContext(messages: UIMessage[], maxCollapsedMessagesSize: number): UIMessage[] {
+    // If the last message is a user message this is the first LLM call that includes that user message.
+    // Only update the relevant files if the last message is a user message to avoid clearing the cache as the agent makes changes.
+    if (messages[messages.length - 1].role === 'user') {
+      this.initialRelevantFiles = this.relevantFiles(messages);
+      console.log('updating relevant files');
+    }
+    const collapsedMessages = this.collapseMessages(messages, maxCollapsedMessagesSize);
+    return [...this.initialRelevantFiles, ...collapsedMessages];
   }
 
   private relevantFiles(messages: UIMessage[]): UIMessage[] {
@@ -141,8 +148,8 @@ export class ChatContextManager {
     return relevantFiles;
   }
 
-  private collapseMessages(messages: UIMessage[]): UIMessage[] {
-    const [iCutoff, jCutoff] = this.messagePartCutoff(messages);
+  private collapseMessages(messages: UIMessage[], maxCollapsedMessagesSize: number): UIMessage[] {
+    const [iCutoff, jCutoff] = this.messagePartCutoff(messages, maxCollapsedMessagesSize);
     const summaryLines = [];
     const fullMessages = [];
     for (let i = 0; i < messages.length; i++) {
@@ -181,15 +188,12 @@ export class ChatContextManager {
       }
     }
     const result: UIMessage[] = [];
-    if (summaryLines.length > 0) {
-      result.push(makeSystemMessage(`Conversation summary:\n${summaryLines.join('\n')}`));
-    }
     result.push(...fullMessages);
     return result;
   }
 
-  private messagePartCutoff(messages: UIMessage[]): [number, number] {
-    let remaining = MAX_COLLAPSED_MESSAGES_SIZE;
+  private messagePartCutoff(messages: UIMessage[], maxCollapsedMessagesSize: number): [number, number] {
+    let remaining = maxCollapsedMessagesSize;
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
       for (let j = message.parts.length - 1; j >= 0; j--) {

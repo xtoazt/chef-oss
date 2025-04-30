@@ -7,7 +7,6 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { awsCredentialsProvider } from '@vercel/functions/oidc';
 import { captureException } from '@sentry/remix';
 import { logger } from 'chef-agent/utils/logger';
-import { GENERAL_SYSTEM_PROMPT_PRELUDE, ROLE_SYSTEM_PROMPT } from 'chef-agent/prompts/system';
 import type { ProviderType } from '~/lib/common/annotations';
 // workaround for Vercel environment from
 // https://github.com/vercel/ai/issues/199#issuecomment-1605245593
@@ -254,8 +253,6 @@ const userKeyApiFetch = (provider: ModelProvider) => {
 //
 // tom, 2025-04-25: This is still an outstanding bug
 // https://github.com/vercel/ai/issues/5942
-// I've made this a little more general: only cache if the first
-// or second element starts with GENERAL_SYSTEM_PROMPT_PRELUDE.
 function anthropicInjectCacheControl(options?: RequestInit) {
   const start = Date.now();
   if (!options) {
@@ -277,19 +274,17 @@ function anthropicInjectCacheControl(options?: RequestInit) {
   }
 
   const body = JSON.parse(options.body);
+  // Cache tool definitions.
+  body.tools[body.tools.length - 1].cache_control = { type: 'ephemeral' };
 
-  for (let i = 0; i < body.system.length; i++) {
-    if (body.system[i].text === ROLE_SYSTEM_PROMPT) {
-      continue;
-    }
-    if (body.system[i].text.startsWith(GENERAL_SYSTEM_PROMPT_PRELUDE)) {
-      // Inject the cache control header after the constant prompt, but leave
-      // the dynamic system prompts uncached.
-      body.system[i].cache_control = { type: 'ephemeral' };
-      break;
-    }
-    break;
-  }
+  // Cache system prompt.
+  body.system[body.system.length - 1].cache_control = { type: 'ephemeral' };
+
+  // Cache all messages.
+  const lastMessage = body.messages[body.messages.length - 1];
+  const lastMessagePartIndex = lastMessage.content.length - 1;
+  lastMessage.content[lastMessagePartIndex].cache_control = { type: 'ephemeral' };
+  body.messages[body.messages.length - 1].content[lastMessagePartIndex].cache_control = { type: 'ephemeral' };
 
   const newBody = JSON.stringify(body);
   console.log(`Injected system messages in ${Date.now() - start}ms`);
