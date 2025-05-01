@@ -200,7 +200,8 @@ const userKeyApiFetch = (provider: ModelProvider) => {
   const fetch = undiciFetch as unknown as Fetch;
 
   return async (input: RequestInfo | URL, init?: RequestInit) => {
-    const result = await fetch(input, init);
+    const requestInit = provider === 'Anthropic' ? anthropicInjectCacheControl(init) : init;
+    const result = await fetch(input, requestInit);
     if (result.status === 401) {
       const text = await result.text();
       throw new Error(JSON.stringify({ error: 'Invalid API key', details: text }));
