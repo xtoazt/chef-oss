@@ -27,6 +27,8 @@ export class ChatContextManager {
   messageSizeCache: WeakMap<UIMessage, number> = new WeakMap();
   partSizeCache: WeakMap<UIMessagePart, number> = new WeakMap();
   initialRelevantFiles: UIMessage[] = [];
+  messageICutoff: number = -1;
+  messageJCutoff: number = -1;
 
   constructor(
     private getCurrentDocument: () => EditorDocument | undefined,
@@ -50,11 +52,14 @@ export class ChatContextManager {
    */
   prepareContext(messages: UIMessage[], maxCollapsedMessagesSize: number, maxRelevantFilesSize: number): UIMessage[] {
     // If the last message is a user message this is the first LLM call that includes that user message.
-    // Only update the relevant files if the last message is a user message to avoid clearing the cache as the agent makes changes.
+    // Only update the relevant files and the message cutoff indices if the last message is a user message to avoid clearing the cache as the agent makes changes.
     if (messages[messages.length - 1].role === 'user') {
       this.initialRelevantFiles = this.relevantFiles(messages, maxRelevantFilesSize);
+      const [iCutoff, jCutoff] = this.messagePartCutoff(messages, maxCollapsedMessagesSize);
+      this.messageICutoff = iCutoff;
+      this.messageJCutoff = jCutoff;
     }
-    const collapsedMessages = this.collapseMessages(messages, maxCollapsedMessagesSize);
+    const collapsedMessages = this.collapseMessages(messages);
     return [...this.initialRelevantFiles, ...collapsedMessages];
   }
 
@@ -148,35 +153,19 @@ export class ChatContextManager {
     return relevantFiles;
   }
 
-  private collapseMessages(messages: UIMessage[], maxCollapsedMessagesSize: number): UIMessage[] {
-    const [iCutoff, jCutoff] = this.messagePartCutoff(messages, maxCollapsedMessagesSize);
-    const summaryLines = [];
+  private collapseMessages(messages: UIMessage[]): UIMessage[] {
     const fullMessages = [];
     for (let i = 0; i < messages.length; i++) {
       const message = messages[i];
-      if (i < iCutoff) {
-        for (const part of message.parts) {
-          const summary = summarizePart(message, part);
-          if (summary) {
-            summaryLines.push(summary);
-          }
-        }
-      } else if (i === iCutoff) {
+      if (i < this.messageICutoff) {
+        continue;
+      } else if (i === this.messageICutoff) {
         const filteredParts = message.parts.filter((p, j) => {
           if (p.type !== 'tool-invocation' || p.toolInvocation.state !== 'result') {
             return true;
           }
-          return j > jCutoff;
+          return j > this.messageJCutoff;
         });
-        for (let j = 0; j < filteredParts.length; j++) {
-          const part = filteredParts[j];
-          if (part.type === 'tool-invocation' && part.toolInvocation.state === 'result' && j <= jCutoff) {
-            const summary = summarizePart(message, part);
-            if (summary) {
-              summaryLines.push(summary);
-            }
-          }
-        }
         const remainingMessage = {
           ...message,
           content: StreamingMessageParser.stripArtifacts(message.content),
