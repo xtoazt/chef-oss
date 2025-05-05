@@ -18,6 +18,8 @@ import { ConvexConnection } from '~/components/convex/ConvexConnection';
 import { PROMPT_COOKIE_KEY, type ModelSelection } from '~/utils/constants';
 import { ModelSelector } from './ModelSelector';
 import { TeamSelector } from '~/components/convex/TeamSelector';
+import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { Tooltip } from '@ui/Tooltip';
 import { setSelectedTeamSlug, useSelectedTeamSlug } from '~/lib/stores/convexTeams';
 import { useChefAuth } from './ChefAuthWrapper';
 import { useConvexSessionIdOrNullOrLoading } from '~/lib/stores/sessionId';
@@ -26,6 +28,8 @@ import { openSignInWindow } from '~/components/ChefSignInPage';
 import { Button } from '@ui/Button';
 import { Spinner } from '@ui/Spinner';
 import { debounce } from '~/utils/debounce';
+
+const PROMPT_LENGTH_WARNING_THRESHOLD = 2000;
 
 export const MessageInput = memo(function MessageInput({
   chatStarted,
@@ -173,7 +177,8 @@ export const MessageInput = memo(function MessageInput({
         <div className="flex items-center justify-end gap-4 px-4 pb-3 text-sm">
           <ModelSelector modelSelection={modelSelection} setModelSelection={setModelSelection} />
           <div className="grow" />
-          {input.length > 3 && <NewLineShortcut />}
+          {input.length > 3 && input.length <= PROMPT_LENGTH_WARNING_THRESHOLD && <NewLineShortcut />}
+          {input.length > PROMPT_LENGTH_WARNING_THRESHOLD && <CharacterWarning />}
           {chatStarted && <ConvexConnection />}
           {chefAuthState.kind === 'unauthenticated' && <SignInButton />}
           {!chatStarted && sessionId && (
@@ -194,6 +199,20 @@ const NewLineShortcut = memo(function NewLineShortcut() {
     <div className="text-xs text-content-tertiary">
       <KeyboardShortcut value={['Shift', 'Return']} className="mr-0.5 font-semibold" /> for new line
     </div>
+  );
+});
+
+const CharacterWarning = memo(function CharacterWarning() {
+  return (
+    <Tooltip
+      tip="Chef performs better with shorter prompts. Consider making your prompt more concise or breaking it into smaller chunks."
+      side="bottom"
+    >
+      <div className="flex items-center text-xs text-content-warning cursor-help">
+        <ExclamationTriangleIcon className="mr-1 h-4 w-4" />
+        Prompt exceeds {PROMPT_LENGTH_WARNING_THRESHOLD.toLocaleString()} characters
+      </div>
+    </Tooltip>
   );
 });
 
