@@ -1,5 +1,6 @@
 import Cookies from 'js-cookie';
 import { useStore } from '@nanostores/react';
+import { EnhancePromptButton } from './EnhancePromptButton.client';
 import { messageInputStore } from '~/lib/stores/messageInput';
 import {
   memo,
@@ -27,6 +28,9 @@ import { openSignInWindow } from '~/components/ChefSignInPage';
 import { Button } from '@ui/Button';
 import { Spinner } from '@ui/Spinner';
 import { debounce } from '~/utils/debounce';
+import { useLaunchDarkly } from '~/lib/hooks/useLaunchDarkly';
+import { toast } from 'sonner';
+import { captureException } from '@sentry/remix';
 
 const PROMPT_LENGTH_WARNING_THRESHOLD = 2000;
 
@@ -49,9 +53,11 @@ export const MessageInput = memo(function MessageInput({
   modelSelection: ModelSelection;
   setModelSelection: (modelSelection: ModelSelection) => void;
 }) {
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const sessionId = useConvexSessionIdOrNullOrLoading();
   const chefAuthState = useChefAuth();
   const selectedTeamSlug = useSelectedTeamSlug();
+  const { enhancePromptButton } = useLaunchDarkly();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -140,6 +146,41 @@ export const MessageInput = memo(function MessageInput({
     cachePrompt(value);
   }, []);
 
+  const enhancePrompt = useCallback(async () => {
+    try {
+      setIsEnhancing(true);
+
+      const response = await fetch('/api/enhance-prompt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: input.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to enhance prompt');
+      }
+
+      const data = await response.json();
+      if (data.enhancedPrompt) {
+        messageInputStore.set(data.enhancedPrompt);
+      }
+    } catch (error) {
+      captureException('Failed to enhance prompt', {
+        level: 'error',
+        extra: {
+          error,
+        },
+      });
+      toast.error('Failed to enhance prompt. Please try again.');
+    } finally {
+      setIsEnhancing(false);
+    }
+  }, [input]);
+
   return (
     <div className="relative z-20 mx-auto w-full max-w-chat rounded-xl shadow transition-all duration-200">
       <div className="rounded-xl bg-background-primary/75 backdrop-blur-md">
@@ -187,6 +228,13 @@ export const MessageInput = memo(function MessageInput({
           {input.length > PROMPT_LENGTH_WARNING_THRESHOLD && <CharacterWarning />}
           <div className="ml-auto flex items-center gap-2">
             {chefAuthState.kind === 'unauthenticated' && <SignInButton />}
+            {enhancePromptButton && (
+              <EnhancePromptButton
+                isEnhancing={isEnhancing}
+                disabled={!selectedTeamSlug || chefAuthState.kind === 'loading' || disabled || input.length === 0}
+                onClick={enhancePrompt}
+              />
+            )}
             <Button
               disabled={
                 (!isStreaming && input.length === 0) ||
