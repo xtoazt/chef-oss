@@ -38,8 +38,10 @@ import { VITE_PROVISION_HOST } from '~/lib/convexProvisionHost';
 import type { ProviderType } from '~/lib/common/annotations';
 import { setChefDebugProperty } from 'chef-agent/utils/chefDebug';
 import { MissingApiKey } from './MissingApiKey';
-import type { ModelProvider } from '~/components/chat/ModelSelector';
+import { models, type ModelProvider } from '~/components/chat/ModelSelector';
 import { useLaunchDarkly } from '~/lib/hooks/useLaunchDarkly';
+import { useLocalStorage } from '@uidotdev/usehooks';
+import { KeyIcon } from '@heroicons/react/24/outline';
 
 const logger = createScopedLogger('Chat');
 
@@ -142,7 +144,7 @@ export const Chat = memo(
 
     const apiKey = useQuery(api.apiKeys.apiKeyForCurrentMember);
 
-    const [modelSelection, setModelSelection] = useState<ModelSelection>('auto');
+    const [modelSelection, setModelSelection] = useLocalStorage<ModelSelection>('modelSelection', 'auto');
     const terminalInitializationOptions = useMemo(
       () => ({
         isReload,
@@ -176,20 +178,21 @@ export const Chat = memo(
     const [disableChatMessage, setDisableChatMessage] = useState<
       | { type: 'ExceededQuota' }
       | { type: 'TeamDisabled'; isPaidPlan: boolean }
-      | { type: 'MissingApiKey'; provider: ModelProvider }
+      | { type: 'MissingApiKey'; provider: ModelProvider; requireKey: boolean }
       | null
     >(null);
     const [sendMessageInProgress, setSendMessageInProgress] = useState(false);
 
     const checkApiKeyForCurrentModel = useCallback(
-      (model: ModelSelection): { hasMissingKey: boolean; provider?: ModelProvider } => {
-        if (apiKey?.preference !== 'always') {
-          return { hasMissingKey: false };
+      (model: ModelSelection): { hasMissingKey: boolean; provider?: ModelProvider; requireKey: boolean } => {
+        const requireKey = models[model]?.requireKey || false;
+        if (apiKey?.preference !== 'always' && !requireKey) {
+          return { hasMissingKey: false, requireKey: false };
         }
 
         // Map models to their respective providers
         const MODEL_TO_PROVIDER_MAP: {
-          [K in ModelSelection]: { providerName: ModelProvider; apiKeyField: keyof typeof apiKey };
+          [K in ModelSelection]: { providerName: ModelProvider; apiKeyField: 'value' | 'openai' | 'xai' | 'google' };
         } = {
           auto: { providerName: 'anthropic', apiKeyField: 'value' },
           'claude-3.5-sonnet': { providerName: 'anthropic', apiKeyField: 'value' },
@@ -204,21 +207,21 @@ export const Chat = memo(
         const providerInfo = MODEL_TO_PROVIDER_MAP[model];
 
         // Check if the API key for this provider is missing
-        const keyValue = apiKey[providerInfo.apiKeyField];
+        const keyValue = apiKey?.[providerInfo.apiKeyField];
         if (!keyValue || keyValue.trim() === '') {
-          return { hasMissingKey: true, provider: providerInfo.providerName };
+          return { hasMissingKey: true, provider: providerInfo.providerName, requireKey };
         }
 
-        return { hasMissingKey: false };
+        return { hasMissingKey: false, requireKey };
       },
       [apiKey],
     );
 
     const checkTokenUsage = useCallback(async () => {
       // First, check if preference is 'always' but key for model is missing
-      const { hasMissingKey, provider } = checkApiKeyForCurrentModel(modelSelection);
+      const { hasMissingKey, provider, requireKey } = checkApiKeyForCurrentModel(modelSelection);
       if (hasMissingKey && provider) {
-        setDisableChatMessage({ type: 'MissingApiKey', provider });
+        setDisableChatMessage({ type: 'MissingApiKey', provider, requireKey });
         return;
       }
 
@@ -545,11 +548,11 @@ export const Chat = memo(
           return;
         }
 
-        const { hasMissingKey, provider } = checkApiKeyForCurrentModel(newModel);
+        const { hasMissingKey, provider, requireKey } = checkApiKeyForCurrentModel(newModel);
 
         if (hasMissingKey && provider) {
           // If the model requires a key that's not set, show the message
-          setDisableChatMessage({ type: 'MissingApiKey', provider });
+          setDisableChatMessage({ type: 'MissingApiKey', provider, requireKey });
         } else {
           // For other cases (like free tier or no key required), check full token usage
           await checkTokenUsage().catch((error) => {
@@ -588,9 +591,8 @@ export const Chat = memo(
           ) : disableChatMessage?.type === 'MissingApiKey' ? (
             <MissingApiKey
               provider={disableChatMessage.provider}
+              requireKey={disableChatMessage.requireKey}
               resetDisableChatMessage={() => setDisableChatMessage(null)}
-              modelSelection={modelSelection}
-              setModelSelection={handleModelSelectionChange}
             />
           ) : null
         }
@@ -673,8 +675,18 @@ export function NoTokensText({ resetDisableChatMessage }: { resetDisableChatMess
   const selectedTeamSlug = useSelectedTeamSlug();
   return (
     <div className="flex w-full flex-col gap-4">
-      <h3>You&apos;ve used all the tokens included with your free plan.</h3>
+      <h4>You&apos;ve used all the tokens included with your free plan.</h4>
       <div className="flex flex-wrap items-center gap-2">
+        <TeamSelector
+          selectedTeamSlug={selectedTeamSlug}
+          setSelectedTeamSlug={(slug) => {
+            setSelectedTeamSlug(slug);
+            resetDisableChatMessage();
+          }}
+        />
+        <Button href="/settings" icon={<KeyIcon className="size-4" />} variant="neutral">
+          Add your own API key
+        </Button>
         <Button
           href={
             selectedTeamSlug
@@ -685,24 +697,7 @@ export function NoTokensText({ resetDisableChatMessage }: { resetDisableChatMess
           icon={<ExternalLinkIcon />}
         >
           Upgrade to a paid plan
-        </Button>{' '}
-        <span>
-          or{' '}
-          <a href="/settings" target="_blank" rel="noopener noreferrer" className="text-content-link hover:underline">
-            add your own API key
-          </a>{' '}
-          to continue.
-        </span>
-      </div>
-      <div className="ml-auto">
-        <TeamSelector
-          description="Your project will be created in this Convex team"
-          selectedTeamSlug={selectedTeamSlug}
-          setSelectedTeamSlug={(slug) => {
-            setSelectedTeamSlug(slug);
-            resetDisableChatMessage();
-          }}
-        />
+        </Button>
       </div>
     </div>
   );
@@ -724,6 +719,13 @@ export function DisabledText({
           : "You've exceeded the free plan limits, so your deployments have been disabled."}
       </h3>
       <div className="flex flex-wrap items-center gap-2">
+        <TeamSelector
+          selectedTeamSlug={selectedTeamSlug}
+          setSelectedTeamSlug={(slug) => {
+            setSelectedTeamSlug(slug);
+            resetDisableChatMessage();
+          }}
+        />
         <Button
           href={
             selectedTeamSlug
@@ -736,16 +738,6 @@ export function DisabledText({
           {isPaidPlan ? 'Increase spending limit' : 'Upgrade to Pro'}
         </Button>
         {isPaidPlan && <span>or wait until limits reset</span>}
-      </div>
-      <div className="ml-auto">
-        <TeamSelector
-          description="Your project will be created in this Convex team"
-          selectedTeamSlug={selectedTeamSlug}
-          setSelectedTeamSlug={(slug) => {
-            setSelectedTeamSlug(slug);
-            resetDisableChatMessage();
-          }}
-        />
       </div>
     </div>
   );
@@ -767,23 +759,27 @@ function hasAnyApiKeySet(apiKey?: Doc<'convexMembers'>['apiKey'] | null) {
 }
 
 function hasApiKeySet(modelSelection: ModelSelection, apiKey?: Doc<'convexMembers'>['apiKey'] | null) {
-  const useAnthropic = modelSelection === 'claude-3.5-sonnet' || modelSelection === 'auto';
-  const useOpenai = modelSelection === 'gpt-4.1';
-  const useXai = modelSelection === 'grok-3-mini';
-  const useGoogle = modelSelection === 'gemini-2.5-pro';
-  if (useAnthropic && apiKey && apiKey.value && apiKey.value.trim() !== '') {
-    return true;
+  if (!apiKey) {
+    return false;
   }
-  if (useOpenai && apiKey && apiKey.openai && apiKey.openai.trim() !== '') {
-    return true;
+
+  switch (modelSelection) {
+    case 'auto':
+    case 'claude-3.5-sonnet':
+    case 'claude-3-5-haiku':
+      return !!apiKey.value?.trim();
+    case 'gpt-4.1':
+    case 'gpt-4.1-mini':
+      return !!apiKey.openai?.trim();
+    case 'grok-3-mini':
+      return !!apiKey.xai?.trim();
+    case 'gemini-2.5-pro':
+      return !!apiKey.google?.trim();
+    default: {
+      const _exhaustiveCheck: never = modelSelection;
+      return false;
+    }
   }
-  if (useXai && apiKey && apiKey.xai && apiKey.xai.trim() !== '') {
-    return true;
-  }
-  if (useGoogle && apiKey && apiKey.google && apiKey.google.trim() !== '') {
-    return true;
-  }
-  return false;
 }
 
 function maxSizeForModel(modelSelection: ModelSelection, maxSize: number) {
