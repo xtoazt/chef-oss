@@ -150,14 +150,22 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   />
                 ) : null}
                 <div
-                  className={classNames('flex flex-col gap-4 w-full max-w-chat mx-auto z-prompt relative', {
+                  className={classNames('flex flex-col w-full max-w-chat mx-auto z-prompt relative', {
                     'sticky bottom-four': chatStarted,
                   })}
                 >
                   {actionAlert && (
-                    <div className="bg-bolt-elements-background-depth-2">
+                    <div className="mb-4 bg-background-secondary">
                       <ChatAlert
-                        alert={actionAlert}
+                        alert={
+                          actionAlert ?? {
+                            type: 'ExceededQuota',
+                            title: 'Error',
+                            description: 'Error',
+                            content: 'Error',
+                            source: 'terminal',
+                          }
+                        }
                         clearAlert={() => clearAlert?.()}
                         postMessage={(message) => {
                           onSend?.(message);
@@ -166,6 +174,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       />
                     </div>
                   )}
+                  {/* StreamingIndicator is ow a normal block above the input */}
                   {!disableChatMessage && (
                     <StreamingIndicator
                       streamStatus={streamStatus}
