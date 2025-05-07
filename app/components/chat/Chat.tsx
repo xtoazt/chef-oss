@@ -438,7 +438,7 @@ export const Chat = memo(
       setChatStarted(true);
     };
 
-    const sendMessage = async (messageInput: string, isResend: boolean) => {
+    const sendMessage = async (messageInput: string) => {
       const now = Date.now();
       const retries = retryState.get();
       if ((retries.numFailures >= MAX_RETRIES || now < retries.nextRetry) && !hasApiKeySet(modelSelection, apiKey)) {
@@ -490,14 +490,19 @@ export const Chat = memo(
         await initializeChat();
         runAnimation();
 
-        const maybeRelevantFilesMessage: UIMessage = isResend
-          ? {
+        const shouldSendRelevantFiles = chatContextManager.current.shouldSendRelevantFiles(
+          messages,
+          maxSizeForModel(modelSelection, maxCollapsedMessagesSize),
+        );
+        const maybeRelevantFilesMessage: UIMessage = shouldSendRelevantFiles
+          ? chatContextManager.current.relevantFiles(messages, `${Date.now()}`, maxRelevantFilesSize)
+          : {
               id: `${Date.now()}`,
               content: '',
               role: 'user',
               parts: [],
-            }
-          : chatContextManager.current.relevantFiles(messages, `${Date.now()}`, maxRelevantFilesSize);
+            };
+
         // Make a clone of the relevantFilesMessage so we can inject the modified message after relevant files before the messageInput later
         const newMessage = structuredClone(maybeRelevantFilesMessage);
         newMessage.parts.push({
@@ -529,7 +534,6 @@ export const Chat = memo(
           text: messageInput,
         });
         append(maybeRelevantFilesMessage);
-        // }
       } finally {
         setSendMessageInProgress(false);
       }

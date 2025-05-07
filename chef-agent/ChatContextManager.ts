@@ -169,6 +169,32 @@ export class ChatContextManager {
     return result;
   }
 
+  shouldSendRelevantFiles(messages: UIMessage[], maxCollapsedMessagesSize: number): boolean {
+    // Always send files on the first message
+    if (messages.length === 0) {
+      return true;
+    }
+
+    // Check if we are going to collapse messages, if so, send new files
+    const [messageIndex, partIndex] = this.messagePartCutoff(messages, maxCollapsedMessagesSize);
+    if (messageIndex != this.messageIndex || partIndex != this.partIndex) {
+      return true;
+    }
+
+    // Check if any previous messages contain file artifacts
+    for (const message of messages) {
+      if (message.role === 'user') {
+        for (const part of message.parts) {
+          if (part.type === 'text' && part.text.includes('title="Relevant Files"')) {
+            // Relevant files have been sent before, don't send them again
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
+
   private messagePartCutoff(messages: UIMessage[], maxCollapsedMessagesSize: number): [number, number] {
     let remaining = maxCollapsedMessagesSize;
     for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex--) {
