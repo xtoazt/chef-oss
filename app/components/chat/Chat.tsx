@@ -198,6 +198,8 @@ export const Chat = memo(
           'gpt-4.1': { providerName: 'openai', apiKeyField: 'openai' },
           'grok-3-mini': { providerName: 'xai', apiKeyField: 'xai' },
           'gemini-2.5-pro': { providerName: 'google', apiKeyField: 'google' },
+          'claude-3-5-haiku': { providerName: 'anthropic', apiKeyField: 'value' },
+          'gpt-4.1-mini': { providerName: 'openai', apiKeyField: 'openai' },
         };
 
         // Get provider info for the current model
@@ -277,14 +279,21 @@ export const Chat = memo(
         }
         let modelProvider: ProviderType;
         const retries = retryState.get();
+        let modelChoice: string | undefined = undefined;
         if (modelSelection === 'auto' || modelSelection === 'claude-3.5-sonnet') {
           // Send all traffic to Anthropic first before failing over to Bedrock.
           const providers: ProviderType[] = ['Anthropic', 'Bedrock'];
           modelProvider = providers[retries.numFailures % providers.length];
+        } else if (modelSelection === 'claude-3-5-haiku') {
+          modelProvider = 'Anthropic';
+          modelChoice = 'claude-3-5-haiku-latest';
         } else if (modelSelection === 'grok-3-mini') {
           modelProvider = 'XAI';
         } else if (modelSelection === 'gemini-2.5-pro') {
           modelProvider = 'Google';
+        } else if (modelSelection === 'gpt-4.1-mini') {
+          modelProvider = 'OpenAI';
+          modelChoice = 'gpt-4.1-mini';
         } else {
           modelProvider = 'OpenAI';
         }
@@ -306,7 +315,7 @@ export const Chat = memo(
           skipSystemPrompt: skipSystemPromptStore.get(),
           smallFiles,
           recordRawPromptsForDebugging,
-          modelChoice: undefined,
+          modelChoice,
         };
       },
       maxSteps: 64,
