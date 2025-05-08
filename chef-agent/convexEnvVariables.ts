@@ -1,6 +1,23 @@
 import type { ConvexProject } from './types.js';
 
-export async function queryEnvVariable(project: ConvexProject, name: string): Promise<string | null> {
+async function withRetries<T>(operation: () => Promise<T>, maxRetries: number = 3, retryDelay: number = 500) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (i === maxRetries - 1) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+    }
+  }
+}
+
+export async function queryEnvVariableWithRetries(project: ConvexProject, name: string) {
+  return withRetries(() => queryEnvVariable(project, name));
+}
+
+async function queryEnvVariable(project: ConvexProject, name: string): Promise<string | null> {
   const response = await fetch(`${project.deploymentUrl}/api/query`, {
     method: 'POST',
     body: JSON.stringify({
@@ -25,19 +42,7 @@ export async function queryEnvVariable(project: ConvexProject, name: string): Pr
 }
 
 export async function setEnvVariablesWithRetries(project: ConvexProject, values: Record<string, string>) {
-  const maxRetries = 3;
-  const retryDelay = 500;
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      await setEnvVariables(project, values);
-      return;
-    } catch (error) {
-      if (i === maxRetries - 1) {
-        throw error;
-      }
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-    }
-  }
+  return withRetries(() => setEnvVariables(project, values));
 }
 
 async function setEnvVariables(project: ConvexProject, values: Record<string, string>) {
