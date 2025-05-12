@@ -45,19 +45,23 @@ export class ChatContextManager {
   prepareContext(
     messages: UIMessage[],
     maxCollapsedMessagesSize: number,
+    minCollapsedMessagesSize: number,
   ): { messages: UIMessage[]; collapsedMessages: boolean } {
     // If the last message is a user message this is the first LLM call that includes that user message.
     // Only update the relevant files and the message cutoff indices if the last message is a user message to avoid clearing the cache as the agent makes changes.
     let collapsedMessages = false;
     if (messages[messages.length - 1].role === 'user') {
       const [messageIndex, partIndex] = this.messagePartCutoff(messages, maxCollapsedMessagesSize);
-      if (messageIndex != this.messageIndex || partIndex != this.partIndex) {
+      if (messageIndex >= this.messageIndex && partIndex > this.partIndex) {
+        // Truncate more than just the `maxCollapsedMessagesSize` limit because we want to get some cache hits before needing to truncate again.
+        // If we only truncate to the `maxCollapsedMessagesSize` limit, we'll keep truncating on each new message, which means cache misses.
+        const [newMessageIndex, newPartIndex] = this.messagePartCutoff(messages, minCollapsedMessagesSize);
+        this.messageIndex = newMessageIndex;
+        this.partIndex = newPartIndex;
         collapsedMessages = true;
-        this.messageIndex = messageIndex;
-        this.partIndex = partIndex;
-        messages = this.collapseMessages(messages);
       }
     }
+    messages = this.collapseMessages(messages);
     return { messages, collapsedMessages };
   }
 
