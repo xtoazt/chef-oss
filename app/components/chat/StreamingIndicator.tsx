@@ -1,15 +1,24 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ToolStatus } from '~/lib/common/types';
+import { toast } from 'sonner';
 import { classNames } from '~/utils/classNames';
 import { useStore } from '@nanostores/react';
 import { chatStore } from '~/lib/stores/chatId';
 import { Spinner } from '@ui/Spinner';
-import { ExclamationTriangleIcon, CheckCircledIcon, ResetIcon } from '@radix-ui/react-icons';
+import { ExclamationTriangleIcon, CheckCircledIcon, ResetIcon, ClipboardIcon } from '@radix-ui/react-icons';
 import { useEffect, useState } from 'react';
 import { Button } from '@ui/Button';
+import { useUsage } from '~/lib/stores/usage';
+import { Donut } from '@ui/Donut';
+import { Loading } from '@ui/Loading';
+import { useSelectedTeamSlug } from '~/lib/stores/convexTeams';
+import { useReferralCode, useReferralStats } from '~/lib/hooks/useReferralCode';
+import { Popover } from '@ui/Popover';
+
+type StreamStatus = 'streaming' | 'submitted' | 'ready' | 'error';
 
 interface StreamingIndicatorProps {
-  streamStatus: 'streaming' | 'submitted' | 'ready' | 'error';
+  streamStatus: StreamStatus;
   numMessages: number;
   toolStatus?: ToolStatus;
   currentError?: Error;
@@ -51,6 +60,7 @@ const COOKING_SPLINES_DURATION = 4000;
 
 export default function StreamingIndicator(props: StreamingIndicatorProps) {
   const { aborted } = useStore(chatStore);
+  const teamSlug = useSelectedTeamSlug();
 
   let streamStatus = props.streamStatus;
   const anyToolRunning =
@@ -162,11 +172,17 @@ export default function StreamingIndicator(props: StreamingIndicatorProps) {
                 <div className="actions">
                   <div className={classNames('flex text-sm gap-3')}>
                     <div className="flex w-full items-center gap-1.5">
-                      <div className="mt-1">{icon}</div>
+                      <div className="">{icon}</div>
                       {message}
-                      <div className="grow" />
+                      <div className="min-h-6 grow" />
+                      <LittleUsage teamSlug={teamSlug} streamStatus={streamStatus} />
                       {streamStatus === 'error' && (
-                        <Button type="button" className="mt-auto" onClick={props.resendMessage} icon={<ResetIcon />}>
+                        <Button
+                          type="button"
+                          className="ml-2 h-auto"
+                          onClick={props.resendMessage}
+                          icon={<ResetIcon />}
+                        >
                           Resend
                         </Button>
                       )}
@@ -179,5 +195,165 @@ export default function StreamingIndicator(props: StreamingIndicatorProps) {
         </div>
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+function UsageDonut({ tokenUsage, label }: { tokenUsage: { used: number; quota: number } | null; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-6">
+        {tokenUsage ? <Donut current={tokenUsage.used} max={tokenUsage.quota} /> : <Loading className="size-4" />}
+      </div>
+      <div className="text-sm">{label}</div>
+    </div>
+  );
+}
+
+function displayChefTokenNumber(num: number) {
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(1)}M`;
+  } else if (num >= 1_000) {
+    return `${(num / 1_000).toFixed(0)}K`;
+  }
+  return num.toString();
+}
+
+function LittleUsage({ teamSlug, streamStatus }: { teamSlug: string | null; streamStatus: StreamStatus }) {
+  const { isLoadingUsage, usagePercentage, used, quota, isPaidPlan, refetch } = useUsage({ teamSlug });
+  const referralStats = useReferralStats();
+  const referralCode = useReferralCode();
+  const loading = isLoadingUsage || !referralStats || !referralCode || !teamSlug;
+
+  useEffect(() => {
+    if (streamStatus === 'ready') {
+      refetch();
+    }
+  }, [streamStatus, refetch]);
+
+  if (!isLoadingUsage && (used == null || quota == null)) {
+    return null;
+  }
+
+  // appears to the right of the donut
+  const label = isPaidPlan
+    ? usagePercentage > 100
+      ? ``
+      : `${Math.floor(usagePercentage)}% used`
+    : usagePercentage < 100
+      ? `${Math.floor(usagePercentage)}% used`
+      : `out of tokens`;
+
+  const detailedLabel = isPaidPlan
+    ? `${displayChefTokenNumber(used)} used / ${displayChefTokenNumber(quota)} included tokens (${Math.floor(usagePercentage)}%)`
+    : isLoadingUsage
+      ? ''
+      : usagePercentage < 100
+        ? `${displayChefTokenNumber(used)} used / ${displayChefTokenNumber(quota)} Chef tokens (${Math.floor(usagePercentage)}%)`
+        : `out of tokens`;
+
+  const needsMore = !isPaidPlan;
+
+  return (
+    <div className={classNames('flex flex-col items-center', needsMore ? 'h-auto' : 'h-6')}>
+      <Popover
+        button={
+          <button className="hover:text-content-primary">
+            <div className="flex flex-col items-end gap-1 text-sm text-content-secondary">
+              <UsageDonut tokenUsage={loading ? null : { used, quota }} label={label} />
+              {needsMore && (
+                <div className="border-b border-dotted border-content-secondary text-xs text-content-secondary hover:border-content-primary ">
+                  Get more tokens
+                </div>
+              )}
+            </div>
+          </button>
+        }
+        placement="top-end"
+        offset={[-4, 8]}
+        portal={true}
+        className="w-96"
+      >
+        {loading ? null : (
+          <div className="space-y-2">
+            <UsageDonut tokenUsage={loading ? null : { used, quota }} label={detailedLabel} />
+            <p className="mt-1 text-xs text-content-secondary">
+              Chef tokens power code generation with more expensive models using more Chef tokens. Your team&rsquo;s
+              Chef tokens reset on the first of each month. Unused tokens from the previous month are not carried over.
+            </p>
+            <ul className="space-y-1.5 text-sm text-content-primary">
+              {isPaidPlan ? (
+                <li>
+                  Beyond the {displayChefTokenNumber(quota)} per month included in your plan, Chef tokens cost $10 per
+                  1M
+                </li>
+              ) : (
+                <li>
+                  <div className="flex flex-col items-center gap-2">
+                    <p>
+                      {referralStats.left === 5
+                        ? 'Refer up to 5 new Chef users '
+                        : `Refer up to ${referralStats.left} more new users `}
+                      to get 85K Chef tokens each, now and every month
+                    </p>
+                    {referralStats.left > 0 && <Referrals referralCode={referralCode} />}
+                  </div>
+                </li>
+              )}
+              {isPaidPlan ? null : (
+                <li>
+                  <Button
+                    href={`https://dashboard.convex.dev/t/${teamSlug}/settings/billing`}
+                    target="_blank"
+                    variant="unstyled"
+                    className="underline hover:text-content-link"
+                  >
+                    Upgrade to a paid plan
+                  </Button>{' '}
+                  for 500K included Chef tokens every month
+                </li>
+              )}
+              <li>
+                <Button
+                  href="/settings"
+                  target="_blank"
+                  variant="unstyled"
+                  className="underline hover:text-content-link"
+                >
+                  Add your own API key
+                </Button>{' '}
+                in settings to avoid spending Chef tokens
+              </li>
+            </ul>
+          </div>
+        )}
+      </Popover>
+    </div>
+  );
+}
+
+function Referrals({ referralCode }: { referralCode: string }) {
+  const copyToClipboard = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast.success('Link copied to clipboard!');
+  };
+
+  return (
+    <div className="-mx-2 w-full flex-1 rounded-md text-content-primary">
+      <div className="relative flex w-full items-center gap-2">
+        <input
+          type="text"
+          readOnly
+          value={`https://convex.dev/referral/${referralCode}`}
+          className="w-full flex-1 rounded-md border bg-bolt-elements-background-depth-2 px-3 py-1.5 text-sm text-content-primary"
+        />
+        <Button
+          variant="neutral"
+          size="xs"
+          onClick={() => copyToClipboard(`https://convex.dev/referral/${referralCode}`)}
+          tip="Copy link"
+          icon={<ClipboardIcon />}
+        />
+      </div>
+    </div>
   );
 }

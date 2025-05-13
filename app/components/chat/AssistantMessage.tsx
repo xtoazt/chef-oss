@@ -34,6 +34,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message }: Assi
             model,
             usageAnnotation: usage ?? undefined,
             success,
+            showUsageAnnotations,
           }),
         );
       }
@@ -55,6 +56,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message }: Assi
         model: finalModel,
         usageAnnotation: finalUsage ?? undefined,
         success: true,
+        showUsageAnnotations,
       }),
     );
   }
@@ -80,10 +82,12 @@ function displayModelAndUsage({
   model,
   usageAnnotation,
   success,
+  showUsageAnnotations,
 }: {
   model: { provider: ProviderType; model: string | undefined } | undefined;
   usageAnnotation: UsageAnnotation | undefined;
   success: boolean;
+  showUsageAnnotations: boolean;
 }) {
   const modelDisplay = displayModel(model ?? { provider: 'Unknown', model: undefined });
   // Note: These numbers are the LLM-reported tokens, not Chef tokens (i.e. not
@@ -91,7 +95,9 @@ function displayModelAndUsage({
   // we don't charge for tokens produced from failed tool calls. This should
   // probably be re-worked to use Chef tokens.
 
-  const usageDisplay = usageAnnotation ? displayUsage(usageAnnotation, success, model?.provider ?? 'Unknown') : null;
+  const usageDisplay = usageAnnotation
+    ? displayUsage(usageAnnotation, success, model?.provider ?? 'Unknown', showUsageAnnotations)
+    : null;
   if (modelDisplay && usageDisplay) {
     return (
       <div className="flex items-center gap-1">
@@ -113,7 +119,12 @@ function displayChefTokenNumber(num: number) {
   return num.toString();
 }
 
-function displayUsage(usageAnnotation: UsageAnnotation, success: boolean, provider: ProviderType) {
+function displayUsage(
+  usageAnnotation: UsageAnnotation,
+  success: boolean,
+  provider: ProviderType,
+  showUsageAnnotations: boolean,
+) {
   const usage: Usage = usageFromGeneration({
     usage: usageAnnotation,
     providerMetadata: usageAnnotation.providerMetadata,
@@ -122,13 +133,15 @@ function displayUsage(usageAnnotation: UsageAnnotation, success: boolean, provid
   if (!success) {
     return (
       <div className="text-xs text-content-secondary">
-        Chef Tokens: 0 (failed tool call), {displayBreakdownForSingleAnnotation(breakdown)}
+        Chef Tokens: 0 (failed tool call)
+        {showUsageAnnotations ? `, ${displayBreakdownForSingleAnnotation(breakdown)}` : ''}
       </div>
     );
   }
   return (
     <div className="text-xs text-content-secondary">
-      Chef Tokens: {displayChefTokenNumber(chefTokens)}, {displayBreakdownForSingleAnnotation(breakdown)}
+      Chef Tokens: {displayChefTokenNumber(chefTokens)}
+      {showUsageAnnotations ? `, ${displayBreakdownForSingleAnnotation(breakdown)}` : ''}
     </div>
   );
 }
