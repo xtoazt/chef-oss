@@ -137,6 +137,7 @@ export const Chat = memo(
       maxCollapsedMessagesSize,
       maxRelevantFilesSize,
       minCollapsedMessagesSize,
+      useGeminiAuto,
     } = useLaunchDarkly();
 
     const title = useStore(description);
@@ -221,7 +222,7 @@ export const Chat = memo(
     );
 
     const checkTokenUsage = useCallback(async () => {
-      if (hasApiKeySet(modelSelection, apiKey)) {
+      if (hasApiKeySet(modelSelection, useGeminiAuto, apiKey)) {
         setDisableChatMessage(null);
         return;
       }
@@ -257,7 +258,7 @@ export const Chat = memo(
       } catch (error) {
         captureException(error);
       }
-    }, [apiKey, convex, modelSelection, setDisableChatMessage]);
+    }, [apiKey, convex, modelSelection, setDisableChatMessage, useGeminiAuto]);
 
     const { messages, status, stop, append, setMessages, reload, error } = useChat({
       initialMessages,
@@ -277,8 +278,15 @@ export const Chat = memo(
         let modelProvider: ProviderType;
         const retries = retryState.get();
         let modelChoice: string | undefined = undefined;
-        if (modelSelection === 'auto' || modelSelection === 'claude-3.5-sonnet') {
-          // Send all traffic to Anthropic first before failing over to Bedrock.
+        if (modelSelection === 'auto') {
+          if (useGeminiAuto) {
+            modelProvider = 'Google';
+          } else {
+            // Send all traffic to Anthropic first before failing over to Bedrock.
+            const providers: ProviderType[] = ['Anthropic', 'Bedrock'];
+            modelProvider = providers[retries.numFailures % providers.length];
+          }
+        } else if (modelSelection === 'claude-3.5-sonnet') {
           const providers: ProviderType[] = ['Anthropic', 'Bedrock'];
           modelProvider = providers[retries.numFailures % providers.length];
         } else if (modelSelection === 'claude-3-5-haiku') {
@@ -417,7 +425,10 @@ export const Chat = memo(
     const sendMessage = async (messageInput: string) => {
       const now = Date.now();
       const retries = retryState.get();
-      if ((retries.numFailures >= MAX_RETRIES || now < retries.nextRetry) && !hasApiKeySet(modelSelection, apiKey)) {
+      if (
+        (retries.numFailures >= MAX_RETRIES || now < retries.nextRetry) &&
+        !hasApiKeySet(modelSelection, useGeminiAuto, apiKey)
+      ) {
         let message: string | ReactNode = 'Chef is too busy cooking right now. ';
         if (retries.numFailures >= MAX_RETRIES) {
           message = (
@@ -522,7 +533,7 @@ export const Chat = memo(
         setModelSelection(newModel);
 
         // First check if we have a key for this model, which is the most important case
-        if (hasApiKeySet(newModel, apiKey)) {
+        if (hasApiKeySet(newModel, useGeminiAuto, apiKey)) {
           // If we have a key for this model, clear the message and exit early
           setDisableChatMessage(null);
           return;
@@ -540,7 +551,7 @@ export const Chat = memo(
           });
         }
       },
-      [apiKey, checkApiKeyForCurrentModel, checkTokenUsage, setModelSelection],
+      [apiKey, checkApiKeyForCurrentModel, checkTokenUsage, setModelSelection, useGeminiAuto],
     );
 
     return (
@@ -772,13 +783,21 @@ function hasAnyApiKeySet(apiKey?: Doc<'convexMembers'>['apiKey'] | null) {
   });
 }
 
-function hasApiKeySet(modelSelection: ModelSelection, apiKey?: Doc<'convexMembers'>['apiKey'] | null) {
+function hasApiKeySet(
+  modelSelection: ModelSelection,
+  useGeminiAuto: boolean,
+  apiKey?: Doc<'convexMembers'>['apiKey'] | null,
+) {
   if (!apiKey) {
     return false;
   }
 
   switch (modelSelection) {
     case 'auto':
+      if (useGeminiAuto) {
+        return !!apiKey.google?.trim();
+      }
+      return !!apiKey.value?.trim();
     case 'claude-3.5-sonnet':
     case 'claude-3-5-haiku':
       return !!apiKey.value?.trim();
@@ -799,8 +818,8 @@ function hasApiKeySet(modelSelection: ModelSelection, apiKey?: Doc<'convexMember
 function maxSizeForModel(modelSelection: ModelSelection, maxSize: number) {
   switch (modelSelection) {
     case 'auto':
-      return maxSize;
     case 'claude-3.5-sonnet':
+    case 'gemini-2.5-pro':
       return maxSize;
     default:
       // For non-anthropic models not yet using caching, use a lower message size limit.
