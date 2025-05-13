@@ -15,6 +15,7 @@ export function usageFromGeneration(generation: {
     anthropicCacheReadInputTokens: Number(generation.providerMetadata?.anthropic?.cacheReadInputTokens ?? 0),
     openaiCachedPromptTokens: Number(generation.providerMetadata?.openai?.cachedPromptTokens ?? 0),
     xaiCachedPromptTokens: Number(generation.providerMetadata?.xai?.cachedPromptTokens ?? 0),
+    googleCachedContentTokenCount: Number(generation.providerMetadata?.google?.cachedContentTokenCount ?? 0),
   };
 }
 
@@ -27,6 +28,7 @@ export function initializeUsage(): Usage {
     anthropicCacheReadInputTokens: 0,
     openaiCachedPromptTokens: 0,
     xaiCachedPromptTokens: 0,
+    googleCachedContentTokenCount: 0,
   };
 }
 
@@ -93,6 +95,7 @@ function addUsage(totalUsage: Usage, payload: UsageAnnotation) {
   totalUsage.anthropicCacheReadInputTokens += payload.providerMetadata?.anthropic?.cacheReadInputTokens ?? 0;
   totalUsage.openaiCachedPromptTokens += payload.providerMetadata?.openai?.cachedPromptTokens ?? 0;
   totalUsage.xaiCachedPromptTokens += payload.providerMetadata?.xai?.cachedPromptTokens ?? 0;
+  totalUsage.googleCachedContentTokenCount += payload.providerMetadata?.google?.cachedContentTokenCount ?? 0;
 }
 
 export type ChefTokenBreakdown = {
@@ -192,10 +195,12 @@ export function calculateChefTokens(totalUsage: Usage, provider?: ProviderType) 
     const googleCompletionTokens = totalUsage.completionTokens * 140;
     chefTokens += googleCompletionTokens;
     breakdown.completionTokens.google = googleCompletionTokens;
-    const googlePromptTokens = totalUsage.promptTokens * 18;
+    const googlePromptTokens = (totalUsage.promptTokens - totalUsage.googleCachedContentTokenCount) * 18;
     chefTokens += googlePromptTokens;
     breakdown.promptTokens.google.uncached = googlePromptTokens;
-    // TODO: Implement Google billing for the prompt tokens that are cached. Google doesn't offer caching yet.
+    const googleCachedContentTokens = totalUsage.googleCachedContentTokenCount * 5;
+    chefTokens += googleCachedContentTokens;
+    breakdown.promptTokens.google.cached = googleCachedContentTokens;
   } else {
     captureMessage('WARNING: Unknown provider. Not recording usage. Giving away for free.', {
       level: 'error',

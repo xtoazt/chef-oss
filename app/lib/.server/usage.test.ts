@@ -94,3 +94,33 @@ test('encodeUsageAnnotationXAI', async () => {
     },
   });
 });
+
+test('encodeUsageAnnotationGoogle', async () => {
+  const usage = {
+    completionTokens: 100,
+    promptTokens: 200,
+    totalTokens: 300,
+  };
+  const providerMetadata = {
+    google: {
+      cachedContentTokenCount: 10,
+    },
+  };
+  const annotation = encodeUsageAnnotation({ kind: 'tool-call', toolCallId: undefined }, usage, providerMetadata);
+  const parsed = annotationValidator.safeParse({ type: 'usage', usage: annotation });
+  expect(parsed.success).toBe(true);
+  if (parsed.data?.type !== 'usage') {
+    throw new Error('Expected usage annotation');
+  }
+  const payload = usageAnnotationValidator.parse(JSON.parse(parsed.data?.usage.payload ?? '{}'));
+  expect(payload).toEqual({
+    completionTokens: 100,
+    promptTokens: 200,
+    totalTokens: 300,
+    providerMetadata: {
+      google: {
+        cachedContentTokenCount: 10,
+      },
+    },
+  });
+});
