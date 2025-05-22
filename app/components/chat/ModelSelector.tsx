@@ -81,6 +81,11 @@ export const models: Partial<
     recommended: true,
     provider: 'anthropic',
   },
+  'claude-4-sonnet': {
+    name: 'Claude 4 Sonnet',
+    provider: 'anthropic',
+    requireKey: false,
+  },
   'gemini-2.5-pro': {
     name: 'Gemini 2.5 Pro',
     recommended: true,
@@ -113,17 +118,24 @@ export const ModelSelector = React.memo(function ModelSelector({
 }: ModelSelectorProps) {
   const apiKey = useQuery(api.apiKeys.apiKeyForCurrentMember);
   const selectedModel = models[modelSelection];
-  const { useGeminiAuto } = useLaunchDarkly();
+  const { useGeminiAuto, enableClaude4Sonnet } = useLaunchDarkly();
   if (!selectedModel) {
     captureMessage(`Model ${modelSelection} not found`);
     setModelSelection('auto');
   }
 
+  const availableModels = Object.entries(models).filter(([key]) => {
+    if (key === 'claude-4-sonnet') {
+      return enableClaude4Sonnet;
+    }
+    return true;
+  });
+
   return (
     <Combobox
       searchPlaceholder="Search models..."
       label="Select model"
-      options={Object.entries(models).map(([value, model]) => ({
+      options={availableModels.map(([value, model]) => ({
         label: model.provider + ' ' + model.name,
         value: value as ModelSelection,
       }))}

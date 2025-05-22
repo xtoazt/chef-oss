@@ -194,6 +194,7 @@ export const Chat = memo(
         } = {
           auto: { providerName: 'anthropic', apiKeyField: 'value' },
           'claude-3.5-sonnet': { providerName: 'anthropic', apiKeyField: 'value' },
+          'claude-4-sonnet': { providerName: 'anthropic', apiKeyField: 'value' },
           'gpt-4.1': { providerName: 'openai', apiKeyField: 'openai' },
           'grok-3-mini': { providerName: 'xai', apiKeyField: 'xai' },
           'gemini-2.5-pro': { providerName: 'google', apiKeyField: 'google' },
@@ -300,6 +301,9 @@ export const Chat = memo(
         } else if (modelSelection === 'claude-3-5-haiku') {
           modelProvider = 'Anthropic';
           modelChoice = 'claude-3-5-haiku-latest';
+        } else if (modelSelection === 'claude-4-sonnet') {
+          modelProvider = 'Anthropic';
+          modelChoice = 'claude-sonnet-4-0';
         } else if (modelSelection === 'grok-3-mini') {
           modelProvider = 'XAI';
         } else if (modelSelection === 'gemini-2.5-pro') {
@@ -307,8 +311,11 @@ export const Chat = memo(
         } else if (modelSelection === 'gpt-4.1-mini') {
           modelProvider = 'OpenAI';
           modelChoice = 'gpt-4.1-mini';
-        } else {
+        } else if (modelSelection === 'gpt-4.1') {
           modelProvider = 'OpenAI';
+        } else {
+          const _exhaustiveCheck: never = modelSelection;
+          throw new Error(`Unknown model: ${_exhaustiveCheck}`);
         }
         let shouldDisableTools = false;
         if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {

@@ -75,7 +75,8 @@ export async function chatAction({ request }: ActionFunctionArgs) {
   let useUserApiKey = false;
 
   // Use the user's API key if they're set to always mode or if they manually set a model.
-  if (body.userApiKey?.preference === 'always' || body.modelChoice) {
+  // Sonnet 4 can be used with the default API key since it has the same pricing as Sonnet 3.5
+  if (body.userApiKey?.preference === 'always' || (body.modelChoice && body.modelChoice !== 'claude-sonnet-4-0')) {
     useUserApiKey = true;
   }
 
@@ -158,8 +159,8 @@ export async function chatAction({ request }: ActionFunctionArgs) {
       messages,
       tracer,
       modelProvider: body.modelProvider,
-      // Only set the requested model choice if we're using a user API key.
-      modelChoice: userApiKey ? body.modelChoice : undefined,
+      // Only set the requested model choice if we're using a user API key or Claude 4 Sonnet
+      modelChoice: userApiKey || body.modelChoice === 'claude-sonnet-4-0' ? body.modelChoice : undefined,
       userApiKey,
       shouldDisableTools: body.shouldDisableTools,
       skipSystemPrompt: body.skipSystemPrompt,

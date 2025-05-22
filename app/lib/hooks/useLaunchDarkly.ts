@@ -14,6 +14,7 @@ const flagDefaults: {
   enhancePromptButton: boolean;
   minCollapsedMessagesSize: number;
   useGeminiAuto: boolean;
+  enableClaude4Sonnet: boolean;
 } = {
   maintenanceMode: false,
   openAiLaunch202504: false,
@@ -27,6 +28,7 @@ const flagDefaults: {
   enhancePromptButton: false,
   minCollapsedMessagesSize: 8192,
   useGeminiAuto: false,
+  enableClaude4Sonnet: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {
