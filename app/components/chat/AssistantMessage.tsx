@@ -2,11 +2,13 @@ import { memo, useMemo } from 'react';
 import { Markdown } from './Markdown';
 import type { Message } from 'ai';
 import { ToolCall } from './ToolCall';
-import { makePartId } from 'chef-agent/partId.js';
+import { makePartId, type PartId } from 'chef-agent/partId.js';
 import { ExclamationTriangleIcon, DotFilledIcon } from '@radix-ui/react-icons';
 import { parseAnnotations, type ProviderType, type Usage, type UsageAnnotation } from '~/lib/common/annotations';
 import { useLaunchDarkly } from '~/lib/hooks/useLaunchDarkly';
 import { calculateChefTokens, usageFromGeneration, type ChefTokenBreakdown } from '~/lib/common/usage';
+import { captureMessage } from '@sentry/remix';
+
 interface AssistantMessageProps {
   message: Message;
 }
@@ -21,49 +23,28 @@ export const AssistantMessage = memo(function AssistantMessage({ message }: Assi
       </div>
     );
   }
-  const children: React.ReactNode[] = [];
-  for (const [index, part] of message.parts.entries()) {
-    const partId = makePartId(message.id, index);
-    if (part.type === 'tool-invocation') {
-      if (showUsageAnnotations) {
-        const model = parsedAnnotations.modelForToolCall[part.toolInvocation.toolCallId];
-        const usage = parsedAnnotations.usageForToolCall[part.toolInvocation.toolCallId];
-        const success = part.toolInvocation.state === 'result' && !part.toolInvocation.result.startsWith('Error: ');
-        children.push(
-          displayModelAndUsage({
-            model,
-            usageAnnotation: usage ?? undefined,
-            success,
-            showUsageAnnotations,
-          }),
-        );
-      }
-      children.push(<ToolCall key={children.length} partId={partId} toolCallId={part.toolInvocation.toolCallId} />);
-    }
-    if (part.type === 'text') {
-      children.push(
-        <Markdown html key={partId}>
-          {part.text}
-        </Markdown>,
-      );
-    }
-  }
-  if (showUsageAnnotations) {
-    const finalModel = parsedAnnotations.modelForToolCall.final;
-    const finalUsage = parsedAnnotations.usageForToolCall.final;
-    children.push(
-      displayModelAndUsage({
-        model: finalModel,
-        usageAnnotation: finalUsage ?? undefined,
-        success: true,
-        showUsageAnnotations,
-      }),
-    );
-  }
+
   return (
     <div className="w-full overflow-hidden text-sm">
       <div className="flex flex-col gap-2">
-        {children}
+        {message.parts.map((part, index) => (
+          <AssistantMessagePart
+            key={index}
+            part={part}
+            showUsageAnnotations={showUsageAnnotations}
+            partId={makePartId(message.id, index)}
+            parsedAnnotations={parsedAnnotations}
+          />
+        ))}
+
+        {showUsageAnnotations &&
+          displayModelAndUsage({
+            model: parsedAnnotations.modelForToolCall.final,
+            usageAnnotation: parsedAnnotations.usageForToolCall.final ?? undefined,
+            success: true,
+            showUsageAnnotations,
+          })}
+
         {parsedAnnotations.failedDueToRepeatedErrors && (
           <div className="flex items-center gap-2 text-content-primary">
             <ExclamationTriangleIcon className="size-6" />
@@ -77,6 +58,41 @@ export const AssistantMessage = memo(function AssistantMessage({ message }: Assi
     </div>
   );
 });
+
+function AssistantMessagePart({
+  part,
+  showUsageAnnotations,
+  partId,
+  parsedAnnotations,
+}: {
+  part: NonNullable<Message['parts']>[number];
+  showUsageAnnotations: boolean;
+  partId: PartId;
+  parsedAnnotations: ReturnType<typeof parseAnnotations>;
+}) {
+  if (part.type === 'tool-invocation') {
+    return (
+      <>
+        {showUsageAnnotations &&
+          displayModelAndUsage({
+            model: parsedAnnotations.modelForToolCall[part.toolInvocation.toolCallId],
+            usageAnnotation: parsedAnnotations.usageForToolCall[part.toolInvocation.toolCallId] ?? undefined,
+            success: part.toolInvocation.state === 'result' && !part.toolInvocation.result.startsWith('Error: '),
+            showUsageAnnotations,
+          })}
+
+        <ToolCall partId={partId} toolCallId={part.toolInvocation.toolCallId} />
+      </>
+    );
+  }
+
+  if (part.type === 'text') {
+    return <Markdown html>{part.text}</Markdown>;
+  }
+
+  captureMessage('Unknown part type ' + part.type);
+  return null;
+}
 
 function displayModelAndUsage({
   model,
