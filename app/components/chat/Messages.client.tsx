@@ -12,7 +12,6 @@ import { PersonIcon } from '@radix-ui/react-icons';
 import { ResetIcon } from '@radix-ui/react-icons';
 import { Button } from '@ui/Button';
 import { Modal } from '@ui/Modal';
-import { useLaunchDarkly } from '~/lib/hooks/useLaunchDarkly';
 
 interface MessagesProps {
   id?: string;
@@ -34,8 +33,6 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(function Messa
   }: MessagesProps,
   ref: ForwardedRef<HTMLDivElement> | undefined,
 ) {
-  const { rewindButton } = useLaunchDarkly();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMessageIndex, setSelectedMessageIndex] = useState<number | null>(null);
   const handleRewindToMessage = useCallback(
@@ -124,8 +121,7 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(function Messa
                   </div>
                 )}
                 {isUserMessage ? <UserMessage content={content} /> : <AssistantMessage message={message} />}
-                {rewindButton &&
-                  earliestRewindableMessageRank !== undefined &&
+                {earliestRewindableMessageRank !== undefined &&
                   !isUserMessage &&
                   index >= earliestRewindableMessageRank &&
                   index !== messages.length - 1 && (

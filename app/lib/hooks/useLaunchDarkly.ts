@@ -3,15 +3,11 @@ import { kebabCase } from 'lodash';
 
 const flagDefaults: {
   maintenanceMode: boolean;
-  openAiLaunch202504: boolean;
-  rewindButton: boolean;
-  enableSkipSystemPrompt: boolean;
   showUsageAnnotations: boolean;
   smallFiles: boolean;
   recordRawPromptsForDebugging: boolean;
   maxCollapsedMessagesSize: number;
   maxRelevantFilesSize: number;
-  enhancePromptButton: boolean;
   minCollapsedMessagesSize: number;
   useGeminiAuto: boolean;
   enableClaude4Sonnet: boolean;
@@ -19,15 +15,11 @@ const flagDefaults: {
   useClaude4Auto: boolean;
 } = {
   maintenanceMode: false,
-  openAiLaunch202504: false,
-  rewindButton: true,
-  enableSkipSystemPrompt: false,
   showUsageAnnotations: false,
   smallFiles: true,
   recordRawPromptsForDebugging: false,
   maxCollapsedMessagesSize: 65536,
   maxRelevantFilesSize: 8192,
-  enhancePromptButton: false,
   minCollapsedMessagesSize: 8192,
   useGeminiAuto: false,
   enableClaude4Sonnet: false,
