@@ -177,6 +177,11 @@ function toolsInstructions(options: SystemPromptOptions) {
       as they are already installed.
     </npmInstall_tool>
 
+    <lookupDocs_tool>
+      You can lookup documentation for a list of components using the \`lookupDocs\` tool. Always use this tool to
+      lookup documentation for a component before using the \`npmInstall\` tool to install dependencies.
+    </lookupDocs_tool>
+
     ${options.enablePreciseEdits ? preciseToolInstructions(options) : ''}
   </tools>
   `;
