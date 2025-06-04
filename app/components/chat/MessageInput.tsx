@@ -6,6 +6,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -36,6 +37,30 @@ import { PencilSquareIcon } from '@heroicons/react/24/outline';
 import { ChatBubbleLeftIcon, DocumentArrowUpIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
 const PROMPT_LENGTH_WARNING_THRESHOLD = 2000;
+
+type Highlight = {
+  text: string; // must be lowercase
+  tooltip: string;
+};
+
+const HIGHLIGHTS: Highlight[] = [
+  {
+    text: 'ai chat',
+    tooltip: 'Unless otherwise configured, Chef will prototype with GPT‑4o mini or GPT‑4.1 nano (limits apply).',
+  },
+  {
+    text: 'collaborative text editor',
+    tooltip: 'Chef will use Collaborative Text Editor Convex component.',
+  },
+  {
+    text: 'upload',
+    tooltip: 'Chef will use Convex’s built-in file upload capabilities.',
+  },
+  {
+    text: 'full text search',
+    tooltip: 'Chef will use Convex’s built-in full text search capabilities.',
+  },
+];
 
 export const MessageInput = memo(function MessageInput({
   chatStarted,
@@ -70,29 +95,6 @@ export const MessageInput = memo(function MessageInput({
   useEffect(() => {
     messageInputStore.set(searchParams.get('prefill') || Cookies.get(PROMPT_COOKIE_KEY) || '');
   }, [searchParams]);
-
-  // Textarea auto-sizing
-  const TEXTAREA_MIN_HEIGHT = 100;
-  const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
-  useEffect(() => {
-    const textarea = textareaRef.current;
-
-    if (textarea) {
-      textarea.style.height = 'auto';
-
-      const scrollHeight = textarea.scrollHeight;
-
-      textarea.style.height = `${Math.min(scrollHeight, TEXTAREA_MAX_HEIGHT)}px`;
-      textarea.style.overflowY = scrollHeight > TEXTAREA_MAX_HEIGHT ? 'auto' : 'hidden';
-    }
-  }, [input, textareaRef, TEXTAREA_MAX_HEIGHT]);
-  const textareaStyle = useMemo(
-    () => ({
-      minHeight: TEXTAREA_MIN_HEIGHT,
-      maxHeight: TEXTAREA_MAX_HEIGHT,
-    }),
-    [TEXTAREA_MAX_HEIGHT],
-  );
 
   // Send messages
   const handleSend = useCallback(async () => {
@@ -210,29 +212,17 @@ export const MessageInput = memo(function MessageInput({
   return (
     <div className="relative z-20 mx-auto w-full max-w-chat rounded-xl shadow transition-all duration-200">
       <div className="rounded-xl bg-background-primary/75 backdrop-blur-md">
-        <div
-          className={classNames(
-            'pt-2 pr-1 rounded-t-xl transition-all',
-            'border has-[textarea:focus]:border-border-selected',
-          )}
-        >
-          <textarea
-            ref={textareaRef}
-            className={classNames(
-              'w-full px-3 pt-1 outline-none resize-none text-content-primary placeholder-content-tertiary bg-transparent text-sm',
-              'transition-all',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'scrollbar-thin scrollbar-thumb-macosScrollbar-thumb scrollbar-track-transparent',
-            )}
-            disabled={disabled}
+        <div className="rounded-t-xl border transition-all has-[textarea:focus]:border-border-selected">
+          <TextareaWithHighlights
             onKeyDown={handleKeyDown}
-            value={input}
             onChange={handleChange}
-            style={textareaStyle}
+            value={input}
+            chatStarted={chatStarted}
+            minHeight={100}
+            maxHeight={chatStarted ? 400 : 200}
             placeholder={chatStarted ? 'Request changes by sending another message…' : 'What app do you want to serve?'}
-            translate="no"
-            // Disable Grammarly
-            data-gramm="false"
+            disabled={disabled}
+            highlights={HIGHLIGHTS}
           />
         </div>
         <div
@@ -289,10 +279,10 @@ export const MessageInput = memo(function MessageInput({
                   Add AI chat
                 </div>
               </MenuItemComponent>
-              <MenuItemComponent action={() => insertTemplate('Add file uploads to ...')}>
+              <MenuItemComponent action={() => insertTemplate('Add file upload to ...')}>
                 <div className="flex w-full items-center gap-2">
                   <DocumentArrowUpIcon className="size-4 text-content-secondary" />
-                  Add file uploads
+                  Add file upload
                 </div>
               </MenuItemComponent>
               <MenuItemComponent action={() => insertTemplate('Add full text search to ...')}>
@@ -333,6 +323,204 @@ export const MessageInput = memo(function MessageInput({
           </div>
         </div>
       </div>
+    </div>
+  );
+});
+
+const TextareaWithHighlights = memo(function TextareaWithHighlights({
+  onKeyDown,
+  onChange,
+  value,
+  minHeight,
+  maxHeight,
+  placeholder,
+  disabled,
+  highlights,
+}: {
+  onKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
+  onChange: ChangeEventHandler<HTMLTextAreaElement>;
+  value: string;
+  chatStarted: boolean;
+  placeholder: string;
+  disabled: boolean;
+  minHeight: number;
+  maxHeight: number;
+  highlights: Highlight[];
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Textarea auto-sizing
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [value]);
+
+  const blocks = useMemo(() => {
+    const pattern = highlights
+      .map((h) => h.text) // we assume text doesn’t contain special characters
+      .join('|');
+    const regex = new RegExp(pattern, 'gi');
+
+    return Array.from(value.matchAll(regex)).map((match) => {
+      const pos = match.index;
+      return {
+        from: pos,
+        length: match[0].length,
+        tip: highlights.find((h) => h.text === match[0].toLowerCase())!.tooltip,
+      };
+    });
+  }, [highlights, value]);
+
+  return (
+    <div className="relative overflow-y-auto" style={{ minHeight, maxHeight }}>
+      <textarea
+        ref={textareaRef}
+        className={classNames(
+          'w-full px-3 py-3 outline-none resize-none text-content-primary placeholder-content-tertiary bg-transparent text-sm leading-snug',
+          'transition-opacity',
+          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'scrollbar-thin scrollbar-thumb-macosScrollbar-thumb scrollbar-track-transparent',
+        )}
+        disabled={disabled}
+        onKeyDown={onKeyDown}
+        onChange={onChange}
+        value={value}
+        style={{ minHeight }}
+        placeholder={placeholder}
+        translate="no"
+        // Disable Grammarly
+        data-gramm="false"
+      />
+
+      <HighlightBlocks textareaRef={textareaRef} text={value} blocks={blocks} />
+    </div>
+  );
+});
+
+const HighlightBlocks = memo(function HighlightBlocks({
+  text,
+  blocks,
+  textareaRef,
+}: {
+  text: string;
+  blocks: {
+    from: number;
+    length: number;
+    tip: string;
+  }[];
+  textareaRef: React.RefObject<HTMLTextAreaElement>;
+}) {
+  const mirrorRef = useRef<HTMLDivElement>(null);
+  const [forceRerender, setForceRerender] = useState(0);
+
+  const [blockPositions, setBlockPositions] = useState<
+    {
+      top: number;
+      left: number;
+      width: number;
+      height: number;
+      tip: string;
+    }[]
+  >([]);
+
+  // Rerender on textarea resize
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      throw new Error('Textarea not found');
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      setForceRerender((prev) => prev + 1);
+    });
+    resizeObserver.observe(textarea);
+    return () => resizeObserver.disconnect();
+  }, [textareaRef]);
+
+  useLayoutEffect(() => {
+    if (blocks.length === 0) {
+      return;
+    }
+
+    const mirror = mirrorRef.current;
+    if (!mirror) {
+      throw new Error('Mirror not found');
+    }
+
+    const wrapperRect = mirror.getBoundingClientRect();
+
+    const positions = blocks.flatMap((block) => {
+      const range = document.createRange();
+      range.setStart(mirror.firstChild!, block.from);
+      range.setEnd(mirror.firstChild!, block.from + block.length);
+
+      const result: typeof blockPositions = [];
+      for (const rect of range.getClientRects()) {
+        result.push({
+          top: rect.top - wrapperRect.top + mirror.scrollTop,
+          left: rect.left - wrapperRect.left + mirror.scrollLeft,
+          width: rect.width,
+          height: rect.height,
+          tip: block.tip,
+        });
+      }
+      return result;
+    });
+    setBlockPositions(positions);
+  }, [blocks, textareaRef, forceRerender]);
+
+  if (blocks.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <div
+        ref={mirrorRef}
+        className="pointer-events-none absolute inset-0 -z-20 whitespace-pre-wrap break-words p-3 text-sm leading-snug opacity-0"
+        aria-hidden
+      >
+        {text}
+      </div>
+
+      <div>
+        {blockPositions.map((block, index) => (
+          <HighlightTooltip key={index} {...block} />
+        ))}
+      </div>
+    </div>
+  );
+});
+
+const HighlightTooltip = memo(function HighlightTooltip({
+  tip,
+  width,
+  height,
+  top,
+  left,
+}: {
+  tip: string;
+  width: number;
+  height: number;
+  top: number;
+  left: number;
+}) {
+  return (
+    <div
+      className="absolute flex overflow-hidden bg-[#f8d077] mix-blend-color"
+      style={{
+        width,
+        height,
+        top,
+        left,
+      }}
+    >
+      <Tooltip className="absolute inset-0" tip={tip}>
+        {null}
+      </Tooltip>
     </div>
   );
 });
