@@ -2,7 +2,7 @@ import Cookies from 'js-cookie';
 import { useStore } from '@nanostores/react';
 import { EnhancePromptButton } from './EnhancePromptButton.client';
 import { messageInputStore } from '~/lib/stores/messageInput';
-import {
+import React, {
   memo,
   useCallback,
   useEffect,
@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type ChangeEventHandler,
   type KeyboardEventHandler,
 } from 'react';
@@ -40,7 +41,7 @@ const PROMPT_LENGTH_WARNING_THRESHOLD = 2000;
 
 type Highlight = {
   text: string; // must be lowercase
-  tooltip: string;
+  tooltip: ReactNode;
 };
 
 const HIGHLIGHTS: Highlight[] = [
@@ -50,19 +51,40 @@ const HIGHLIGHTS: Highlight[] = [
   },
   {
     text: 'collaborative text editor',
-    tooltip: 'Chef will use the Collaborative Text Editor Convex component.',
+    tooltip: (
+      <>
+        Chef will use the{' '}
+        <TooltipLink href="https://www.convex.dev/components/prosemirror-sync">Collaborative Text Editor</TooltipLink>{' '}
+        Convex <TooltipLink href="https://www.convex.dev/components">component</TooltipLink>.
+      </>
+    ),
   },
   {
     text: 'upload',
-    tooltip: 'Chef will use Convex’s built-in file upload capabilities.',
+    tooltip: (
+      <>
+        Chef will use Convex’s built-in{' '}
+        <TooltipLink href="https://docs.convex.dev/file-storage">file upload capabilities</TooltipLink>.
+      </>
+    ),
   },
   {
     text: 'full text search',
-    tooltip: 'Chef will use Convex’s built-in full text search capabilities.',
+    tooltip: (
+      <>
+        Chef will use Convex’s built-in{' '}
+        <TooltipLink href="https://docs.convex.dev/search/text-search">full text search</TooltipLink> capabilities.
+      </>
+    ),
   },
   {
     text: 'presence',
-    tooltip: 'Chef will use the Presence Convex component.',
+    tooltip: (
+      <>
+        Chef will use the <TooltipLink href="https://www.convex.dev/components/presence">Presence</TooltipLink>{' '}
+        Convex&nbsp;<TooltipLink href="https://www.convex.dev/components">component</TooltipLink>.
+      </>
+    ),
   },
 ];
 
@@ -413,7 +435,7 @@ const HighlightBlocks = memo(function HighlightBlocks({
   blocks: {
     from: number;
     length: number;
-    tip: string;
+    tip: ReactNode;
   }[];
   textareaRef: React.RefObject<HTMLTextAreaElement>;
 }) {
@@ -426,7 +448,7 @@ const HighlightBlocks = memo(function HighlightBlocks({
       left: number;
       width: number;
       height: number;
-      tip: string;
+      tip: ReactNode;
     }[]
   >([]);
 
@@ -506,7 +528,7 @@ const HighlightTooltip = memo(function HighlightTooltip({
   top,
   left,
 }: {
-  tip: string;
+  tip: ReactNode;
   width: number;
   height: number;
   top: number;
@@ -587,3 +609,11 @@ const SignInButton = memo(function SignInButton() {
 const cachePrompt = debounce(function cachePrompt(prompt: string) {
   Cookies.set(PROMPT_COOKIE_KEY, prompt.trim(), { expires: 30 });
 }, 1000);
+
+function TooltipLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-content-link hover:underline">
+      {children}
+    </a>
+  );
+}
