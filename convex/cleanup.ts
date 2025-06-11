@@ -3,20 +3,24 @@ import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 const delayInMs = parseFloat(process.env.DEBUG_FILE_CLEANUP_DELAY_MS ?? "500");
+const debugFileCleanupBatchSize = parseInt(process.env.DEBUG_FILE_CLEANUP_BATCH_SIZE ?? "100");
 
 export const deleteDebugFilesForInactiveChats = internalMutation({
   args: {
     forReal: v.boolean(),
     cursor: v.optional(v.string()),
     shouldScheduleNext: v.boolean(),
-    ageInDays: v.number(),
+    daysInactive: v.number(),
   },
-  handler: async (ctx, { forReal, cursor, shouldScheduleNext, ageInDays }) => {
+  handler: async (ctx, { forReal, cursor, shouldScheduleNext, daysInactive }) => {
     const { page, isDone, continueCursor } = await ctx.db.query("debugChatApiRequestLog").paginate({
-      numItems: 10,
+      numItems: debugFileCleanupBatchSize,
       cursor: cursor ?? null,
     });
     for (const doc of page) {
+      if (doc._creationTime > Date.now() - 1000 * 60 * 60 * 24 * daysInactive) {
+        return;
+      }
       const storageState = await ctx.db
         .query("chatMessagesStorageState")
         .withIndex("byChatId", (q) => q.eq("chatId", doc.chatId))
@@ -25,7 +29,7 @@ export const deleteDebugFilesForInactiveChats = internalMutation({
       if (storageState === null) {
         throw new Error(`Chat ${doc.chatId} not found in chatMessagesStorageState`);
       }
-      if (storageState._creationTime < Date.now() - 1000 * 60 * 60 * 24 * ageInDays) {
+      if (storageState._creationTime < Date.now() - 1000 * 60 * 60 * 24 * daysInactive) {
         const lastActiveDate = new Date(storageState._creationTime).toISOString();
         if (forReal) {
           ctx.storage.delete(doc.promptCoreMessagesStorageId);
@@ -41,7 +45,7 @@ export const deleteDebugFilesForInactiveChats = internalMutation({
         forReal,
         cursor: continueCursor,
         shouldScheduleNext,
-        ageInDays,
+        daysInactive,
       });
     }
   },
