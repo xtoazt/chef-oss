@@ -41,6 +41,7 @@ export const create = mutation({
 
       code,
       lastMessageRank: storageState.lastMessageRank,
+      lastSubchatIndex: storageState.subchatIndex,
       partIndex: storageState.partIndex,
       description: chat.description,
     });
@@ -234,6 +235,7 @@ export const clone = mutation({
       chatId: clonedChatId,
       storageId: getShare.chatHistoryId,
       lastMessageRank: getShare.lastMessageRank,
+      subchatIndex: getShare.lastSubchatIndex,
       partIndex: getShare.partIndex ?? -1,
     });
 

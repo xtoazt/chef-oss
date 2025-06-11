@@ -162,6 +162,7 @@ export const storageInfo = v.object({
   lastMessageRank: v.number(),
   partIndex: v.number(),
   snapshotId: v.optional(v.id("_storage")),
+  subchatIndex: v.optional(v.number()),
 });
 
 export type StorageInfo = Infer<typeof storageInfo>;
@@ -187,6 +188,7 @@ export const getInitialMessagesStorageInfo = internalQuery({
       lastMessageRank: doc.lastMessageRank,
       partIndex: doc.partIndex,
       snapshotId: doc.snapshotId,
+      subchatIndex: doc.subchatIndex,
     };
   },
 });
@@ -223,6 +225,7 @@ export const updateStorageState = internalMutation({
     chatId: v.string(),
     storageId: v.union(v.id("_storage"), v.null()),
     lastMessageRank: v.number(),
+    subchatIndex: v.number(),
     partIndex: v.number(),
     snapshotId: v.optional(v.union(v.id("_storage"), v.null())),
   },
@@ -276,6 +279,7 @@ export const updateStorageState = internalMutation({
       chatId: chat._id,
       storageId,
       lastMessageRank,
+      subchatIndex: args.subchatIndex,
       partIndex,
       // Should we be using null here to distinguish between not having a snapshot and records written before we also recorded snapshots here?
       snapshotId: snapshotId ?? previous.snapshotId,
@@ -623,11 +627,13 @@ export async function createNewChat(
     initialId: id,
     timestamp: new Date().toISOString(),
     isDeleted: false,
+    lastSubchatIndex: 0,
   });
   await ctx.db.insert("chatMessagesStorageState", {
     chatId,
     storageId: null,
     lastMessageRank: -1,
+    subchatIndex: 0,
     partIndex: -1,
   });
 

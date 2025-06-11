@@ -13,4 +13,37 @@ export const setDefaultDeletedFalse = migrations.define({
   },
 });
 
-export const runIt = migrations.runner(internal.migrations.setDefaultDeletedFalse);
+export const runSetDefaultDeletedFalse = migrations.runner(internal.migrations.setDefaultDeletedFalse);
+
+export const addLastSubchatIndex = migrations.define({
+  table: "chats",
+  migrateOne: async (ctx, doc) => {
+    if (doc.lastSubchatIndex === undefined) {
+      await ctx.db.patch(doc._id, { lastSubchatIndex: 0 });
+    }
+  },
+});
+
+export const runAddLastSubchatIndex = migrations.runner(internal.migrations.addLastSubchatIndex);
+
+export const addSubchatIndex = migrations.define({
+  table: "chatMessagesStorageState",
+  migrateOne: async (ctx, doc) => {
+    if (doc.subchatIndex === undefined) {
+      await ctx.db.patch(doc._id, { subchatIndex: 0 });
+    }
+  },
+});
+
+export const runAddSubchatIndex = migrations.runner(internal.migrations.addSubchatIndex);
+
+export const addLastSubchatIndexToShares = migrations.define({
+  table: "shares",
+  migrateOne: async (ctx, doc) => {
+    if (doc.lastSubchatIndex === undefined) {
+      await ctx.db.patch(doc._id, { lastSubchatIndex: 0 });
+    }
+  },
+});
+
+export const runAddLastSubchatIndexToShares = migrations.runner(internal.migrations.addLastSubchatIndexToShares);
