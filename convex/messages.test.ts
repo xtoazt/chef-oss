@@ -133,6 +133,7 @@ describe("messages", () => {
     const initialMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, initialMessagesStorageInfo, {
       expectedMessages: [firstMessage],
@@ -174,6 +175,7 @@ describe("messages", () => {
     const initialMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, initialMessagesStorageInfo, {
       expectedMessages: [firstMessage],
@@ -195,6 +197,7 @@ describe("messages", () => {
     const nextMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, nextMessagesStorageInfo, {
       expectedMessages: [firstMessage, secondMessage],
@@ -227,6 +230,7 @@ describe("messages", () => {
     const initialMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, initialMessagesStorageInfo, {
       expectedMessages: [firstMessage],
@@ -249,6 +253,7 @@ describe("messages", () => {
     const nextMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, nextMessagesStorageInfo, {
       expectedMessages: [firstMessage, secondMessage],
@@ -269,6 +274,7 @@ describe("messages", () => {
     const finalMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, finalMessagesStorageInfo, {
       expectedMessages: [firstMessage, secondMessage],
@@ -301,6 +307,7 @@ describe("messages", () => {
     const initialMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, initialMessagesStorageInfo, {
       expectedMessages: [firstMessage],
@@ -324,6 +331,7 @@ describe("messages", () => {
     const nextMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, nextMessagesStorageInfo, {
       expectedMessages: [firstMessage, secondMessage],
@@ -334,10 +342,11 @@ describe("messages", () => {
     });
 
     // Should see lower lastMessageRank after rewinding
-    await t.mutation(api.messages.rewindChat, { sessionId, chatId, lastMessageRank: 0 });
+    await t.mutation(api.messages.rewindChat, { sessionId, chatId, subchatIndex: 0, lastMessageRank: 0 });
     const rewoundMessagesStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, rewoundMessagesStorageInfo, {
       expectedMessages: [firstMessage],
@@ -382,6 +391,7 @@ describe("messages", () => {
     const preRewindInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, preRewindInfo, {
       expectedMessages: [firstMessage, secondMessage],
@@ -398,7 +408,7 @@ describe("messages", () => {
     }
 
     // Rewind to first message
-    await t.mutation(api.messages.rewindChat, { sessionId, chatId, lastMessageRank: 0 });
+    await t.mutation(api.messages.rewindChat, { sessionId, chatId, subchatIndex: 0, lastMessageRank: 0 });
 
     // Send a new message after rewinding
     const newMessage: SerializedMessage = createMessage({
@@ -458,6 +468,7 @@ describe("messages", () => {
     const preRewindInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, preRewindInfo, {
       expectedMessages: [firstMessage, secondMessage],
@@ -468,7 +479,7 @@ describe("messages", () => {
     });
 
     // Rewind to first message
-    await t.mutation(api.messages.rewindChat, { sessionId, chatId, lastMessageRank: 0 });
+    await t.mutation(api.messages.rewindChat, { sessionId, chatId, subchatIndex: 0, lastMessageRank: 0 });
 
     // Send a new message after rewinding
     const newMessage: SerializedMessage = createMessage({
@@ -538,6 +549,7 @@ describe("messages", () => {
     const firstStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, firstStorageInfo, {
       expectedMessages: [firstMessage],
@@ -560,6 +572,7 @@ describe("messages", () => {
     const secondStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, secondStorageInfo, {
       expectedMessages: [firstMessage, secondMessage],
@@ -570,7 +583,7 @@ describe("messages", () => {
     });
 
     // Rewind to first message
-    await t.mutation(api.messages.rewindChat, { sessionId, chatId, lastMessageRank: 0 });
+    await t.mutation(api.messages.rewindChat, { sessionId, chatId, subchatIndex: 0, lastMessageRank: 0 });
 
     // Send a new message with a different snapshot
     const newMessage: SerializedMessage = createMessage({
@@ -638,6 +651,7 @@ describe("messages", () => {
     const initialStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, initialStorageInfo, {
       expectedMessages: [firstMessage],
@@ -673,6 +687,7 @@ describe("messages", () => {
     const updatedStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, updatedStorageInfo, {
       expectedMessages: [updatedMessage],
@@ -713,6 +728,7 @@ describe("messages", () => {
     const initialStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, initialStorageInfo, {
       expectedMessages: [firstMessage],
@@ -743,6 +759,7 @@ describe("messages", () => {
     const updatedStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, updatedStorageInfo, {
       expectedMessages: [updatedMessage],
@@ -770,6 +787,7 @@ describe("messages", () => {
     const initialStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     await assertStorageInfo(t, initialStorageInfo, {
       expectedMessages: [firstMessage],
@@ -804,6 +822,7 @@ describe("messages", () => {
     const updatedStorageInfo = await t.query(internal.messages.getInitialMessagesStorageInfo, {
       sessionId,
       chatId,
+      subchatIndex: 0,
     });
     expect(updatedStorageInfo?.storageId).not.toBe(initialStorageInfo?.storageId);
     expect(updatedStorageInfo?.snapshotId).not.toBe(initialStorageInfo?.snapshotId);
