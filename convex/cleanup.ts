@@ -1,8 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { snapshotIdUnusedByChatsAndShares, storageIdUnusedByShares } from "./messages";
 
 const delayInMs = parseFloat(process.env.DEBUG_FILE_CLEANUP_DELAY_MS ?? "500");
 const debugFileCleanupBatchSize = parseInt(process.env.DEBUG_FILE_CLEANUP_BATCH_SIZE ?? "100");
@@ -141,7 +140,7 @@ export const deleteOldChatStorageStates = internalMutation({
   },
 });
 
-// Delete all the storage states and files for non-latest parts of a lastMessageRank
+// Delete all the storage states for non-latest parts of a lastMessageRank
 export const deleteOldStorageStatesForLastMessageRank = internalMutation({
   args: {
     chatId: v.id("chats"),
@@ -158,51 +157,9 @@ export const deleteOldStorageStatesForLastMessageRank = internalMutation({
     if (storageStates.length <= 1) {
       return;
     }
-    const latestSnapshotId = storageStates[storageStates.length - 1].snapshotId;
-
-    // Delete all storage states except the last one
-    const deletedStorageIds = new Set<Id<"_storage">>();
     for (let i = 0; i < storageStates.length - 1; i++) {
       const storageState = storageStates[i];
       if (storageState.storageId !== null) {
-        const unusedByShares = await storageIdUnusedByShares(ctx, storageState.storageId);
-        if (unusedByShares && !deletedStorageIds.has(storageState.storageId)) {
-          if (forReal) {
-            await ctx.storage.delete(storageState.storageId);
-            deletedStorageIds.add(storageState.storageId);
-            console.log(
-              `Deleted storageId ${storageState.storageId} for chat ${chatId} and lastMessageRank ${lastMessageRank}`,
-            );
-          } else {
-            console.log(
-              `Would delete storageId ${storageState.storageId} for chat ${chatId} and lastMessageRank ${lastMessageRank}`,
-            );
-          }
-        }
-        if (latestSnapshotId === undefined && storageState.snapshotId !== undefined) {
-          throw new Error(
-            `Latest snapshot ID is undefined for chat ${chatId} and lastMessageRank ${lastMessageRank} but earlier storage state ${storageState._id} has a snapshotId`,
-          );
-        }
-        // Do not remove the latest snapshotId!
-        if (
-          storageState.snapshotId !== undefined &&
-          storageState.snapshotId !== latestSnapshotId &&
-          (await snapshotIdUnusedByChatsAndShares(ctx, storageState.snapshotId)) &&
-          !deletedStorageIds.has(storageState.snapshotId)
-        ) {
-          if (forReal) {
-            await ctx.storage.delete(storageState.snapshotId);
-            console.log(
-              `Deleted snapshotId ${storageState.snapshotId} for chat ${chatId} and lastMessageRank ${lastMessageRank}`,
-            );
-            deletedStorageIds.add(storageState.snapshotId);
-          } else {
-            console.log(
-              `Would delete snapshotId ${storageState.snapshotId} for chat ${chatId} and lastMessageRank ${lastMessageRank}`,
-            );
-          }
-        }
         if (forReal) {
           await ctx.db.delete(storageState._id);
           console.log(
@@ -211,6 +168,195 @@ export const deleteOldStorageStatesForLastMessageRank = internalMutation({
         } else {
           console.log(
             `Would delete storageState ${storageState._id} for chat ${chatId} and lastMessageRank ${lastMessageRank}`,
+          );
+        }
+      }
+    }
+  },
+});
+
+async function deleteFileIfUnreferenced(ctx: MutationCtx, storageId: Id<"_storage">, forReal: boolean) {
+  // Check the storage id is not referenced in any tables
+  const chatRef = await ctx.db
+    .query("chats")
+    .withIndex("bySnapshotId", (q) => q.eq("snapshotId", storageId))
+    .first();
+  if (chatRef) {
+    console.log(`Skipping storage ${storageId} because it is referenced by chat ${chatRef._id}`);
+    return false;
+  }
+  const chatHistorySnapshotRef = await ctx.db
+    .query("chatMessagesStorageState")
+    .withIndex("bySnapshotId", (q) => q.eq("snapshotId", storageId))
+    .first();
+  if (chatHistorySnapshotRef) {
+    console.log(
+      `Skipping storage ${storageId} because it is referenced by chat history snapshot ${chatHistorySnapshotRef._id}`,
+    );
+    return false;
+  }
+  const chatHistoryStorageRef = await ctx.db
+    .query("chatMessagesStorageState")
+    .withIndex("byStorageId", (q) => q.eq("storageId", storageId))
+    .first();
+  if (chatHistoryStorageRef) {
+    console.log(
+      `Skipping storage ${storageId} because it is referenced by chat history storage ${chatHistoryStorageRef._id}`,
+    );
+    return false;
+  }
+  const shareSnapshotRef = await ctx.db
+    .query("shares")
+    .withIndex("bySnapshotId", (q) => q.eq("snapshotId", storageId))
+    .first();
+  if (shareSnapshotRef) {
+    console.log(`Skipping storage ${storageId} because it is referenced by share snapshot ${shareSnapshotRef._id}`);
+    return false;
+  }
+  const shareChatHistorySnapshotRef = await ctx.db
+    .query("shares")
+    .withIndex("byChatHistoryId", (q) => q.eq("chatHistoryId", storageId))
+    .first();
+  if (shareChatHistorySnapshotRef) {
+    console.log(
+      `Skipping storage ${storageId} because it is referenced by share chat history snapshot ${shareChatHistorySnapshotRef._id}`,
+    );
+    return false;
+  }
+
+  const socialShareRef = await ctx.db
+    .query("socialShares")
+    .withIndex("byThumbnailImageStorageId", (q) => q.eq("thumbnailImageStorageId", storageId))
+    .first();
+  if (socialShareRef) {
+    console.log(`Skipping storage ${storageId} because it is referenced by social share ${socialShareRef._id}`);
+    return false;
+  }
+  const debugChatApiRequestLogRef = await ctx.db
+    .query("debugChatApiRequestLog")
+    .withIndex("byStorageId", (q) => q.eq("promptCoreMessagesStorageId", storageId))
+    .first();
+  if (debugChatApiRequestLogRef) {
+    console.log(
+      `Skipping storage ${storageId} because it is referenced by debug chat api request log ${debugChatApiRequestLogRef._id}`,
+    );
+    return false;
+  }
+  if (forReal) {
+    await ctx.storage.delete(storageId);
+    console.log(`Deleted storage ${storageId}`);
+  } else {
+    console.log(`Would delete storage ${storageId}`);
+  }
+  return true;
+}
+
+export const deleteOrphanedFiles = internalMutation({
+  args: {
+    forReal: v.boolean(),
+    shouldScheduleNext: v.boolean(),
+    cursor: v.optional(v.string()),
+    migrationId: v.optional(v.id("migrations")),
+  },
+  handler: async (ctx, { forReal, shouldScheduleNext, cursor, migrationId }) => {
+    if (!migrationId) {
+      migrationId = await ctx.db.insert("migrations", {
+        name: "deleteOrphanedFiles",
+        forReal,
+        isDone: false,
+        cursor: null,
+        processed: 0,
+        numDeleted: 0,
+      });
+    }
+    const { page, isDone, continueCursor } = await ctx.db.system.query("_storage").paginate({
+      numItems: storageStateCleanupBatchSize,
+      cursor: cursor ?? null,
+    });
+    let numDeleted = 0;
+    for (const storage of page) {
+      if (await deleteFileIfUnreferenced(ctx, storage._id, forReal)) {
+        numDeleted++;
+      }
+    }
+
+    const migration = await ctx.db.get(migrationId);
+    if (!migration) {
+      throw new Error(`Migration ${migrationId} not found`);
+    }
+    await ctx.db.patch(migrationId, {
+      processed: page.length + migration.processed,
+      cursor: continueCursor,
+      isDone: isDone,
+      numDeleted: numDeleted + migration.numDeleted,
+    });
+    if (isDone) {
+      await ctx.db.patch(migrationId, {
+        latestEnd: Date.now(),
+      });
+    }
+    if (shouldScheduleNext && !isDone) {
+      await ctx.scheduler.runAfter(delayInMs, internal.cleanup.deleteOrphanedFiles, {
+        forReal,
+        shouldScheduleNext,
+        cursor: continueCursor,
+        migrationId,
+      });
+    }
+  },
+});
+
+// Helper to double check that all the files referenced are still in storage after calling `deleteOrphanedFiles`
+export const getReferencedFiles = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const storageStates = await ctx.db.query("chatMessagesStorageState").collect();
+    for (const storageState of storageStates) {
+      if (storageState.storageId !== null) {
+        const url = await ctx.storage.getUrl(storageState.storageId);
+        if (!url) {
+          throw new Error(
+            `Storage ${storageState.storageId} not found, associated with chatMessagesStorageState ${storageState._id}`,
+          );
+        }
+      }
+      if (storageState.snapshotId) {
+        const url = await ctx.storage.getUrl(storageState.snapshotId);
+        if (!url) {
+          throw new Error(
+            `Storage ${storageState.snapshotId} not found, associated with chatMessagesStorageState ${storageState._id}`,
+          );
+        }
+      }
+    }
+    const shares = await ctx.db.query("shares").collect();
+    for (const share of shares) {
+      if (share.snapshotId) {
+        const url = await ctx.storage.getUrl(share.snapshotId);
+        if (!url) {
+          throw new Error(`Storage ${share.snapshotId} not found, associated with share ${share._id}`);
+        }
+      }
+    }
+
+    const socialShares = await ctx.db.query("socialShares").collect();
+    for (const socialShare of socialShares) {
+      if (socialShare.thumbnailImageStorageId) {
+        const url = await ctx.storage.getUrl(socialShare.thumbnailImageStorageId);
+        if (!url) {
+          throw new Error(
+            `Storage ${socialShare.thumbnailImageStorageId} not found, associated with social share ${socialShare._id}`,
+          );
+        }
+      }
+    }
+    const debugChatApiRequestLogs = await ctx.db.query("debugChatApiRequestLog").collect();
+    for (const debugChatApiRequestLog of debugChatApiRequestLogs) {
+      if (debugChatApiRequestLog.promptCoreMessagesStorageId) {
+        const url = await ctx.storage.getUrl(debugChatApiRequestLog.promptCoreMessagesStorageId);
+        if (!url) {
+          throw new Error(
+            `Storage ${debugChatApiRequestLog.promptCoreMessagesStorageId} not found, associated with debug chat api request log ${debugChatApiRequestLog._id}`,
           );
         }
       }

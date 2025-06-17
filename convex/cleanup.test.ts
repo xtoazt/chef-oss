@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { internal } from "./_generated/api";
-import { setupTest, type TestConvex } from "./test.setup";
+import { api, internal } from "./_generated/api";
+import { initializeChat, setupTest, type TestConvex } from "./test.setup";
 
 async function createChatId(t: TestConvex) {
   return await t.run(async (ctx) => {
@@ -193,6 +193,13 @@ describe("deleteOldStorageStatesForLastMessageRank", () => {
     });
     expect(remainingStates.length).toBe(1);
     expect(remainingStates[0].partIndex).toBe(2); // Latest part index
+
+    // Delete the orphaned files
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: true,
+    });
+
     // Verify the snapshot is still there
     const snapshotFile = await t.run(async (ctx) => {
       return await ctx.storage.getUrl(remainingStates[0].snapshotId!);
@@ -211,6 +218,93 @@ describe("deleteOldStorageStatesForLastMessageRank", () => {
         expect(snapshotFile).toBeNull();
       }
     });
+  });
+
+  test("does not delete snapshots that are referenced in other storage states", async () => {
+    // Create a chat
+    const chatId = await createChatId(t);
+    // Create a snapshot
+    const snapshotId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(["content"]));
+    });
+    const snapshotId2 = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob([`snapshot-2`]));
+    });
+    const snapshotId3 = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob([`snapshot-3`]));
+    });
+
+    // Create multiple storage states for the different lastMessageRanks
+
+    await t.run(async (ctx) => {
+      const storageId = await ctx.storage.store(new Blob([`content`]));
+      await ctx.db.insert("chatMessagesStorageState", {
+        chatId,
+        storageId,
+        lastMessageRank: 1,
+        partIndex: 0,
+        subchatIndex: 0,
+        snapshotId,
+      });
+      await ctx.db.insert("chatMessagesStorageState", {
+        chatId,
+        storageId,
+        lastMessageRank: 1,
+        partIndex: 1,
+        subchatIndex: 0,
+        snapshotId: snapshotId2,
+      });
+
+      await ctx.db.insert("chatMessagesStorageState", {
+        chatId,
+        storageId,
+        lastMessageRank: 2,
+        partIndex: 0,
+        subchatIndex: 0,
+        snapshotId: snapshotId2,
+      });
+      await ctx.db.insert("chatMessagesStorageState", {
+        chatId,
+        storageId: null,
+        lastMessageRank: 2,
+        partIndex: 0,
+        subchatIndex: 0,
+        snapshotId: snapshotId3,
+      });
+    });
+
+    await t.mutation(internal.cleanup.deleteOldStorageStatesForLastMessageRank, {
+      chatId,
+      lastMessageRank: 1,
+      forReal: true,
+    });
+    await t.mutation(internal.cleanup.deleteOldStorageStatesForLastMessageRank, {
+      chatId,
+      lastMessageRank: 2,
+      forReal: true,
+    });
+
+    // Delete the orphaned files
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: true,
+    });
+
+    // Verify the first snapshot is not there
+    const snapshotFile = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(snapshotId);
+    });
+    expect(snapshotFile).toBeNull();
+    // Verify the second snapshot is still there
+    const snapshotFile2 = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(snapshotId2);
+    });
+    expect(snapshotFile2).not.toBeNull();
+    // Verify the third snapshot is still there
+    const snapshotFile3 = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(snapshotId3);
+    });
+    expect(snapshotFile3).not.toBeNull();
   });
 
   test("does not delete snapshots that are used by the latest storage state", async () => {
@@ -367,5 +461,237 @@ describe("deleteOldStorageStatesForLastMessageRank", () => {
       expect(file.storageFile).not.toBeNull();
       expect(file.snapshotFile).not.toBeNull();
     }
+  });
+});
+
+describe("file cleanup tests", () => {
+  let t: TestConvex;
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    t = setupTest();
+  });
+
+  afterEach(async () => {
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    vi.useRealTimers();
+  });
+  test("deletes file when not referenced anywhere", async () => {
+    // Create a storage file
+    const storageId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(["test content"]));
+    });
+
+    // Run the cleanup function
+    const result = await t.run(async (ctx) => {
+      return await ctx.db.system.get(storageId);
+    });
+    expect(result).not.toBeNull();
+
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: false,
+    });
+
+    // Verify the file was deleted
+    const storageFile = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(storageId);
+    });
+    expect(storageFile).toBeNull();
+  });
+
+  test("does not delete file when referenced by chat", async () => {
+    // Create a storage file
+    const storageId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(["test content"]));
+    });
+
+    // Create a chat that references the storage file
+    await t.run(async (ctx) => {
+      await ctx.db.insert("chats", {
+        creatorId: await ctx.db.insert("sessions", {}),
+        initialId: "test-chat",
+        timestamp: new Date().toISOString(),
+        lastSubchatIndex: 0,
+        snapshotId: storageId,
+      });
+    });
+
+    // Run the cleanup function
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: false,
+    });
+
+    // Verify the file was not deleted
+    const storageFile = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(storageId);
+    });
+    expect(storageFile).not.toBeNull();
+  });
+
+  test("does not delete file when referenced by chatMessagesStorageState as snapshotId", async () => {
+    // Create a storage file
+    const storageId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(["test content"]));
+    });
+
+    // Create a chat and storage state that references the storage file
+    const chatId = await createChatId(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("chatMessagesStorageState", {
+        chatId,
+        storageId: null,
+        lastMessageRank: 1,
+        partIndex: 0,
+        subchatIndex: 0,
+        snapshotId: storageId,
+      });
+    });
+
+    // Run the cleanup function
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: false,
+    });
+
+    // Verify the file was not deleted
+    const storageFile = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(storageId);
+    });
+    expect(storageFile).not.toBeNull();
+  });
+
+  test("does not delete file when referenced by chatMessagesStorageState as storageId", async () => {
+    // Create a storage file
+    const storageId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(["test content"]));
+    });
+    // Create a chat and storage state that references the storage file
+    const chatId = await createChatId(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("chatMessagesStorageState", {
+        chatId,
+        storageId,
+        lastMessageRank: 1,
+        partIndex: 0,
+        subchatIndex: 0,
+      });
+    });
+    // Run the cleanup function
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: false,
+    });
+    // Verify the file was not deleted
+    const storageFile = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(storageId);
+    });
+    expect(storageFile).not.toBeNull();
+  });
+
+  test("does not delete files when referenced by share", async () => {
+    const { sessionId, chatId } = await initializeChat(t);
+    await t.mutation(api.share.create, { sessionId, id: chatId });
+    await t.run(async (ctx) => {
+      for (const doc of await ctx.db.query("chatMessagesStorageState").collect()) {
+        await ctx.db.delete(doc._id);
+      }
+    });
+
+    // Run the cleanup function
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: false,
+    });
+
+    const files = await t.run(async (ctx) => await ctx.db.system.query("_storage").collect());
+    expect(files.length).toBe(2);
+  });
+
+  test("does not delete file when referenced by socialShare", async () => {
+    // Create a storage file
+    const storageId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(["test content"]));
+    });
+
+    // Create a social share that references the storage file
+    const chatId = await createChatId(t);
+    const socialShareId = await t.mutation(internal.socialShare.createAdminShare, {
+      chatId,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(socialShareId, {
+        thumbnailImageStorageId: storageId,
+      });
+    });
+
+    // Run the cleanup function
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: false,
+    });
+
+    // Verify the file was not deleted
+    const storageFile = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(storageId);
+    });
+    expect(storageFile).not.toBeNull();
+  });
+
+  test("does not delete file when referenced by debugChatApiRequestLog", async () => {
+    // Create a storage file
+    const storageId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(["test content"]));
+    });
+
+    // Create a debug log that references the storage file
+    const chatId = await createChatId(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("debugChatApiRequestLog", {
+        chatId,
+        subchatIndex: 0,
+        responseCoreMessages: [],
+        promptCoreMessagesStorageId: storageId,
+        finishReason: "stop",
+        modelId: "test-model",
+        usage: {
+          completionTokens: 0,
+          promptTokens: 0,
+          cachedPromptTokens: 0,
+        },
+        chefTokens: 0,
+      });
+    });
+
+    // Run the cleanup function
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: true,
+      shouldScheduleNext: false,
+    });
+
+    // Verify the file was not deleted
+    const storageFile = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(storageId);
+    });
+    expect(storageFile).not.toBeNull();
+  });
+
+  test("dry run does not delete file", async () => {
+    // Create a storage file
+    const storageId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(["test content"]));
+    });
+
+    // Run the cleanup function with dry run
+    await t.mutation(internal.cleanup.deleteOrphanedFiles, {
+      forReal: false,
+      shouldScheduleNext: false,
+    });
+
+    // Verify the file was not deleted
+    const storageFile = await t.run(async (ctx) => {
+      return await ctx.storage.getUrl(storageId);
+    });
+    expect(storageFile).not.toBeNull();
   });
 });
