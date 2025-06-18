@@ -21,6 +21,8 @@ export type SerializedMessage = Omit<AIMessage, "createdAt" | "content"> & {
   content?: string;
 };
 
+export const CHAT_NOT_FOUND_ERROR = new ConvexError({ code: "NotFound", message: "Chat not found" });
+
 export const initializeChat = mutation({
   args: {
     sessionId: v.id("sessions"),
@@ -65,7 +67,7 @@ export const setUrlId = mutation({
     const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id: chatId, sessionId: args.sessionId });
 
     if (!existing) {
-      throw new ConvexError({ code: "NotFound", message: "Chat not found" });
+      throw CHAT_NOT_FOUND_ERROR;
     }
     if (existing.urlId === undefined) {
       const urlId = await _allocateUrlId(ctx, { urlHint, sessionId: args.sessionId });
@@ -91,7 +93,7 @@ export const setDescription = mutation({
     const existing = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id, sessionId: args.sessionId });
 
     if (!existing) {
-      throw new ConvexError({ code: "NotFound", message: "Chat not found" });
+      throw CHAT_NOT_FOUND_ERROR;
     }
 
     await ctx.db.patch(existing._id, {
@@ -148,7 +150,7 @@ export async function getLatestChatMessageStorageState(
   if (lastMessageRank === undefined) {
     return await ctx.db
       .query("chatMessagesStorageState")
-      .withIndex("byChatId", (q) => q.eq("chatId", chat._id))
+      .withIndex("byChatId", (q) => q.eq("chatId", chat._id).eq("subchatIndex", chat.subchatIndex))
       .order("desc")
       .first();
   }
@@ -216,7 +218,7 @@ export const getMessagesByChatInitialIdBypassingAccessControl = internalQuery({
       .withIndex("byInitialId", (q) => q.eq("initialId", args.id))
       .unique();
     if (!chat) {
-      throw new ConvexError({ code: "NotFound", message: "Chat not found" });
+      throw CHAT_NOT_FOUND_ERROR;
     }
     const chatWithSubchatIndex = { ...chat, subchatIndex: args.subchatIndex };
     const storageInfo = await getLatestChatMessageStorageState(ctx, chatWithSubchatIndex);
@@ -242,7 +244,7 @@ export const updateStorageState = internalMutation({
     const messageHistoryStorageId = storageId;
     const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id: chatId, sessionId });
     if (!chat) {
-      throw new ConvexError({ code: "NotFound", message: "Chat not found" });
+      throw CHAT_NOT_FOUND_ERROR;
     }
     await deletePreviousStorageStates(ctx, { chat, subchatIndex: args.subchatIndex });
     const previous = await getLatestChatMessageStorageState(ctx, {
@@ -429,7 +431,7 @@ export const earliestRewindableMessageRank = query({
     const { chatId, sessionId } = args;
     const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id: chatId, sessionId });
     if (!chat) {
-      throw new ConvexError({ code: "NotFound", message: "Chat not found" });
+      throw CHAT_NOT_FOUND_ERROR;
     }
     // Old clients may not pass up a subchatIndex, so we default to 0
     const subchatIndex = args.subchatIndex ?? 0;
@@ -468,7 +470,7 @@ export const rewindChat = mutation({
     const { chatId, sessionId, lastMessageRank } = args;
     const chat = await getChatByIdOrUrlIdEnsuringAccess(ctx, { id: chatId, sessionId });
     if (!chat) {
-      throw new ConvexError({ code: "NotFound", message: "Chat not found" });
+      throw CHAT_NOT_FOUND_ERROR;
     }
     const latestStorageState = await getLatestChatMessageStorageState(ctx, {
       _id: chat._id,
@@ -787,7 +789,7 @@ export const eraseMessageHistory = internalMutation({
     console.log("ChatId for share is", share.chatId);
     const chat = await ctx.db.get(share.chatId);
     if (chat === null) {
-      throw new ConvexError({ code: "NotFound", message: "Chat not found" });
+      throw CHAT_NOT_FOUND_ERROR;
     }
     // Get the most recent filesystem snapshot
     const mostRecentStorageState = await ctx.db
