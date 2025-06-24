@@ -33,6 +33,7 @@ import { getProvider, type ModelProvider } from '~/lib/.server/llm/provider';
 import { getEnv } from '~/lib/.server/env';
 import { calculateChefTokens, usageFromGeneration } from '~/lib/common/usage';
 import { lookupDocsTool } from 'chef-agent/tools/lookupDocs';
+import { addEnvironmentVariablesTool } from 'chef-agent/tools/addEnvironmentVariables';
 
 type Messages = Message[];
 
@@ -54,6 +55,7 @@ export async function convexAgent(args: {
   featureFlags: {
     enablePreciseEdits: boolean;
     smallFiles: boolean;
+    enableEnvironmentVariables: boolean;
   };
 }) {
   const {
@@ -94,6 +96,9 @@ export async function convexAgent(args: {
     npmInstall: npmInstallTool,
     lookupDocs: lookupDocsTool(),
   };
+  if (featureFlags.enableEnvironmentVariables) {
+    tools.addEnvironmentVariables = addEnvironmentVariablesTool();
+  }
   if (opts.enablePreciseEdits) {
     tools.view = viewTool;
     tools.edit = editTool;
@@ -228,6 +233,7 @@ async function onFinishHandler({
   featureFlags: {
     enablePreciseEdits: boolean;
     smallFiles: boolean;
+    enableEnvironmentVariables: boolean;
   };
 }) {
   const { providerMetadata } = result;
@@ -251,6 +257,7 @@ async function onFinishHandler({
     span.setAttribute('usage.totalTokens', usage.totalTokens);
     span.setAttribute('featureFlags.smallFiles', featureFlags.smallFiles);
     span.setAttribute('featureFlags.enablePreciseEdits', featureFlags.enablePreciseEdits);
+    span.setAttribute('featureFlags.enableEnvironmentVariables', featureFlags.enableEnvironmentVariables);
     span.setAttribute('collapsedMessages', collapsedMessages);
     span.setAttribute('model', providerModel);
     if (providerMetadata) {
