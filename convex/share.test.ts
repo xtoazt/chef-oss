@@ -8,6 +8,7 @@ import {
   storeChat,
   verifyStoredContent,
   initializeChat,
+  createSubchat,
 } from "./test.setup";
 import type { SerializedMessage } from "./messages";
 import { describe } from "node:test";
@@ -35,7 +36,7 @@ describe("share", () => {
     const { sessionId, chatId } = await initializeChat(t);
 
     // Create a second subchat
-    await t.mutation(api.subchats.create, { chatId, sessionId });
+    await createSubchat(t, chatId, sessionId);
 
     // Add messages to the second subchat
     const subchat1Message: SerializedMessage = {
@@ -58,7 +59,7 @@ describe("share", () => {
     const { sessionId, chatId } = await initializeChat(t);
 
     // Create a second subchat
-    await t.mutation(api.subchats.create, { chatId, sessionId });
+    await createSubchat(t, chatId, sessionId);
 
     // Add messages to the second subchat
     const subchat1Message: SerializedMessage = {
@@ -95,7 +96,7 @@ describe("share", () => {
     const { sessionId, chatId } = await initializeChat(t, firstMessage);
 
     // Create a second subchat
-    await t.mutation(api.subchats.create, { chatId, sessionId });
+    await createSubchat(t, chatId, sessionId);
 
     // Add messages to the second subchat
     const subchat1Message: SerializedMessage = {
@@ -150,7 +151,7 @@ describe("share", () => {
     const { sessionId, chatId } = await initializeChat(t);
 
     // Create a second subchat
-    await t.mutation(api.subchats.create, { chatId, sessionId });
+    await createSubchat(t, chatId, sessionId);
 
     // Add messages to the second subchat
     const subchat1Message: SerializedMessage = {
@@ -237,7 +238,7 @@ describe("share", () => {
     const { sessionId, chatId } = await initializeChat(t);
 
     // Create a second subchat
-    await t.mutation(api.subchats.create, { chatId, sessionId });
+    await createSubchat(t, chatId, sessionId);
 
     // Add messages to the second subchat
     const subchat1Message: SerializedMessage = {
@@ -344,7 +345,7 @@ describe("share", () => {
     });
 
     // Create a second subchat with different snapshot
-    await t.mutation(api.subchats.create, { chatId, sessionId });
+    await createSubchat(t, chatId, sessionId);
 
     const subchat1Message: SerializedMessage = {
       id: "subchat1-msg1",
@@ -433,7 +434,7 @@ describe("share", () => {
     });
 
     // Create a second subchat also without snapshot
-    await t.mutation(api.subchats.create, { chatId, sessionId });
+    await createSubchat(t, chatId, sessionId);
 
     const subchat1Message: SerializedMessage = {
       id: "subchat1-msg1",
