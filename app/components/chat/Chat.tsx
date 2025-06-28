@@ -46,6 +46,7 @@ import { UsageDebugView } from '~/components/debug/UsageDebugView';
 import { useReferralCode, useReferralStats } from '~/lib/hooks/useReferralCode';
 import { useUsage } from '~/lib/stores/usage';
 import { hasAnyApiKeySet, hasApiKeySet } from '~/lib/common/apiKey';
+import { subchatIndexStore, subchatLoadedStore } from '~/components/ExistingChat.client';
 
 const logger = createScopedLogger('Chat');
 
@@ -55,6 +56,8 @@ const processSampledMessages = createSampler(
   (options: {
     messages: Message[];
     initialMessages: Message[];
+    loaded: boolean;
+    onLatestSubchat: boolean;
     parseMessages: (messages: Message[]) => void;
     streamStatus: 'streaming' | 'submitted' | 'ready' | 'error';
     storeMessageHistory: (
@@ -62,10 +65,11 @@ const processSampledMessages = createSampler(
       streamStatus: 'streaming' | 'submitted' | 'ready' | 'error',
     ) => Promise<void>;
   }) => {
-    const { messages, initialMessages, parseMessages, storeMessageHistory, streamStatus } = options;
+    const { messages, initialMessages, parseMessages, storeMessageHistory, streamStatus, loaded, onLatestSubchat } =
+      options;
     parseMessages(messages);
 
-    if (messages.length > initialMessages.length) {
+    if (messages.length > initialMessages.length && loaded && onLatestSubchat) {
       storeMessageHistory(messages, streamStatus).catch((error) => toast.error(error.message));
     }
   },
@@ -84,6 +88,7 @@ interface ChatProps {
 
   isReload: boolean;
   hadSuccessfulDeploy: boolean;
+  subchats?: { subchatIndex: number; description?: string }[];
 }
 
 const retryState = atom({
@@ -91,11 +96,23 @@ const retryState = atom({
   nextRetry: Date.now(),
 });
 export const Chat = memo(
-  ({ initialMessages, partCache, storeMessageHistory, initializeChat, isReload, hadSuccessfulDeploy }: ChatProps) => {
+  ({
+    initialMessages,
+    partCache,
+    storeMessageHistory,
+    initializeChat,
+    isReload,
+    hadSuccessfulDeploy,
+    subchats,
+  }: ChatProps) => {
     const convex = useConvex();
-    const [chatStarted, setChatStarted] = useState(initialMessages.length > 0);
+    const [chatStarted, setChatStarted] = useState(initialMessages.length > 0 || (!!subchats && subchats.length > 1));
     const actionAlert = useStore(workbenchStore.alert);
     const sessionId = useConvexSessionIdOrNullOrLoading();
+    const loaded = useStore(subchatLoadedStore);
+    const currentSubchatIndex = useStore(subchatIndexStore);
+    const onLatestSubchat =
+      currentSubchatIndex !== undefined && subchats !== undefined && currentSubchatIndex === subchats.length - 1;
 
     const rewindToMessage = async (subchatIndex?: number, messageIndex?: number) => {
       if (sessionId && typeof sessionId === 'string') {
@@ -149,9 +166,9 @@ export const Chat = memo(
     const terminalInitializationOptions = useMemo(
       () => ({
         isReload,
-        shouldDeployConvexFunctions: hadSuccessfulDeploy,
+        shouldDeployConvexFunctions: hadSuccessfulDeploy || (!!subchats && subchats.length > 1),
       }),
-      [isReload, hadSuccessfulDeploy],
+      [isReload, hadSuccessfulDeploy, subchats],
     );
 
     useEffect(() => {
@@ -407,6 +424,15 @@ export const Chat = memo(
       },
     });
 
+    // Reset chat messages when initialMessages changes (e.g., when switching subchats)
+    useEffect(() => {
+      // On the first message, we don't want to reset the messages
+      if (subchats && subchats.length === 1 && initialMessages.length === 0) {
+        return;
+      }
+      setMessages(initialMessages);
+    }, [initialMessages, setMessages, subchats, loaded]);
+
     setChefDebugProperty('messages', messages);
 
     // AKA "processed messages," since parsing has side effects
@@ -415,8 +441,8 @@ export const Chat = memo(
     setChefDebugProperty('parsedMessages', parsedMessages);
 
     useEffect(() => {
-      chatStore.setKey('started', initialMessages.length > 0);
-    }, [initialMessages.length]);
+      chatStore.setKey('started', initialMessages.length > 0 || (!!subchats && subchats.length > 1));
+    }, [initialMessages.length, subchats]);
 
     useEffect(() => {
       processSampledMessages({
@@ -425,8 +451,10 @@ export const Chat = memo(
         parseMessages,
         storeMessageHistory,
         streamStatus: status,
+        loaded,
+        onLatestSubchat: onLatestSubchat ?? false,
       });
-    }, [initialMessages, messages, parseMessages, status, storeMessageHistory]);
+    }, [initialMessages, messages, parseMessages, status, storeMessageHistory, loaded, onLatestSubchat]);
 
     const abort = () => {
       stop();
@@ -620,6 +648,7 @@ export const Chat = memo(
           modelSelection={modelSelection}
           setModelSelection={handleModelSelectionChange}
           onRewindToMessage={rewindToMessage}
+          subchats={subchats}
         />
         <UsageDebugView />
       </>

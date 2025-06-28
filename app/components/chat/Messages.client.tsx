@@ -13,24 +13,25 @@ import { ResetIcon } from '@radix-ui/react-icons';
 import { Button } from '@ui/Button';
 import { Modal } from '@ui/Modal';
 import { useEarliestRewindableMessageRank } from '~/lib/hooks/useEarliestRewindableMessageRank';
+import { subchatIndexStore } from '~/components/ExistingChat.client';
 
 interface MessagesProps {
   id?: string;
   className?: string;
   isStreaming?: boolean;
   messages?: Message[];
+  lastSubchatIndex?: number;
   onRewindToMessage?: (subchatIndex?: number, messageIndex?: number) => void;
 }
 
 export const Messages = forwardRef<HTMLDivElement, MessagesProps>(function Messages(
-  { id, isStreaming = false, messages = [], className, onRewindToMessage }: MessagesProps,
+  { id, isStreaming = false, messages = [], className, onRewindToMessage, lastSubchatIndex }: MessagesProps,
   ref: ForwardedRef<HTMLDivElement> | undefined,
 ) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMessageIndex, setSelectedMessageIndex] = useState<number | null>(null);
   const [selectedSubchatIndex, setSelectedSubchatIndex] = useState<number | undefined>(undefined);
-  // TODO: Get the current subchat index from a hook
-  const currentSubchatIndex = 0;
+  const currentSubchatIndex = useStore(subchatIndexStore);
   const handleRewindToMessage = useCallback(
     (subchatIndex?: number, messageIndex?: number) => {
       onRewindToMessage?.(subchatIndex, messageIndex);
@@ -123,7 +124,10 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(function Messa
                   earliestRewindableMessageRank !== null &&
                   !isUserMessage &&
                   index >= earliestRewindableMessageRank &&
-                  index !== messages.length - 1 && (
+                  index !== messages.length - 1 &&
+                  currentSubchatIndex !== undefined &&
+                  lastSubchatIndex !== undefined &&
+                  currentSubchatIndex === lastSubchatIndex && (
                     <Button
                       className="absolute bottom-[-5px] right-[-5px] bg-bolt-elements-background-depth-2 hover:bg-bolt-elements-background-depth-3"
                       onClick={() => {

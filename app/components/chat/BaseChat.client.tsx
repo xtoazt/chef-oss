@@ -23,6 +23,9 @@ import { useLaunchDarkly } from '~/lib/hooks/useLaunchDarkly';
 import { CompatibilityWarnings } from '~/components/CompatibilityWarnings.client';
 import { chooseExperience } from '~/utils/experienceChooser';
 import { AnimatePresence, motion } from 'framer-motion';
+import { subchatIndexStore } from '~/components/ExistingChat.client';
+import { useStore } from '@nanostores/react';
+import { SubchatBar } from './SubchatBar';
 
 interface BaseChatProps {
   // Refs
@@ -57,6 +60,11 @@ interface BaseChatProps {
 
   // Rewind functionality
   onRewindToMessage?: (subchatIndex?: number, messageIndex?: number) => void;
+
+  // Subchat navigation props
+  currentSubchatIndex?: number;
+  totalSubchats?: number;
+  subchats?: { subchatIndex: number; description?: string }[];
 }
 
 export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
@@ -80,6 +88,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       modelSelection,
       setModelSelection,
       onRewindToMessage,
+      subchats,
     },
     ref,
   ) => {
@@ -88,6 +97,9 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const isStreaming = streamStatus === 'streaming' || streamStatus === 'submitted';
     const recommendedExperience = chooseExperience(navigator.userAgent, window.crossOriginIsolated);
     const [chatEnabled, setChatEnabled] = useState(recommendedExperience === 'the-real-thing');
+    const currentSubchatIndex = useStore(subchatIndexStore) ?? 0;
+    const { newChatFeature } = useLaunchDarkly();
+
     useEffect(() => {
       const hasDismissedMobileWarning = localStorage.getItem('hasDismissedMobileWarning') === 'true';
       if (hasDismissedMobileWarning) {
@@ -145,13 +157,27 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 ref={scrollRef}
               >
                 {chatStarted ? (
-                  <Messages
-                    ref={messageRef}
-                    className="z-[1] mx-auto flex w-full max-w-chat flex-1 flex-col gap-4 pb-6"
-                    messages={messages}
-                    isStreaming={isStreaming}
-                    onRewindToMessage={onRewindToMessage}
-                  />
+                  <>
+                    {newChatFeature && (
+                      <SubchatBar
+                        subchats={subchats}
+                        currentSubchatIndex={currentSubchatIndex}
+                        isStreaming={isStreaming}
+                        disableChatMessage={disableChatMessage !== null || messages.length === 0}
+                        sessionId={sessionId ?? null}
+                        chatId={chatId}
+                        onRewind={onRewindToMessage}
+                      />
+                    )}
+
+                    <Messages
+                      ref={messageRef}
+                      className="z-[1] mx-auto flex w-full max-w-chat flex-1 flex-col gap-4 pb-6"
+                      messages={messages}
+                      isStreaming={isStreaming}
+                      onRewindToMessage={onRewindToMessage}
+                    />
+                  </>
                 ) : null}
                 <div
                   className={classNames('flex flex-col w-full max-w-chat mx-auto z-prompt relative', {
@@ -178,28 +204,32 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                       />
                     </div>
                   )}
-                  {/* StreamingIndicator is now a normal block above the input */}
-                  {!disableChatMessage && (
-                    <StreamingIndicator
-                      streamStatus={streamStatus}
-                      numMessages={messages?.length ?? 0}
-                      toolStatus={toolStatus}
-                      currentError={currentError}
-                      resendMessage={resendMessage}
-                      modelSelection={modelSelection}
-                    />
-                  )}
-                  {chatEnabled && (
-                    <MessageInput
-                      chatStarted={chatStarted}
-                      isStreaming={isStreaming}
-                      sendMessageInProgress={sendMessageInProgress}
-                      disabled={disableChatMessage !== null || maintenanceMode}
-                      modelSelection={modelSelection}
-                      setModelSelection={setModelSelection}
-                      onStop={onStop}
-                      onSend={onSend}
-                    />
+                  {chatEnabled && (!subchats || currentSubchatIndex >= subchats.length - 1) && (
+                    <>
+                      {/* StreamingIndicator is now a normal block above the input */}
+                      {!disableChatMessage && (
+                        <StreamingIndicator
+                          streamStatus={streamStatus}
+                          numMessages={messages?.length ?? 0}
+                          numSubchats={subchats?.length ?? 1}
+                          toolStatus={toolStatus}
+                          currentError={currentError}
+                          resendMessage={resendMessage}
+                          modelSelection={modelSelection}
+                        />
+                      )}
+                      <MessageInput
+                        chatStarted={chatStarted}
+                        isStreaming={isStreaming}
+                        sendMessageInProgress={sendMessageInProgress}
+                        disabled={disableChatMessage !== null || maintenanceMode}
+                        modelSelection={modelSelection}
+                        setModelSelection={setModelSelection}
+                        onStop={onStop}
+                        onSend={onSend}
+                        numMessages={messages?.length}
+                      />
+                    </>
                   )}
                   <AnimatePresence>
                     {disableChatMessage && (

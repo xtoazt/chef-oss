@@ -9,7 +9,7 @@ import { openSignInWindow } from '~/components/ChefSignInPage';
 import { ContainerBootState, waitForBootStepCompleted } from '~/lib/stores/containerBootState';
 import { toast } from 'sonner';
 
-export function useHomepageInitializeChat(chatId: string) {
+export function useHomepageInitializeChat(chatId: string, setChatInitialized: (chatInitialized: boolean) => void) {
   const convex = useConvex();
   const chefAuthState = useChefAuth();
   const isFullyLoggedIn = chefAuthState.kind === 'fullyLoggedIn';
@@ -42,10 +42,11 @@ export function useHomepageInitializeChat(chatId: string) {
       sessionId,
       projectInitParams,
     });
+    setChatInitialized(true);
 
     // Wait for the WebContainer to have its snapshot loaded before sending a message.
     await waitForBootStepCompleted(ContainerBootState.LOADING_SNAPSHOT);
-  }, [convex, chatId, isFullyLoggedIn]);
+  }, [convex, chatId, isFullyLoggedIn, setChatInitialized]);
 }
 
 export function useExistingInitializeChat(chatId: string) {
