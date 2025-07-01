@@ -169,6 +169,7 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(function Messa
           <p className="max-w-md text-content-secondary">Send a message below to start on your next task!</p>
         </div>
       )}
+
       {isStreaming && (
         <div className="flex w-full justify-center text-content-secondary">
           <SpinnerThreeDots className="size-9" />

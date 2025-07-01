@@ -26,6 +26,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { subchatIndexStore } from '~/components/ExistingChat.client';
 import { useStore } from '@nanostores/react';
 import { SubchatBar } from './SubchatBar';
+import { SubchatLimitNudge } from './SubchatLimitNudge';
 
 interface BaseChatProps {
   // Refs
@@ -98,7 +99,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const recommendedExperience = chooseExperience(navigator.userAgent, window.crossOriginIsolated);
     const [chatEnabled, setChatEnabled] = useState(recommendedExperience === 'the-real-thing');
     const currentSubchatIndex = useStore(subchatIndexStore) ?? 0;
-    const { newChatFeature } = useLaunchDarkly();
+    const { newChatFeature, minMessagesForNudge } = useLaunchDarkly();
+    const shouldShowNudge = newChatFeature && messages.length > minMessagesForNudge;
 
     useEffect(() => {
       const hasDismissedMobileWarning = localStorage.getItem('hasDismissedMobileWarning') === 'true';
@@ -207,8 +209,14 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   )}
                   {chatEnabled && (!subchats || currentSubchatIndex >= subchats.length - 1) && (
                     <>
+                      {shouldShowNudge && sessionId && (
+                        <div className="mb-4">
+                          <SubchatLimitNudge sessionId={sessionId} chatId={chatId} messageCount={messages.length} />
+                        </div>
+                      )}
+
                       {/* StreamingIndicator is now a normal block above the input */}
-                      {!disableChatMessage && (
+                      {!disableChatMessage && !shouldShowNudge && (
                         <StreamingIndicator
                           streamStatus={streamStatus}
                           numMessages={messages?.length ?? 0}
@@ -219,17 +227,20 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                           modelSelection={modelSelection}
                         />
                       )}
-                      <MessageInput
-                        chatStarted={chatStarted}
-                        isStreaming={isStreaming}
-                        sendMessageInProgress={sendMessageInProgress}
-                        disabled={disableChatMessage !== null || maintenanceMode}
-                        modelSelection={modelSelection}
-                        setModelSelection={setModelSelection}
-                        onStop={onStop}
-                        onSend={onSend}
-                        numMessages={messages?.length}
-                      />
+
+                      {!shouldShowNudge && (
+                        <MessageInput
+                          chatStarted={chatStarted}
+                          isStreaming={isStreaming}
+                          sendMessageInProgress={sendMessageInProgress}
+                          disabled={disableChatMessage !== null || maintenanceMode}
+                          modelSelection={modelSelection}
+                          setModelSelection={setModelSelection}
+                          onStop={onStop}
+                          onSend={onSend}
+                          numMessages={messages?.length}
+                        />
+                      )}
                     </>
                   )}
                   <AnimatePresence>
