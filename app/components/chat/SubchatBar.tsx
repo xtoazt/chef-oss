@@ -5,9 +5,11 @@ import { classNames } from '~/utils/classNames';
 import type { Id } from '@convex/_generated/dataModel';
 import { useCallback, useState } from 'react';
 import { Modal } from '@ui/Modal';
+import { Combobox } from '@ui/Combobox';
+import { TimestampDistance } from '~/components/ui/TimestampDistance';
 
 interface SubchatBarProps {
-  subchats?: { subchatIndex: number; description?: string }[];
+  subchats?: { subchatIndex: number; updatedAt: number; description?: string }[];
   currentSubchatIndex: number;
   isStreaming: boolean;
   disableChatMessage: boolean;
@@ -52,6 +54,24 @@ export function SubchatBar({
     },
     [onRewind],
   );
+
+  const getSubchatDisplayName = useCallback(
+    (subchat: { subchatIndex: number; description?: string }, arrayIndex: number) => {
+      if (subchat.description) {
+        return subchat.description;
+      }
+      return arrayIndex === 0 ? 'Initial chat' : `Feature #${arrayIndex}`;
+    },
+    [],
+  );
+
+  const subchatOptions =
+    subchats?.map((subchat, arrayIndex) => ({
+      label: getSubchatDisplayName(subchat, arrayIndex),
+      value: subchat.subchatIndex,
+      subchat,
+      arrayIndex,
+    })) ?? [];
 
   return (
     <div className="sticky top-0 z-[2] mx-auto mb-4 w-full max-w-chat pt-4">
@@ -134,43 +154,83 @@ export function SubchatBar({
         </Modal>
       )}
 
-      <div className="flex items-center justify-between rounded-lg border border-content-secondary/20 bg-background-secondary/90 px-4 py-2 backdrop-blur-sm">
-        <div className={classNames('flex rounded-lg bg-background-secondary border')}>
-          <Button
-            size="xs"
-            variant="neutral"
-            className={classNames('rounded-r-none border-0 border-border-transparent dark:border-border-transparent')}
-            icon={<ArrowLeftIcon className="my-px" />}
-            inline
-            tip={isStreaming ? 'Navigation disabled while generating a response' : 'Previous Chat'}
-            disabled={!canNavigatePrev || isStreaming}
-            onClick={() => {
-              handleNavigateToSubchat(currentSubchatIndex - 1);
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-content-secondary/20 bg-background-secondary/90 px-4 py-2 backdrop-blur-sm">
+        <div className="flex min-w-0 grow items-center gap-2">
+          <div className={classNames('flex rounded-lg bg-background-secondary border')}>
+            <Button
+              size="xs"
+              variant="neutral"
+              className={classNames('rounded-r-none border-0 border-border-transparent dark:border-border-transparent')}
+              icon={<ArrowLeftIcon className="my-px" />}
+              inline
+              tip={isStreaming ? 'Navigation disabled while generating a response' : 'Previous Chat'}
+              disabled={!canNavigatePrev || isStreaming}
+              onClick={() => {
+                handleNavigateToSubchat(currentSubchatIndex - 1);
+              }}
+            />
+            <Button
+              size="xs"
+              variant="neutral"
+              className={classNames('rounded-l-none border-0 border-border-transparent dark:border-border-transparent')}
+              icon={<ArrowRightIcon className="my-px" />}
+              inline
+              tip={isStreaming ? 'Navigation disabled while generating a response' : 'Next Chat'}
+              disabled={!canNavigateNext || isStreaming}
+              onClick={() => {
+                handleNavigateToSubchat(currentSubchatIndex + 1);
+              }}
+            />
+          </div>
+
+          <Combobox
+            searchPlaceholder="Search chats..."
+            label="Select chat"
+            labelHidden
+            className="max-w-full"
+            buttonClasses="w-full"
+            innerButtonClasses="border-none bg-transparent"
+            disabled={isStreaming}
+            optionsWidth="fit"
+            options={subchatOptions.reverse()}
+            selectedOption={currentSubchatIndex}
+            setSelectedOption={(subchatIndex) => {
+              if (subchatIndex !== null && !isStreaming) {
+                handleNavigateToSubchat(subchatIndex);
+              }
+            }}
+            Option={({ value, inButton }) => {
+              let option = subchatOptions.find((opt) => opt.value === value);
+              // We optimistically add the current subchat if it hasn't been persisted yet
+              if (!option && value === currentSubchatIndex) {
+                option = {
+                  label: value === 0 ? 'Initial chat' : `Feature #${value}`,
+                  value: currentSubchatIndex,
+                  subchat: {
+                    subchatIndex: currentSubchatIndex,
+                    updatedAt: Date.now(),
+                  },
+                  arrayIndex: currentSubchatIndex,
+                };
+              }
+              if (!option) {
+                return null;
+              }
+
+              const { subchat } = option;
+
+              return (
+                <div className="flex max-w-96 flex-col gap-1 truncate">
+                  <div className="truncate text-sm">{option.label}</div>
+                  {!inButton && (
+                    <div className="text-left">
+                      <TimestampDistance date={new Date(subchat.updatedAt)} />
+                    </div>
+                  )}
+                </div>
+              );
             }}
           />
-          <Button
-            size="xs"
-            variant="neutral"
-            className={classNames('rounded-l-none border-0 border-border-transparent dark:border-border-transparent')}
-            icon={<ArrowRightIcon className="my-px" />}
-            inline
-            tip={isStreaming ? 'Navigation disabled while generating a response' : 'Next Chat'}
-            disabled={!canNavigateNext || isStreaming}
-            onClick={() => {
-              handleNavigateToSubchat(currentSubchatIndex + 1);
-            }}
-          />
-        </div>
-        <div className="flex items-center gap-2 text-sm font-medium text-content-secondary">
-          {subchats && subchats.length > currentSubchatIndex && subchats[currentSubchatIndex].description ? (
-            <span className="max-w-xs truncate text-content-primary" title={subchats[currentSubchatIndex].description}>
-              {subchats[currentSubchatIndex].description}
-            </span>
-          ) : (
-            <span className="text-content-primary">
-              {currentSubchatIndex === 0 ? 'Initial chat' : `Feature #${currentSubchatIndex}`}
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-2">
           {currentSubchatIndex >= (subchats?.length ?? 1) - 1 && sessionId ? (
