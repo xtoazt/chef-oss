@@ -161,14 +161,17 @@ export function SubchatBar({
             }}
           />
         </div>
-
         <div className="flex items-center gap-2 text-sm font-medium text-content-secondary">
-          <span>Subchat</span>
-          <span className="text-content-primary">{currentSubchatIndex + 1}</span>
-          <span>of</span>
-          <span className="text-content-primary">{Math.max(currentSubchatIndex + 1, subchats?.length ?? 1)}</span>
+          {subchats && subchats.length > currentSubchatIndex && subchats[currentSubchatIndex].description ? (
+            <span className="max-w-xs truncate text-content-primary" title={subchats[currentSubchatIndex].description}>
+              {subchats[currentSubchatIndex].description}
+            </span>
+          ) : (
+            <span className="text-content-primary">
+              {currentSubchatIndex === 0 ? 'Initial chat' : `Feature #${currentSubchatIndex}`}
+            </span>
+          )}
         </div>
-
         <div className="flex items-center gap-2">
           {currentSubchatIndex >= (subchats?.length ?? 1) - 1 && sessionId ? (
             <Button
