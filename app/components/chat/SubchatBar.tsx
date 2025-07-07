@@ -8,6 +8,7 @@ import { Combobox } from '@ui/Combobox';
 import { TimestampDistance } from '~/components/ui/TimestampDistance';
 import { subchatIndexStore } from '~/lib/stores/subchats';
 import { Spinner } from '@ui/Spinner';
+import { useAreFilesSaving } from '~/lib/stores/fileUpdateCounter';
 
 interface SubchatBarProps {
   subchats?: { subchatIndex: number; updatedAt: number; description?: string }[];
@@ -32,6 +33,7 @@ export function SubchatBar({
 }: SubchatBarProps) {
   const [isRewindModalOpen, setIsRewindModalOpen] = useState(false);
   const [isAddChatModalOpen, setIsAddChatModalOpen] = useState(false);
+  const areFilesSaving = useAreFilesSaving();
 
   const canNavigatePrev = subchats && subchats.length > 1 && currentSubchatIndex > 0;
   const canNavigateNext = subchats && subchats.length > 1 && currentSubchatIndex < subchats.length - 1;
@@ -170,9 +172,11 @@ export function SubchatBar({
                   ? 'Navigation disabled while generating a response'
                   : !isSubchatLoaded
                     ? 'Loading...'
-                    : 'Previous Chat'
+                    : areFilesSaving
+                      ? 'Saving...'
+                      : 'Previous Chat'
               }
-              disabled={!canNavigatePrev || isStreaming || !isSubchatLoaded}
+              disabled={!canNavigatePrev || isStreaming || !isSubchatLoaded || areFilesSaving}
               onClick={() => {
                 handleNavigateToSubchat(currentSubchatIndex - 1);
               }}
@@ -188,9 +192,11 @@ export function SubchatBar({
                   ? 'Navigation disabled while generating a response'
                   : !isSubchatLoaded
                     ? 'Loading...'
-                    : 'Next Chat'
+                    : areFilesSaving
+                      ? 'Saving...'
+                      : 'Next Chat'
               }
-              disabled={!canNavigateNext || isStreaming || !isSubchatLoaded}
+              disabled={!canNavigateNext || isStreaming || !isSubchatLoaded || areFilesSaving}
               onClick={() => {
                 handleNavigateToSubchat(currentSubchatIndex + 1);
               }}
@@ -256,14 +262,16 @@ export function SubchatBar({
               variant="neutral"
               className={classNames('flex rounded-lg bg-background-secondary border')}
               icon={<PlusIcon className="my-px" />}
-              disabled={disableChatMessage || isStreaming || !isSubchatLoaded}
+              disabled={disableChatMessage || isStreaming || !isSubchatLoaded || areFilesSaving}
               inline
               tip={
                 isStreaming
                   ? 'New chats disabled while generating a response'
                   : !isSubchatLoaded
                     ? 'Loading...'
-                    : 'New Chat'
+                    : areFilesSaving
+                      ? 'Saving...'
+                      : 'New Chat'
               }
               onClick={() => {
                 setIsAddChatModalOpen(true);
