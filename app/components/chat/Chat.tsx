@@ -146,6 +146,7 @@ export const Chat = memo(
       useClaude4Auto,
       enablePreciseEdits,
       enableEnvironmentVariables,
+      enableResend,
     } = useLaunchDarkly();
 
     const title = useStore(description);
@@ -371,6 +372,7 @@ export const Chat = memo(
             enablePreciseEdits,
             smallFiles,
             enableEnvironmentVariables,
+            enableResend,
           },
         };
       },
