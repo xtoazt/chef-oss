@@ -186,6 +186,7 @@ export async function cloneShow(
         subchatIndex: storageState.subchatIndex,
         partIndex: storageState.partIndex,
         snapshotId: storageState.snapshotId,
+        description: storageState.description,
       });
     }
   }
@@ -263,9 +264,15 @@ export const clone = mutation({
           subchatIndex: storageState.subchatIndex,
           partIndex: storageState.partIndex,
           snapshotId: storageState.snapshotId,
+          description: storageState.description,
         });
       }
     }
+    const storageState = await getLatestChatMessageStorageState(ctx, {
+      _id: parentChat._id,
+      subchatIndex: getShare.lastSubchatIndex,
+      lastMessageRank: getShare.lastMessageRank,
+    });
     await ctx.db.insert("chatMessagesStorageState", {
       chatId: clonedChatId,
       storageId: getShare.chatHistoryId,
@@ -273,6 +280,7 @@ export const clone = mutation({
       lastMessageRank: getShare.lastMessageRank,
       subchatIndex: getShare.lastSubchatIndex,
       partIndex: getShare.partIndex ?? -1,
+      description: storageState?.description,
     });
 
     await startProvisionConvexProjectHelper(ctx, {
