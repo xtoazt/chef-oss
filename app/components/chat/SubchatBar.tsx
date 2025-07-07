@@ -1,12 +1,13 @@
 import { Button } from '@ui/Button';
 import { ArrowLeftIcon, ArrowRightIcon, PlusIcon, ResetIcon } from '@radix-ui/react-icons';
-import { subchatIndexStore, subchatLoadedStore } from '~/components/ExistingChat.client';
 import { classNames } from '~/utils/classNames';
 import type { Id } from '@convex/_generated/dataModel';
 import { useCallback, useState } from 'react';
 import { Modal } from '@ui/Modal';
 import { Combobox } from '@ui/Combobox';
 import { TimestampDistance } from '~/components/ui/TimestampDistance';
+import { subchatIndexStore } from '~/lib/stores/subchats';
+import { Spinner } from '@ui/Spinner';
 
 interface SubchatBarProps {
   subchats?: { subchatIndex: number; updatedAt: number; description?: string }[];
@@ -16,6 +17,7 @@ interface SubchatBarProps {
   sessionId: Id<'sessions'> | null;
   handleCreateSubchat: () => void;
   onRewind?: (subchatIndex?: number, messageIndex?: number) => void;
+  isSubchatLoaded: boolean;
 }
 
 export function SubchatBar({
@@ -26,6 +28,7 @@ export function SubchatBar({
   sessionId,
   onRewind,
   handleCreateSubchat,
+  isSubchatLoaded,
 }: SubchatBarProps) {
   const [isRewindModalOpen, setIsRewindModalOpen] = useState(false);
   const [isAddChatModalOpen, setIsAddChatModalOpen] = useState(false);
@@ -42,7 +45,6 @@ export function SubchatBar({
         return;
       }
 
-      subchatLoadedStore.set(false);
       subchatIndexStore.set(index);
     },
     [subchats],
@@ -163,8 +165,14 @@ export function SubchatBar({
               className={classNames('rounded-r-none border-0 border-border-transparent dark:border-border-transparent')}
               icon={<ArrowLeftIcon className="my-px" />}
               inline
-              tip={isStreaming ? 'Navigation disabled while generating a response' : 'Previous Chat'}
-              disabled={!canNavigatePrev || isStreaming}
+              tip={
+                isStreaming
+                  ? 'Navigation disabled while generating a response'
+                  : !isSubchatLoaded
+                    ? 'Loading...'
+                    : 'Previous Chat'
+              }
+              disabled={!canNavigatePrev || isStreaming || !isSubchatLoaded}
               onClick={() => {
                 handleNavigateToSubchat(currentSubchatIndex - 1);
               }}
@@ -175,62 +183,71 @@ export function SubchatBar({
               className={classNames('rounded-l-none border-0 border-border-transparent dark:border-border-transparent')}
               icon={<ArrowRightIcon className="my-px" />}
               inline
-              tip={isStreaming ? 'Navigation disabled while generating a response' : 'Next Chat'}
-              disabled={!canNavigateNext || isStreaming}
+              tip={
+                isStreaming
+                  ? 'Navigation disabled while generating a response'
+                  : !isSubchatLoaded
+                    ? 'Loading...'
+                    : 'Next Chat'
+              }
+              disabled={!canNavigateNext || isStreaming || !isSubchatLoaded}
               onClick={() => {
                 handleNavigateToSubchat(currentSubchatIndex + 1);
               }}
             />
           </div>
 
-          <Combobox
-            searchPlaceholder="Search chats..."
-            label="Select chat"
-            labelHidden
-            className="max-w-full"
-            buttonClasses="w-full"
-            innerButtonClasses="border-none bg-transparent"
-            disabled={isStreaming}
-            optionsWidth="fit"
-            options={subchatOptions.reverse()}
-            selectedOption={currentSubchatIndex}
-            setSelectedOption={(subchatIndex) => {
-              if (subchatIndex !== null && !isStreaming) {
-                handleNavigateToSubchat(subchatIndex);
-              }
-            }}
-            Option={({ value, inButton }) => {
-              let option = subchatOptions.find((opt) => opt.value === value);
-              // We optimistically add the current subchat if it hasn't been persisted yet
-              if (!option && value === currentSubchatIndex) {
-                option = {
-                  label: value === 0 ? 'Initial chat' : `Feature #${value}`,
-                  value: currentSubchatIndex,
-                  subchat: {
-                    subchatIndex: currentSubchatIndex,
-                    updatedAt: Date.now(),
-                  },
-                  arrayIndex: currentSubchatIndex,
-                };
-              }
-              if (!option) {
-                return null;
-              }
+          <div className="flex items-center gap-2">
+            <Combobox
+              searchPlaceholder="Search chats..."
+              label="Select chat"
+              labelHidden
+              className="max-w-full"
+              buttonClasses="w-full"
+              innerButtonClasses="border-none bg-transparent"
+              disabled={isStreaming || !isSubchatLoaded}
+              optionsWidth="fit"
+              options={subchatOptions.reverse()}
+              selectedOption={currentSubchatIndex}
+              setSelectedOption={(subchatIndex) => {
+                if (subchatIndex !== null && !isStreaming && isSubchatLoaded) {
+                  handleNavigateToSubchat(subchatIndex);
+                }
+              }}
+              Option={({ value, inButton }) => {
+                let option = subchatOptions.find((opt) => opt.value === value);
+                // We optimistically add the current subchat if it hasn't been persisted yet
+                if (!option && value === currentSubchatIndex) {
+                  option = {
+                    label: value === 0 ? 'Initial chat' : `Feature #${value}`,
+                    value: currentSubchatIndex,
+                    subchat: {
+                      subchatIndex: currentSubchatIndex,
+                      updatedAt: Date.now(),
+                    },
+                    arrayIndex: currentSubchatIndex,
+                  };
+                }
+                if (!option) {
+                  return null;
+                }
 
-              const { subchat } = option;
+                const { subchat } = option;
 
-              return (
-                <div className="flex max-w-96 flex-col gap-1 truncate">
-                  <div className="truncate text-sm">{option.label}</div>
-                  {!inButton && (
-                    <div className="text-left">
-                      <TimestampDistance date={new Date(subchat.updatedAt)} />
-                    </div>
-                  )}
-                </div>
-              );
-            }}
-          />
+                return (
+                  <div className="flex max-w-96 flex-col gap-1 truncate">
+                    <div className="truncate text-sm">{option.label}</div>
+                    {!inButton && (
+                      <div className="text-left">
+                        <TimestampDistance date={new Date(subchat.updatedAt)} />
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
+            />
+            {!isSubchatLoaded && <Spinner />}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {currentSubchatIndex >= (subchats?.length ?? 1) - 1 && sessionId ? (
@@ -239,9 +256,15 @@ export function SubchatBar({
               variant="neutral"
               className={classNames('flex rounded-lg bg-background-secondary border')}
               icon={<PlusIcon className="my-px" />}
-              disabled={disableChatMessage || isStreaming}
+              disabled={disableChatMessage || isStreaming || !isSubchatLoaded}
               inline
-              tip={isStreaming ? 'New chats disabled while generating a response' : 'New Chat'}
+              tip={
+                isStreaming
+                  ? 'New chats disabled while generating a response'
+                  : !isSubchatLoaded
+                    ? 'Loading...'
+                    : 'New Chat'
+              }
               onClick={() => {
                 setIsAddChatModalOpen(true);
               }}
@@ -253,8 +276,8 @@ export function SubchatBar({
               className={classNames('flex rounded-lg bg-background-secondary border')}
               icon={<ResetIcon className="my-px" />}
               inline
-              tip="Rewind to this chat"
-              disabled={currentSubchatIndex < 0}
+              tip={!isSubchatLoaded ? 'Loading...' : 'Rewind to this chat'}
+              disabled={currentSubchatIndex < 0 || !isSubchatLoaded}
               onClick={() => {
                 setIsRewindModalOpen(true);
               }}
