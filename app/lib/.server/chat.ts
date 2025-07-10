@@ -99,8 +99,9 @@ export async function chatAction({ request }: ActionFunctionArgs) {
         status: 402,
       });
     }
-    if (!isPaidPlan && centitokensUsed >= centitokensQuota) {
-      if (body.userApiKey?.preference !== 'quotaExhausted') {
+    if (centitokensUsed >= centitokensQuota) {
+      if (!isPaidPlan && !hasApiKeySet(body.userApiKey)) {
+        // If they're not on a paid plan and don't have an API key set, return an error.
         logger.error(`No tokens available for ${deploymentName}: ${centitokensUsed} of ${centitokensQuota}`);
         return new Response(
           JSON.stringify({ code: 'no-tokens', error: noTokensText(centitokensUsed, centitokensQuota) }),
@@ -108,9 +109,10 @@ export async function chatAction({ request }: ActionFunctionArgs) {
             status: 402,
           },
         );
+      } else if (hasApiKeySet(body.userApiKey)) {
+        // If they have an API key set, use it. Otherwise, they use Convex tokens.
+        useUserApiKey = true;
       }
-      // If they're set to quotaExhausted mode, try to use the user's API key.
-      useUserApiKey = true;
     }
   }
 
@@ -203,4 +205,13 @@ export async function chatAction({ request }: ActionFunctionArgs) {
       statusText: 'Internal Server Error',
     });
   }
+}
+
+// Returns whether or not the user has an API key set
+function hasApiKeySet(
+  userApiKey:
+    | { preference: 'always' | 'quotaExhausted'; value?: string; openai?: string; xai?: string; google?: string }
+    | undefined,
+) {
+  return Object.keys(userApiKey || {}).length > 1;
 }
