@@ -3,6 +3,7 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createXai } from '@ai-sdk/xai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createVertex } from '@ai-sdk/google-vertex';
 import { createOpenAI } from '@ai-sdk/openai';
 import { awsCredentialsProvider } from '@vercel/functions/oidc';
 import { captureException } from '@sentry/remix';
@@ -68,13 +69,32 @@ export function getProvider(
   switch (modelProvider) {
     case 'Google': {
       model = modelForProvider(modelProvider, modelChoice);
-      const google = createGoogleGenerativeAI({
-        apiKey: userApiKey || getEnv('GOOGLE_API_KEY'),
-        fetch: userApiKey ? userKeyApiFetch('Google') : fetch,
-      });
+      let google;
+      if (userApiKey) {
+        google = createGoogleGenerativeAI({
+          apiKey: userApiKey || getEnv('GOOGLE_API_KEY'),
+          fetch: userApiKey ? userKeyApiFetch('Google') : fetch,
+        });
+      } else {
+        const credentials = JSON.parse(getEnv('GOOGLE_VERTEX_CREDENTIALS_JSON')!);
+        google = createVertex({
+          project: credentials.project_id,
+          // Use global endpoint for higher availability
+          baseURL: `https://aiplatform.googleapis.com/v1/projects/${credentials.project_id}/locations/global/publishers/google`,
+          location: 'global',
+          googleAuthOptions: {
+            credentials: {
+              client_email: credentials.client_email,
+              private_key_id: credentials.private_key_id,
+              private_key: credentials.private_key,
+            },
+          },
+          fetch,
+        });
+      }
       provider = {
         model: google(model),
-        maxTokens: 20000,
+        maxTokens: 24576,
       };
       break;
     }
