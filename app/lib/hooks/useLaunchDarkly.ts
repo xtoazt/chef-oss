@@ -16,6 +16,7 @@ const flagDefaults: {
   newChatFeature: boolean;
   minMessagesForNudge: number;
   enableResend: boolean;
+  enableGpt5: boolean;
   useAnthropicFraction: number;
 } = {
   maintenanceMode: false,
@@ -32,6 +33,7 @@ const flagDefaults: {
   newChatFeature: false,
   minMessagesForNudge: 40,
   enableResend: false,
+  enableGpt5: false,
   useAnthropicFraction: 1.0,
 };
 
