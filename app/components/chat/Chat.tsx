@@ -353,6 +353,9 @@ export const Chat = memo(
           maxSizeForModel(modelSelection, maxCollapsedMessagesSize),
           minCollapsedMessagesSize,
         );
+
+        const characterCounts = chatContextManager.current.calculatePromptCharacterCounts(preparedMessages);
+
         return {
           messages: preparedMessages,
           firstUserMessage: messages.filter((message) => message.role == 'user').length == 1,
@@ -367,6 +370,7 @@ export const Chat = memo(
           recordRawPromptsForDebugging,
           modelChoice,
           collapsedMessages,
+          promptCharacterCounts: characterCounts,
           featureFlags: {
             enablePreciseEdits,
             smallFiles,
