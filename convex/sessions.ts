@@ -199,7 +199,7 @@ export async function getCurrentMember(ctx: QueryCtx) {
   }
   const existingMember = await ctx.db
     .query("convexMembers")
-    .withIndex("byTokenIdentifier", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+    .withIndex("byConvexMemberId", (q) => q.eq("convexMemberId", identity.convex_member_id as string))
     .first();
   if (!existingMember) {
     throw new ConvexError({ code: "NotAuthorized", message: "Unauthorized" });
@@ -234,8 +234,8 @@ export const updateCachedProfile = action({
     convexAuthToken: v.string(),
   },
   handler: async (ctx, { convexAuthToken }) => {
-    const auth0Profile = await ctx.auth.getUserIdentity();
-    if (!auth0Profile) {
+    const workosProfile = await ctx.auth.getUserIdentity();
+    if (!workosProfile) {
       throw new ConvexError({ code: "NotAuthorized", message: "Unauthorized" });
     }
 
@@ -255,10 +255,10 @@ export const updateCachedProfile = action({
     const convexProfile: ConvexProfile = await response.json();
 
     const profile = {
-      username: convexProfile.name || auth0Profile.name || auth0Profile.nickname || "",
-      email: convexProfile.email || auth0Profile.email || "",
-      avatar: auth0Profile.pictureUrl || "",
-      id: convexProfile.id || auth0Profile.subject || "",
+      username: convexProfile.name || workosProfile.name || workosProfile.nickname || "",
+      email: convexProfile.email || workosProfile.email || "",
+      avatar: workosProfile.pictureUrl || "",
+      id: convexProfile.id || workosProfile.subject || "",
     };
 
     await ctx.runMutation(internal.sessions.saveCachedProfile, { profile });
