@@ -21,20 +21,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: |
-          npm install
-          cd chef-agent && npm install
+      - name: Setup and Build
+        uses: ./.github/actions/setup-and-build
 
       - name: Build System Prompts
         run: |
-          npm run build:system-prompts
+          pnpm run build:system-prompts
           node dist/buildSystemPrompts.js
 
       - name: Create Release
