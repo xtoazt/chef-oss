@@ -270,3 +270,13 @@ export const designTools = {
   getDesignSuggestions: getDesignSuggestionsTool,
   analyzeDesign: analyzeDesignTool,
 };
+
+
+export const designTools = {
+  generateUI: generateUITool,
+  generateUIVariations: generateUIVariationsTool,
+  createDesignProject: createDesignProjectTool,
+  iterateDesign: iterateDesignTool,
+  getDesignSuggestions: getDesignSuggestionsTool,
+  analyzeDesign: analyzeDesignTool,
+};
