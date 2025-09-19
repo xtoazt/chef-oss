@@ -292,7 +292,6 @@ export const MessageInput = memo(function MessageInput({
           {input.length > 3 && input.length <= PROMPT_LENGTH_WARNING_THRESHOLD && <NewLineShortcut />}
           {input.length > PROMPT_LENGTH_WARNING_THRESHOLD && <CharacterWarning />}
           <div className="ml-auto flex items-center gap-1">
-            {chefAuthState.kind === 'unauthenticated' && <SignInButton />}
             {chefAuthState.kind === 'fullyLoggedIn' && (
               <MenuComponent
                 buttonProps={{
@@ -604,25 +603,6 @@ const CharacterWarning = memo(function CharacterWarning() {
   );
 });
 
-const SignInButton = memo(function SignInButton() {
-  const { signIn } = useAuth();
-
-  return (
-    <Button
-      variant="neutral"
-      onClick={() => {
-        void signIn();
-      }}
-      size="xs"
-      className="text-xs font-normal"
-      icon={<img className="size-4" src="/icons/Convex.svg" alt="Convex" />}
-    >
-      <>
-        <span>Sign in</span>
-      </>
-    </Button>
-  );
-});
 
 /**
  * Debounced function to cache the prompt in cookies.
