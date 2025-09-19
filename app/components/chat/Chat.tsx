@@ -152,9 +152,16 @@ export const Chat = memo(
 
     const [animationScope, animate] = useAnimate();
 
-    const apiKey = useQuery(api.apiKeys.apiKeyForCurrentMember);
+    // For anonymous users, provide a fallback API key structure
+    const apiKey = useQuery(api.apiKeys.apiKeyForCurrentMember) || {
+      preference: 'quotaExhausted' as const,
+      value: undefined,
+      openai: undefined,
+      xai: undefined,
+      google: undefined,
+    };
 
-    const [modelSelection, setModelSelection] = useLocalStorage<ModelSelection>('modelSelection', 'auto');
+    const [modelSelection, setModelSelection] = useLocalStorage<ModelSelection>('modelSelection', 'claude-4-sonnet');
     const terminalInitializationOptions = useMemo(
       () => ({
         isReload,

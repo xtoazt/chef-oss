@@ -49,10 +49,10 @@ export const SESSION_ID_KEY = 'sessionIdForConvex';
 
 export const ChefAuthProvider = ({
   children,
-  redirectIfUnauthenticated,
+  redirectIfUnauthenticated = false,
 }: {
   children: React.ReactNode;
-  redirectIfUnauthenticated: boolean;
+  redirectIfUnauthenticated?: boolean;
 }) => {
   const sessionId = useConvexSessionIdOrNullOrLoading();
   const convex = useConvex();
@@ -114,6 +114,10 @@ export const ChefAuthProvider = ({
             sessionId: sessionIdFromLocalStorage as Id<'sessions'>,
           });
         } catch (error) {
+        console.error('Error creating session', error);
+        // For anonymous users, create a local session ID
+        const anonymousSessionId = `anonymous_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` as Id<'sessions'>;
+        setSessionId(anonymousSessionId);
           console.error('Error verifying session', error);
           toast.error('Unexpected error verifying credentials');
           setSessionId(null);
@@ -137,11 +141,16 @@ export const ChefAuthProvider = ({
         }
       }
 
+      // Create session for both authenticated and anonymous users
       if (isAuthenticated) {
         try {
           const sessionId = await convex.mutation(api.sessions.startSession);
           setSessionId(sessionId);
         } catch (error) {
+        console.error('Error creating session', error);
+        // For anonymous users, create a local session ID
+        const anonymousSessionId = `anonymous_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` as Id<'sessions'>;
+        setSessionId(anonymousSessionId);
           console.error('Error creating session', error);
           setSessionId(null);
         }
@@ -167,6 +176,7 @@ export const ChefAuthProvider = ({
 
   const isLoading = sessionId === undefined || isConvexAuthLoading;
   const isUnauthenticated = sessionId === null || !isAuthenticated;
+  // Allow anonymous access by treating unauthenticated users as having a session
   const state: ChefAuthState = isLoading
     ? { kind: 'loading' }
     : isUnauthenticated

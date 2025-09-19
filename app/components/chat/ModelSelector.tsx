@@ -116,12 +116,19 @@ export const ModelSelector = React.memo(function ModelSelector({
   setModelSelection,
   size = 'md',
 }: ModelSelectorProps) {
-  const apiKey = useQuery(api.apiKeys.apiKeyForCurrentMember);
+  // For anonymous users, provide a fallback API key structure
+  const apiKey = useQuery(api.apiKeys.apiKeyForCurrentMember) || {
+    preference: 'quotaExhausted' as const,
+    value: undefined,
+    openai: undefined,
+    xai: undefined,
+    google: undefined,
+  };
   const selectedModel = models[modelSelection];
   const { useGeminiAuto, enableGpt5 } = useLaunchDarkly();
   if (!selectedModel) {
     captureMessage(`Model ${modelSelection} not found`);
-    setModelSelection('auto');
+    setModelSelection('claude-4-sonnet');
   }
 
   const availableModels = Object.entries(models).filter(([key]) => {
